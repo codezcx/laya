@@ -74,6 +74,11 @@ def main(arm,config_path):
  vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
  counts=Counter((rows[i]['task'],rows[i]['dataset'],rows[i]['class_id']) for i in train);ds={t:len({rows[i]['dataset'] for i in train if rows[i]['task']==t}) for t in (0,1)}
  w=np.array([1/(counts[(rows[i]['task'],rows[i]['dataset'],rows[i]['class_id'])]*ds[rows[i]['task']]*{0:3,1:2}[rows[i]['task']]) for i in train]);w/=w.sum()
+ mass={}
+ for i,weight in zip(train,w):
+  key=(rows[i]['task'],rows[i]['dataset'],rows[i]['class_id']);mass[key]=mass.get(key,0.)+float(weight)
+ for (task,dataset,label),value in mass.items():assert np.isclose(value,1/(2*ds[task]*{0:3,1:2}[task]),atol=1e-8)
+ (out/'sampling_audit.json').write_text(json.dumps({'task_mass':{str(t):sum(v for k,v in mass.items() if k[0]==t) for t in (0,1)},'dataset_class_mass':{'/'.join(map(str,k)):v for k,v in mass.items()}},indent=2))
  (out/'run.json').write_text(json.dumps({'config':cfg,'arm':arm,'train_n':len(train),'val_n':len(val),'within_val_n':len(within),'training_datasets':sorted({rows[i]['dataset'] for i in train}),'validation_datasets':sorted({rows[i]['dataset'] for i in val}),'trainable_parameters':sum(p.numel() for p in model.parameters()),'source_only':True},indent=2))
  start=time.time();best=-1;within_best=-1;selection_metric=cfg.get('selection_metric','macro_task_accuracy')
  for step in range(1,cfg['steps']+1):
