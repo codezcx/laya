@@ -17,3 +17,5 @@ relative计算log(power)-log(window variance)，对应窗口标准化后的功�
 输出：`artifacts/emotion_source_probe_v4`；拒绝覆盖。日志：`artifacts/emotion_source_probe_v4.log`；PID另存同名前缀`.pid`。CPU运行无需GPU。
 
 限制：只有3个源验证被试，多个超参数/特征对照会增加源验证过拟合风险；得到改善后需要独立被试或新的源域划分复验，不能立即声称跨数据集有效。空间/幅度特征也可能编码记录条件，而不是情绪生理机制。
+
+在v4结果返回之前，追加固定C=0.01的三折被试复验：原train+validation共12被试，seed20261015随机分为3组，每折4人验证，训练时重新拟合StandardScaler。四个输入组采用相同fold。此项复用已参与开发的源数据，仅作探索性稳健性检查，不替代真正独立测试。命令：`python -m eeg_tasks.emotion_source_cv`；要求v4提取先完成。源test和外部集仍不参与。
