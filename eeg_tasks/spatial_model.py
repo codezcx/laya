@@ -11,9 +11,9 @@ def spatial_pool(tokens,positions,anchors,sigma=.02):
     return torch.einsum('ac,bcd->bad',weights,tokens.float())
 
 class SpatialPrototypeClassifier(nn.Module):
-    def __init__(self,prototypes,arm,n_anchors):
+    def __init__(self,prototypes,arm,n_anchors,feature_dim=512):
         super().__init__();self.arm=arm
-        self.encoder=nn.Sequential(nn.LayerNorm(n_anchors*512),nn.Linear(n_anchors*512,512),nn.GELU(),nn.Dropout(.1))
+        self.encoder=nn.Sequential(nn.LayerNorm(n_anchors*feature_dim),nn.Linear(n_anchors*feature_dim,512),nn.GELU(),nn.Dropout(.1))
         self.output=nn.Linear(512,7 if arm=='learned_ce' else prototypes.shape[1])
         self.register_buffer('prototypes',F.normalize(prototypes.float(),dim=-1))
         self.log_scale=nn.Parameter(torch.tensor(2.3));self.bias=nn.Parameter(torch.tensor(-2.))

@@ -38,6 +38,10 @@ def main(arm,config_path):
  if cfg.get('pool')=='spatial':
   from .spatial_model import prepare_spatial
   x,valid,audit=prepare_spatial(rows,x,valid,cfg);(out/'spatial_audit.json').write_text(json.dumps(audit,indent=2))
+ if cfg.get('spectral_mode') in ('concat','only'):
+  from .spectral_fusion import prepare_spectral
+  spectrum,spectral_audit=prepare_spectral(rows,x.device,cfg);(out/'spectral_audit.json').write_text(json.dumps(spectral_audit,indent=2))
+  x=torch.cat([x.float(),spectrum],dim=-1) if cfg['spectral_mode']=='concat' else spectrum
  proto=torch.from_numpy(np.load('artifacts/multitask_prototypes_v1/text_prototypes.npy')).cuda()
  # Center every task to remove shared prompt direction, fixed before this run.
  if cfg.get('center_prototypes',True):
@@ -46,7 +50,7 @@ def main(arm,config_path):
  torch.manual_seed(cfg['seed'])
  if cfg.get('pool')=='spatial':
   from .spatial_model import SpatialPrototypeClassifier
-  model=SpatialPrototypeClassifier(proto,arm,len(cfg['anchors'])).cuda()
+  model=SpatialPrototypeClassifier(proto,arm,len(cfg['anchors']),feature_dim=x.shape[-1]).cuda()
  else:model=ChannelPrototypeClassifier(proto,arm).cuda()
  opt=torch.optim.AdamW(model.parameters(),lr=cfg['learning_rate'],weight_decay=.01)
  train=[i for i,r in enumerate(rows) if r['split']=='train'];val=[i for i,r in enumerate(rows) if r['split']=='validation'];vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
