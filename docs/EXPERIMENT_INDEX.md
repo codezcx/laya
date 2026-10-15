@@ -19,6 +19,7 @@
 |v14|FACED作为第二情绪源|四组完成；SEED-VII约35–39%，文本原型无优势|[结果](MULTI_EMOTION_V14_RESULTS.md)|
 |v15|统一三通道、不提供任务ID|任务路由容易，但留出情绪类别接近随机|[结果](TASKFREE_V15_RESULTS.md)|
 |v16|共同30通道频谱跨情绪源|FACED→SEED约44%，反向约38%；三通道接近随机|[结果](EMOTION_TRANSFER_V16_RESULTS.md)|
+|v17|同一30通道REVE与频谱融合|四卡提取与双向对照训练中|[协议](EMOTION_FUSION_V17_PROTOCOL.md)|
 
 ## 使用结果的边界
 
