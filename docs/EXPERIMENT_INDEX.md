@@ -30,3 +30,5 @@
 ## 仓库与产物
 
 配置、代码、协议及结果摘要进Git；模型、原始数据、缓存、逐样本预测留`artifacts/`并被忽略。每轮使用独立输出目录，完成后记录checkpoint哈希；不覆盖旧结果。当前实验分支`experiment/multitask-text-prototypes`，未推送远程。
+
+- v14 complete: [FACED multi-source results](MULTI_EMOTION_V14_RESULTS.md). All four arms reported; emotion transfer remains weak and text prototypes show no gain.
