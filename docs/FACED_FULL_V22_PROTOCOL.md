@@ -66,3 +66,12 @@ the corrected code to reconcile already repaired records. Do not restart a live
 download or erase historical errors. Complete full-cohort integrity validation
 is still required before feature extraction and training. Pilot/full controls
 must use the same actual validation rows, checked by hash.
+
+The one-time `scripts/reconcile_faced_v22.py` supervisor implements that handoff.
+It waits for both original processes to terminate, requires exactly the known
+sub-100 failure plus 97 completed subjects, and verifies the inspected repair
+audit SHA256 and 267+13 accounting. Any additional failure stops reconciliation.
+It archives the original cohort status and controller directory, resumes once,
+then launches source controls only after a successful complete integrity audit.
+Its independent logs/status live in `artifacts/faced_v22_reconciliation`; no
+target evaluation is scheduled. Process start times guard against PID reuse.
