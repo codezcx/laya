@@ -35,3 +35,10 @@ used in prior development, so any such evaluation remains exploratory. Source
 training completion alone is not zero-shot success. Keep v16 frequency baseline
 as a reference; do not add stress/arithmetic until the original objective is
 met. The full model still lacks a validated universal task-identification path.
+
+External evaluation is fixed to the existing SEED-VII Happy/Neutral/Sad6400
+windows, recomputed with the same30-channel input prefix. All four neural models
+are reported. An additional joint SEED+FACED full-channel spectral logistic
+control uses source-only class/dataset weighting, C grid[.001,.01,.1,1,10],
+and mean source-dataset subject-balanced validation selection. It is frozen
+before target feature extraction/evaluation. No target choice of arm occurs.
