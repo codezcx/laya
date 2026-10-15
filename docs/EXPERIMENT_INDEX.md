@@ -16,7 +16,9 @@
 |v11|MI整源留一选模|跨源MI约51–53%，无明显改善|[结果](DOMAIN_VALIDATION_V11_RESULTS.md)|
 |v12|完整Cho/Dreyer/Lee源开发池|完整源池审计通过；2b接近59%，情绪未同步改善|[结果](FULL_MI_SOURCES_V12_RESULTS.md)|
 |v13|参数近似匹配的分任务读出|情绪外部仍38–39%，未解释主要瓶颈|[结果](TASK_READOUTS_V13_RESULTS.md)|
-|v14|FACED作为第二情绪源|分段续传修复后持续获取；四组多源训练已配置，尚待数据完成|[协议](FACED_SOURCE_V14.md)|
+|v14|FACED作为第二情绪源|四组完成；SEED-VII约35–39%，文本原型无优势|[结果](MULTI_EMOTION_V14_RESULTS.md)|
+|v15|统一三通道、不提供任务ID|任务路由容易，但留出情绪类别接近随机|[结果](TASKFREE_V15_RESULTS.md)|
+|v16|共同30通道频谱跨情绪源|四组双向源验证选模，运行中|[协议](EMOTION_TRANSFER_V16_PROTOCOL.md)|
 
 ## 使用结果的边界
 
@@ -24,7 +26,7 @@
 - v6/v7/v9目标结果都是探索性：目标此前已暴露，未按目标选择checkpoint/seed，但不应称新盲测。
 - SEED-VII只使用Happy/Neutral/Sad映射，非完整7分类；主指标是按被试macro balanced accuracy。2b报告普通accuracy。
 - v9均匀采样窗口遍布trial，不能称3秒实时识别；不可与窗口指标直接排名。
-- 当前情绪仅SEED作有标签源，MI为Cho+Dreyer，任务/数据来源高度关联。通道数能泄露任务，不把任务路由结果当生理语义理解。
+- v14起情绪源包含SEED与FACED，MI源包含Cho/Dreyer/Lee；各轮具体留出规则见协议。任务与采集来源仍有关联。v15统一三通道后，任务路由仍不能证明生理语义理解。
 - EEGMat已准备但未纳入当前训练；新增任务不应掩盖MI/情绪未达标。
 
 ## 仓库与产物
