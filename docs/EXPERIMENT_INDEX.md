@@ -14,7 +14,7 @@
 |v9|固定均值概率聚合同trial窗口|普通头trial balanced41.74±1.23%；不同评估单位|[结果](TRIAL_AGGREGATION_V9_RESULTS.md)|
 |v10|空间对齐频谱与REVE融合|源验证无增益，仅REVE对照复现53.17%|[结果](SPECTRAL_FUSION_V10_RESULTS.md)|
 |v11|MI整源留一选模|跨源MI约51–53%，无明显改善|[结果](DOMAIN_VALIDATION_V11_RESULTS.md)|
-|v12|完整Cho/Dreyer/Lee源开发池|四卡提取中，须通过重复/划分审计再训练|[协议](FULL_MI_SOURCES_V12.md)|
+|v12|完整Cho/Dreyer/Lee源开发池|完整源池审计通过；2b接近59%，情绪未同步改善|[结果](FULL_MI_SOURCES_V12_RESULTS.md)|
 
 ## 使用结果的边界
 

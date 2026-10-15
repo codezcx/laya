@@ -22,3 +22,5 @@ Lee此前被作为外部开发评估（曾只用其5个test被试子集）；本
 组1/2跨域验证与组3/4同域验证口径不同，不能直接比较选模分数排名。组1/2另记录同域选模checkpoint。固定源比较后再决定下一步；本轮控制器不运行目标评估。
 
 控制器`python scripts/run_full_sources.py`：等待已知提取PID完成→跨分片审计→通过才启动四组。日志与状态在`artifacts/full_sources_v12_controller`。失败不自动重启或覆盖已有结果。
+
+四组完成后的探索性评估：完整报告四组固定checkpoint在2b与SEED-VII的成绩，不据目标挑组。复用同预处理的v6/v1冻结目标REVE缓存。Lee只作为开发域，其验证结果不是最终独立结果。目标此前已暴露，不能称新盲测；SEED-VII仍为三类子集，2b仍有encoder预训练暴露。

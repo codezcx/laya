@@ -1,5 +1,5 @@
 """Evaluate every predeclared seed on immutable external caches; no seed selection."""
-import hashlib,json
+import argparse,hashlib,json
 from pathlib import Path
 import numpy as np
 import torch
@@ -8,10 +8,11 @@ from .spatial_external import balanced
 from .channel_train import predict
 
 @torch.no_grad()
-def main():
- root=Path('artifacts/spatial_repeats_v7');out=root/'external_results.json'
+def main(jobs_path='artifacts/spatial_repeats_v7/jobs.json',output='artifacts/spatial_repeats_v7'):
+ root=Path(output);root.mkdir(exist_ok=True);out=root/'external_results.json'
  if out.exists():raise FileExistsError(out)
- jobs=json.loads((root/'jobs.json').read_text());frozen={}
+ payload=json.loads(Path(jobs_path).read_text());jobs=payload['jobs'] if isinstance(payload,dict) else payload
+ jobs=[dict(j,arm=json.loads(Path(j['config']).read_text())['arms'][0]) for j in jobs];frozen={}
  for job in jobs:
   cfg=json.loads(Path(job['config']).read_text());p=Path(cfg['output'])/job['arm'];digest=hashlib.sha256((p/'best.pt').read_bytes()).hexdigest();assert digest==json.loads((p/'complete.json').read_text())['sha256'];frozen[job['name']]=digest
  (root/'all_frozen.json').write_text(json.dumps(frozen,indent=2));torch.set_num_threads(4);results={}
@@ -23,5 +24,6 @@ def main():
   for job in jobs:
    cfg=json.loads(Path(job['config']).read_text());assert cfg['anchors']==base['anchors'] and cfg['sigma']==base['sigma'];p=Path(cfg['output'])/job['arm'];state=torch.load(p/'best.pt',weights_only=True,map_location='cuda');model=SpatialPrototypeClassifier(state['prototypes'],job['arm'],len(cfg['anchors'])).cuda();model.load_state_dict(state);logits=predict(model,x,valid);np.save(root/f"{name}_{job['name']}_logits.npy",logits.numpy());results[name][job['name']]=balanced(rows,logits)
   print(name,{k:v['subject_macro_balanced_accuracy'] for k,v in results[name].items()},flush=True)
- out.write_text(json.dumps({'frozen':frozen,'results':results,'note':'All predeclared seeds reported; exploratory repeated-target evaluation, no seed selection. Encoder pretraining includes2b.'},indent=2))
-if __name__=='__main__':main()
+ out.write_text(json.dumps({'frozen':frozen,'results':results,'jobs':jobs,'note':'All predeclared configurations reported; exploratory repeated-target evaluation, no target model selection. Encoder pretraining includes2b.'},indent=2))
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--jobs',default='artifacts/spatial_repeats_v7/jobs.json');p.add_argument('--output',default='artifacts/spatial_repeats_v7');a=p.parse_args();main(a.jobs,a.output)
