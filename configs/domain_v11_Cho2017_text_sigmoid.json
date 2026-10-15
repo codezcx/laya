@@ -1,0 +1,27 @@
+{
+  "output": "artifacts/domain_v11_Cho2017_text_sigmoid",
+  "seed": 42,
+  "steps": 1500,
+  "batch_size": 96,
+  "learning_rate": 0.0001,
+  "arms": [
+    "text_sigmoid"
+  ],
+  "emotion_cache": "artifacts/emotion_reve60_v5",
+  "mi_cache": "artifacts/multitask_prototypes_v1/features",
+  "center_prototypes": true,
+  "source_only": true,
+  "pool": "spatial",
+  "anchors": [
+    "F3",
+    "F4",
+    "C3",
+    "Cz",
+    "C4",
+    "P3",
+    "P4",
+    "Oz"
+  ],
+  "sigma": 0.02,
+  "heldout_mi_dataset": "Cho2017"
+}

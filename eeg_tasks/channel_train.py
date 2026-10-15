@@ -53,11 +53,18 @@ def main(arm,config_path):
   model=SpatialPrototypeClassifier(proto,arm,len(cfg['anchors']),feature_dim=x.shape[-1]).cuda()
  else:model=ChannelPrototypeClassifier(proto,arm).cuda()
  opt=torch.optim.AdamW(model.parameters(),lr=cfg['learning_rate'],weight_decay=.01)
- train=[i for i,r in enumerate(rows) if r['split']=='train'];val=[i for i,r in enumerate(rows) if r['split']=='validation'];vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
+ within=[]
+ if cfg.get('heldout_mi_dataset'):
+  assert not cfg.get('spectral_mode'),'Domain-specific scaler fitting must be implemented before combining these options'
+  from .domain_split import domain_indices
+  train,val,within=domain_indices(rows,cfg['heldout_mi_dataset'])
+ else:
+  train=[i for i,r in enumerate(rows) if r['split']=='train'];val=[i for i,r in enumerate(rows) if r['split']=='validation']
+ vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
  counts=Counter((rows[i]['task'],rows[i]['dataset'],rows[i]['class_id']) for i in train);ds={t:len({rows[i]['dataset'] for i in train if rows[i]['task']==t}) for t in (0,1)}
  w=np.array([1/(counts[(rows[i]['task'],rows[i]['dataset'],rows[i]['class_id'])]*ds[rows[i]['task']]*{0:3,1:2}[rows[i]['task']]) for i in train]);w/=w.sum()
- (out/'run.json').write_text(json.dumps({'config':cfg,'arm':arm,'train_n':len(train),'val_n':len(val),'trainable_parameters':sum(p.numel() for p in model.parameters()),'source_only':True},indent=2))
- start=time.time();best=-1
+ (out/'run.json').write_text(json.dumps({'config':cfg,'arm':arm,'train_n':len(train),'val_n':len(val),'within_val_n':len(within),'training_datasets':sorted({rows[i]['dataset'] for i in train}),'validation_datasets':sorted({rows[i]['dataset'] for i in val}),'trainable_parameters':sum(p.numel() for p in model.parameters()),'source_only':True},indent=2))
+ start=time.time();best=-1;within_best=-1
  for step in range(1,cfg['steps']+1):
   model.train();ids=rng.choice(train,cfg['batch_size'],replace=True,p=w);opt.zero_grad(set_to_none=True)
   logits=model(x[ids].float(),valid[ids]);loss=masked_loss(logits,labels[ids],tasks[ids],'sigmoid' if arm=='text_sigmoid' else 'ce');assert torch.isfinite(loss);loss.backward();torch.nn.utils.clip_grad_norm_(model.parameters(),1.);opt.step()
@@ -69,6 +76,11 @@ def main(arm,config_path):
    scores=metrics(vr,predict(model,x[val],valid[val]));scores['step']=step
    with (out/'validation.jsonl').open('a') as f:f.write(json.dumps(scores)+'\n')
    print('validation',step,scores['macro_task_accuracy'],flush=True)
+   if within:
+    same=metrics([rows[i] for i in within],predict(model,x[within],valid[within]));same['step']=step
+    with (out/'within_validation.jsonl').open('a') as f:f.write(json.dumps(same)+'\n')
+    if same['macro_task_accuracy']>within_best:
+     within_best=same['macro_task_accuracy'];torch.save(model.state_dict(),out/'within_best.pt');(out/'within_best_metrics.json').write_text(json.dumps({'within':same,'cross_at_same_step':scores},indent=2))
    if scores['macro_task_accuracy']>best:
     best=scores['macro_task_accuracy'];torch.save(model.state_dict(),out/'best.pt');(out/'best_metrics.json').write_text(json.dumps(scores,indent=2))
  (out/'complete.json').write_text(json.dumps({'seconds':time.time()-start,'sha256':hashlib.sha256((out/'best.pt').read_bytes()).hexdigest(),'note':'Source validation only; no external or source test evaluated.'},indent=2))
