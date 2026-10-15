@@ -28,19 +28,22 @@ def metrics(rows,logits):
     subject_values=[];dataset_values=[]
     for dataset in sorted({r['dataset'] for r in rows}):
         ids=[i for i,r in enumerate(rows) if r['dataset']==dataset];yy=labels[ids];pp=pred[ids]
-        by_subject={}
+        by_subject={};by_subject_balanced={}
         for subject in sorted({rows[i]['subject'] for i in ids}):
             si=[i for i in ids if rows[i]['subject']==subject]
             by_subject[subject]=float((pred[si]==labels[si]).float().mean())
+            sy=labels[si];sp=pred[si];by_subject_balanced[subject]=float(np.mean([float((sp[sy==c]==c).float().mean()) for c in sy.unique()]))
         acc=np.array(list(by_subject.values()));boot=np.random.default_rng(2026).choice(acc,(3000,len(acc)),replace=True).mean(1)
         vals={'n':len(ids),'accuracy':float((yy==pp).float().mean()),'balanced_accuracy':float(np.mean([float((pp[yy==c]==c).float().mean()) for c in yy.unique()])), 'subject_macro_accuracy':float(acc.mean()),'subject_95ci':np.quantile(boot,[.025,.975]).tolist(),'per_subject':by_subject}
+        vals['subject_macro_balanced_accuracy']=float(np.mean(list(by_subject_balanced.values())));vals['per_subject_balanced_accuracy']=by_subject_balanced
         result['tasks'][dataset]=vals;subject_values.extend(acc);dataset_values.append(acc.mean())
     result['macro_dataset_accuracy']=float(np.mean(dataset_values))
-    task_scores=[]
+    task_scores=[];balanced_task_scores=[]
     for t in sorted(set(r['task'] for r in rows)):
         names={r['dataset'] for r in rows if r['task']==t}
         task_scores.append(np.mean([result['tasks'][n]['subject_macro_accuracy'] for n in names]))
-    result['macro_task_accuracy']=float(np.mean(task_scores))
+        balanced_task_scores.append(np.mean([result['tasks'][n]['subject_macro_balanced_accuracy'] for n in names]))
+    result['macro_task_accuracy']=float(np.mean(task_scores));result['macro_task_balanced_accuracy']=float(np.mean(balanced_task_scores))
     # No task labels used in this diagnostic argmax; scores are NOT calibrated across tasks.
     joint=logits[:, :5].argmax(-1);result['uncalibrated_joint_accuracy']=float((joint==labels).float().mean());result['uncalibrated_task_accuracy']=float((CLASS_TASK[joint]==tasks).float().mean())
     return result

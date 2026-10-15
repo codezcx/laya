@@ -16,6 +16,7 @@
 |v11|MI整源留一选模|跨源MI约51–53%，无明显改善|[结果](DOMAIN_VALIDATION_V11_RESULTS.md)|
 |v12|完整Cho/Dreyer/Lee源开发池|完整源池审计通过；2b接近59%，情绪未同步改善|[结果](FULL_MI_SOURCES_V12_RESULTS.md)|
 |v13|参数近似匹配的分任务读出|情绪外部仍38–39%，未解释主要瓶颈|[结果](TASK_READOUTS_V13_RESULTS.md)|
+|v14|FACED作为第二情绪源|分段续传修复后持续获取；四组多源训练已配置，尚待数据完成|[协议](FACED_SOURCE_V14.md)|
 
 ## 使用结果的边界
 

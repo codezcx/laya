@@ -25,5 +25,6 @@
   "sigma": 0.02,
   "mi_full_cache": "artifacts/mi_full_sources_v12",
   "faced_source": "artifacts/faced_source_v14",
-  "emotion_sources": "faced_only"
+  "emotion_sources": "faced_only",
+  "selection_metric": "macro_task_balanced_accuracy"
 }
