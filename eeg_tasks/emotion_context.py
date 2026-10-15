@@ -58,6 +58,10 @@ def join():
   done=json.loads((ROOT/'features'/f'{i}.done.json').read_text());assert done['manifest_sha256']==digest;d=np.load(ROOT/'features'/f'{i}.npz');seen+=d['indices'].tolist()
   for mode in arrays:arrays[mode][d['indices']]=d[mode]
  assert sorted(seen)==list(range(len(rows)))
+ previous=np.load('artifacts/emotion_reference_v19/as_recorded/features.npy')
+ delta=np.abs(arrays['hz30_s3']-previous)
+ if not np.allclose(arrays['hz30_s3'],previous,atol=1e-6,rtol=1e-6):raise ValueError('30Hz/3s control did not reproduce v19')
+ (ROOT/'control_reproduction.json').write_text(json.dumps({'max_abs':float(delta.max()),'mean_abs':float(delta.mean()),'passed':True},indent=2))
  for mode,x in arrays.items():
   p=ROOT/mode;p.mkdir(exist_ok=False);np.save(p/'features.npy',x);(p/'rows.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
  (ROOT/'data_complete.json').write_text(json.dumps({'n':len(rows),'manifest_sha256':digest,'modes':list(arrays),'note':'Matched 30 channels; full trial filtering; nested continuous3/9s windows; no target fitting or reference changes.'},indent=2))
