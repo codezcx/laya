@@ -1,12 +1,12 @@
 """Explicit subject splits and uniform three-channel signal preprocessing."""
-import hashlib,json,pickle,re
+import hashlib,json,pickle,re,os
 from collections import Counter,defaultdict
 from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 from scipy.signal import butter,sosfiltfilt,resample_poly
 
-CONFIG=Path('configs/multitask_prototypes_v1.json')
+CONFIG=Path(os.environ.get('EEG_TASK_CONFIG','configs/multitask_prototypes_v1.json'))
 def config(): return json.loads(CONFIG.read_text())
 def write_json(p,x): Path(p).write_text(json.dumps(x,indent=2,ensure_ascii=False)+'\n')
 def subject_split(subjects,seed):

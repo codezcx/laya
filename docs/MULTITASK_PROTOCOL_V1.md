@@ -20,7 +20,7 @@ REVE冻结，输出按通道时间池化形成1536维；共享LN→Linear1536→
 
 主指标：任务给定时分类准确率、被试macro、balanced accuracy、按被试bootstrap95CI。任务未知联合argmax是未校准诊断，不作达标指标。信号打乱为反事实对照。原型语义是否有增益，以random/learned对照评估。
 
-源test及整数据集Lee只能在checkpoint冻结后评估；目前MI最终2b保持封存。情绪额外目标候选为SEED-VII（标签需经官方表核验，Happy→positive，Neutral→neutral，Sad→negative子集；不是7分类），作为跨数据集外部评估，不能混进训练/调参。其相同研究机构与可能共享刺激等限制需要记录。REVE预训练是否见过各数据集须审计；当前仅声称下游源数据训练。
+源test及整数据集Lee只能在checkpoint冻结后评估；初始协议将MI最终2b暂时封存；v1 checkpoint冻结后已进行完整2840 trial评估，详见结果文档。情绪额外目标候选为SEED-VII（标签需经官方表核验，Happy→positive，Neutral→neutral，Sad→negative子集；不是7分类），作为跨数据集外部评估，不能混进训练/调参。其相同研究机构与可能共享刺激等限制需要记录。已知REVE预训练包含2b；其他数据集暴露须继续审计，当前仅声称下游源数据训练。
 
 在用户未给更高标准前，暂定可行性标准：两个任务的独立跨数据集被试CI下界高于机会水平，且不劣于encoder-only对照；单次或单seed成功不足以称稳定通用模型。失败也不能通过反复目标集调参把目标改成开发集而仍称严格zero-shot。
 

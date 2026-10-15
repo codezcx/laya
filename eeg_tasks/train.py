@@ -50,6 +50,10 @@ def main(arm):
     if (out/'run.json').exists():raise FileExistsError(out)
     torch.set_num_threads(4);torch.manual_seed(cfg['seed']);rng=np.random.default_rng(cfg['seed'])
     rows,x=load_data();proto=torch.from_numpy(np.load(root/'text_prototypes.npy')).cuda()
+    if cfg.get('center_text_prototypes',False):
+        # Remove common instruction/background direction within each known task.
+        proto=proto.clone()
+        for lo,hi in [(0,3),(3,5),(5,7)]:proto[lo:hi]=F.normalize(proto[lo:hi]-proto[lo:hi].mean(0,keepdim=True),dim=-1)
     if arm=='random_ce':proto=F.normalize(torch.randn_like(proto),dim=-1)
     # Goal steering: arithmetic prepared only; active tasks are emotion and MI.
     train=[i for i,r in enumerate(rows) if r['split']=='train' and r['task'] in (0,1)]

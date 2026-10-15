@@ -1,0 +1,66 @@
+{
+  "output": "artifacts/multitask_prototypes_v2_text_ce_s43",
+  "base_config": "configs/reve_qwen_mi_multi.json",
+  "seed_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data/SEED/SEED/SEED_EEG/Preprocessed_EEG",
+  "seed_channel_file": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data/SEED/SEED/channel_62_pos.locs",
+  "mat_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data/EEGMat",
+  "channels": [
+    "C3",
+    "Cz",
+    "C4"
+  ],
+  "sample_rate": 200,
+  "window_samples": 600,
+  "bandpass": [
+    1,
+    30
+  ],
+  "seed_windows_per_trial": 10,
+  "mat_windows_per_record": 20,
+  "mi_max_per_subject_class_split": 40,
+  "steps": 1500,
+  "batch_size": 192,
+  "learning_rate": 0.0003,
+  "seed": 43,
+  "arms": [
+    "text_ce"
+  ],
+  "tasks": [
+    {
+      "name": "emotion",
+      "classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "texts": [
+        "Task: emotion recognition. Emotional valence: negative.",
+        "Task: emotion recognition. Emotional valence: neutral.",
+        "Task: emotion recognition. Emotional valence: positive."
+      ]
+    },
+    {
+      "name": "motor_imagery",
+      "classes": [
+        "left_hand",
+        "right_hand"
+      ],
+      "texts": [
+        "Task: motor imagery recognition. Imagined movement: left hand.",
+        "Task: motor imagery recognition. Imagined movement: right hand."
+      ]
+    },
+    {
+      "name": "mental_arithmetic",
+      "classes": [
+        "background",
+        "arithmetic"
+      ],
+      "texts": [
+        "Task: mental arithmetic state recognition. State: background rest before arithmetic.",
+        "Task: mental arithmetic state recognition. State: performing mental arithmetic."
+      ]
+    }
+  ],
+  "center_text_prototypes": true
+}
