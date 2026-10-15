@@ -1,6 +1,6 @@
 """Whole-source MI validation, keeping original source test entirely excluded."""
 def domain_indices(rows,heldout):
-    if heldout not in {'Cho2017','Dreyer2023'}:raise ValueError(heldout)
+    if heldout not in {'Cho2017','Dreyer2023','Lee2019_MI'}:raise ValueError(heldout)
     train=[];cross=[];within=[]
     for i,r in enumerate(rows):
         if r['split'] not in ('train','validation'):raise ValueError('Only source development rows allowed')

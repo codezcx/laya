@@ -9,3 +9,16 @@ Lee此前被作为外部开发评估（曾只用其5个test被试子集）；本
 统一C3/Cz/C4、200Hz、完整trial先1–30Hz滤波、取前3秒、逐通道zscore/clip15；冻结REVE时间池化为3×512。记录每条标准化信号SHA256，四卡分片完成后必须审计跨split重复/标签冲突、被试交集及完整索引；审计通过前不训练。
 
 缓存`artifacts/mi_full_sources_v12`。后续将以整个源数据集留一进行开发选模，最终目标集不用于超参数选择。源数据扩充并不保证迁移改善，也不是新增任务。
+
+## 审计后预定训练
+
+四组，均seed42、3000step、batch96、lr1e-4、相同空间锚点与SEED划分：
+
+1. capped_two：Cho/Dreyer原train中每被试每类最多40trial，Lee原train+validation作整域开发验证，普通头。
+2. full_two：Cho/Dreyer完整train，同样Lee开发验证，普通头。与组1比较训练数据量。
+3. full_three：Cho/Dreyer/Lee完整train，三者原validation作同域新被试验证，普通头。
+4. full_three_text：与组3相同输入/划分，文本sigmoid。
+
+组1/2跨域验证与组3/4同域验证口径不同，不能直接比较选模分数排名。组1/2另记录同域选模checkpoint。固定源比较后再决定下一步；本轮控制器不运行目标评估。
+
+控制器`python scripts/run_full_sources.py`：等待已知提取PID完成→跨分片审计→通过才启动四组。日志与状态在`artifacts/full_sources_v12_controller`。失败不自动重启或覆盖已有结果。

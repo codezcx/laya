@@ -34,7 +34,11 @@ def load():
 
 def main(arm,config_path):
  cfg=json.loads(Path(config_path).read_text());out=Path(cfg['output'])/arm;out.mkdir(parents=True,exist_ok=False)
- torch.set_num_threads(4);torch.manual_seed(cfg['seed']);rng=np.random.default_rng(cfg['seed']);rows,x,valid=load()
+ torch.set_num_threads(4);torch.manual_seed(cfg['seed']);rng=np.random.default_rng(cfg['seed']);
+ if cfg.get('mi_full_cache'):
+  from .full_source_loader import load_full_sources
+  rows,x,valid=load_full_sources(cfg)
+ else:rows,x,valid=load()
  if cfg.get('pool')=='spatial':
   from .spatial_model import prepare_spatial
   x,valid,audit=prepare_spatial(rows,x,valid,cfg);(out/'spatial_audit.json').write_text(json.dumps(audit,indent=2))
@@ -60,6 +64,9 @@ def main(arm,config_path):
   train,val,within=domain_indices(rows,cfg['heldout_mi_dataset'])
  else:
   train=[i for i,r in enumerate(rows) if r['split']=='train'];val=[i for i,r in enumerate(rows) if r['split']=='validation']
+ if cfg.get('mi_train_cap_per_subject_class'):
+  from .full_source_loader import cap_training_mi
+  train=cap_training_mi(rows,train,cfg['mi_train_cap_per_subject_class'])
  vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
  counts=Counter((rows[i]['task'],rows[i]['dataset'],rows[i]['class_id']) for i in train);ds={t:len({rows[i]['dataset'] for i in train if rows[i]['task']==t}) for t in (0,1)}
  w=np.array([1/(counts[(rows[i]['task'],rows[i]['dataset'],rows[i]['class_id'])]*ds[rows[i]['task']]*{0:3,1:2}[rows[i]['task']]) for i in train]);w/=w.sum()
