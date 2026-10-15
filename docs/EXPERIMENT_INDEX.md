@@ -22,6 +22,7 @@
 |v17|同一30通道REVE与频谱融合|八组完成；拼接与文本头均未超过频谱基线|[结果](EMOTION_FUSION_V17_RESULTS.md)|
 |v18|冻结模型概率融合|源验证选权重后无迁移收益；保留频谱基线|[结果](EMOTION_LATE_FUSION_V18_RESULTS.md)|
 |v19|幅值信号统一平均参考|原参考频谱复现；CAR无一致收益，反向下降|[结果](EMOTION_REFERENCE_V19_RESULTS.md)|
+|v20|频段×连续时长对照|45Hz或9秒均未超过30Hz/3秒频谱控制|[结果](EMOTION_CONTEXT_V20_RESULTS.md)|
 
 ## 使用结果的边界
 
