@@ -11,3 +11,5 @@ v5情绪改善但MI下降，故检验空间信息是否在查询汇聚中丢失�
 配置：`configs/spatial_prototypes_v6.json`。
 运行：`python scripts/run_channel_prototypes.py --config configs/spatial_prototypes_v6.json`。
 输出：`artifacts/spatial_prototypes_v6`，每组记录具体坐标、通道名及sigma审计。
+
+源验证已完成后追加外部评估（探索性）：四组checkpoint全部冻结并核验SHA256；同样报告四组，不按目标挑选。2b复用v1相同预处理的冻结REVE三通道特征，SEED-VII重新提取60通道、1–30Hz、逐通道标准化特征，仍限Happy/Neutral/Sad子集。后者与v1三通道目标结果存在输入差异。所有目标结果此前已有暴露，不能称新盲测；REVE预训练含2b。
