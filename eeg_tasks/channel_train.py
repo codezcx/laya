@@ -42,6 +42,10 @@ def main(arm,config_path):
  if cfg.get('pool')=='spatial':
   from .spatial_model import prepare_spatial
   x,valid,audit=prepare_spatial(rows,x,valid,cfg);(out/'spatial_audit.json').write_text(json.dumps(audit,indent=2))
+ if cfg.get('faced_source'):
+  assert cfg.get('pool')=='spatial' and not cfg.get('heldout_mi_dataset') and not cfg.get('spectral_mode')
+  from .faced_join import append_faced
+  rows,x,valid=append_faced(rows,x,valid,cfg)
  if cfg.get('spectral_mode') in ('concat','only'):
   from .spectral_fusion import prepare_spectral
   spectrum,spectral_audit=prepare_spectral(rows,x.device,cfg);(out/'spectral_audit.json').write_text(json.dumps(spectral_audit,indent=2))
