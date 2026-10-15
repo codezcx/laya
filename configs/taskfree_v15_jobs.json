@@ -1,0 +1,18 @@
+[
+  {
+    "name": "seed_ordinary",
+    "config": "configs/taskfree_v15_seed_ordinary.json"
+  },
+  {
+    "name": "seed_text",
+    "config": "configs/taskfree_v15_seed_text.json"
+  },
+  {
+    "name": "faced-nemar_ordinary",
+    "config": "configs/taskfree_v15_faced-nemar_ordinary.json"
+  },
+  {
+    "name": "faced-nemar_text",
+    "config": "configs/taskfree_v15_faced-nemar_text.json"
+  }
+]

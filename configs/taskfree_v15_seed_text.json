@@ -1,0 +1,9 @@
+{
+  "output": "artifacts/taskfree_v15/seed_text",
+  "heldout_emotion": "SEED",
+  "arm": "text",
+  "seed": 42,
+  "steps": 3000,
+  "batch_size": 96,
+  "learning_rate": 0.0001
+}
