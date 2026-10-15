@@ -1,0 +1,19 @@
+{
+  "base": "/inspire/hdd/global_user/zhangchenxi-253108310322/CerebraGloss/DataEngine/output/eeg_rl_hf_8b_v3render/step_60",
+  "train_data": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/eeg_decision_experiments/waveform/train.fit.jsonl",
+  "validation_data": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/eeg_decision_experiments/waveform/train.validation.jsonl",
+  "epochs": 3,
+  "batch_size": 1,
+  "grad_accum": 8,
+  "head_learning_rate": 0.0001,
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.0,
+  "max_pixels": 1500000,
+  "workers": 2,
+  "eval_every": 100,
+  "save_every": 100,
+  "seed": 20261014,
+  "learning_rate": 1e-05,
+  "out": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/eeg_decision_experiments/runs/waveform_lr1e5"
+}

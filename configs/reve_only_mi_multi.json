@@ -1,0 +1,24 @@
+{
+  "source_config": "artifacts/reve_mi_multi/train_4gpu_20261015_121912/config.json",
+  "reference_hashes": "artifacts/reve_mi_multi/train_4gpu_20261015_121912/source_and_manifest_hashes.json",
+  "common": {
+    "batch_size": 64,
+    "eval_batch_size": 128,
+    "extract_batch_size": 128,
+    "cpu_threads": 4,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0
+  },
+  "linear_probe": {
+    "epochs": 100,
+    "patience": 15,
+    "head_lr": 0.001,
+    "encoder_lr": 0.0
+  },
+  "full_sft": {
+    "epochs": 10,
+    "patience": 5,
+    "head_lr": 0.001,
+    "encoder_lr": 0.00001
+  }
+}

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv*/
+.env
+.env.*
+artifacts/
+third_party/
+laya/
+.JEV-27B-VL.git.backup*/
+*.safetensors
+*.pt
+*.pth
+*.npy
+*.npz
+*.edf
+*.mat
