@@ -27,17 +27,41 @@ gain is on SEED validation; FACED itself improves only 0.33/0.66 points. This is
 modest source-validation evidence, not proof of improved external transfer or
 automatic task recognition. These are spectral classifiers; no LLM is used.
 
-## Next evaluation boundary
+## External evaluation
 
 All four checkpoint hashes and their shared validation-row hash were verified
 and recorded in `artifacts/faced_scale_v22/source_freeze.json` before further
-target evaluation. At this report's creation no v22 target scores have been
-computed. Evaluate all four frozen arms on the existing SEED-VII HNS protocol;
-report paired subject differences for full versus pilot within each feature
-representation, without selecting a model using target performance. This is a
-repeated-target exploratory evaluation, not a fresh blind test. MI is unchanged;
-the overall zero-shot goal remains unachieved and no additional task is enabled.
+target evaluation. All four frozen arms were then evaluated on the existing
+SEED-VII HNS protocol (20 subjects, 6,400 windows), with no target fitting or
+selection. This is repeated-target exploratory evaluation, not a fresh blind test.
+
+| Training / features | Accuracy % | Subject balanced % | Balanced 95% CI |
+|---|---:|---:|---:|
+| Pilot / full | 44.09 | 43.72 | 40.57–46.94 |
+| Full / full | 43.88 | 43.72 | 40.62–46.83 |
+| Pilot / spatial | 42.86 | 42.67 | 39.67–45.84 |
+| Full / spatial | 43.12 | 43.42 | 40.64–46.36 |
+
+Paired subject bootstrap differences (full minus pilot) are +0.007 percentage
+points for full features (95% CI −0.97 to +0.95) and +0.743 points for spatial
+features (−0.56 to +1.99). Both intervals include zero. Shuffled-prediction
+balanced controls range from33.48% to34.44%. These intervals quantify subject
+sampling variability, not seed or repeated-development uncertainty.
+
+The source-validation gain did not translate into a clear transfer improvement.
+Increasing FACED from16 to73 training subjects alone is insufficient in this
+representation. It does not establish that source diversity or richer signal
+supervision would be ineffective, and does not justify claiming semantic
+alignment. Avoid scaling the same recipe on the strength of source validation;
+next development should address domain-level validation and supervision.
+MI is unchanged; the overall zero-shot goal remains unachieved and no additional
+task is enabled.
 
 Artifacts include source data manifest, feature cache, every C sweep, model
 hashes, and completed controller state. Code and this summary are tracked in
 Git; data, model files and detailed runtime records remain ignored artifacts.
+`scripts/evaluate_faced_scale_v22.py` verifies all source model and validation
+hashes before loading target features, hashes the reused target cache, and saves
+all predictions, subject metrics and paired differences under
+`artifacts/faced_scale_v22/external_seed_vii/`. Execution completed successfully;
+all target window identities are unique and all four model hashes matched.
