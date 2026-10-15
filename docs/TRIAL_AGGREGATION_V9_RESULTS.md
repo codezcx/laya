@@ -7,9 +7,6 @@ SEED-VII Happy/Neutral/Sad子集；固定对每trial的10个窗口平均softmax�
 |text_sigmoid|42|37.50%|40.62%|35.90–45.35%|
 |text_sigmoid|43|32.34%|38.82%|35.21–42.71%|
 |text_sigmoid|44|40.00%|41.39%|37.08–46.18%|
-
-text_sigmoid：三seed均值±样本SD = 40.28±1.32%。
-
 |learned_ce|42|43.13%|43.06%|38.19–48.40%|
 |learned_ce|43|38.75%|41.53%|36.88–46.53%|
 |learned_ce|44|38.91%|40.63%|36.39–45.42%|
