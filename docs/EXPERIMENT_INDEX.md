@@ -12,7 +12,7 @@
 |v7|v6三seed完整复验|普通头SEED-VII窗口balanced 40.10±0.71%，2b accuracy54.99±0.28%|[结果](SPATIAL_REPEATS_V7_RESULTS.md)|
 |v8|冻结前缀，微调REVE末两层|四组均选step0，无源验证增益|[结果](REVE_TAIL_V8_RESULTS.md)|
 |v9|固定均值概率聚合同trial窗口|普通头trial balanced41.74±1.23%；不同评估单位|[结果](TRIAL_AGGREGATION_V9_RESULTS.md)|
-|v10|空间对齐频谱与REVE融合|源验证实验已启动；以完成文件为准|[协议](SPECTRAL_FUSION_V10.md)|
+|v10|空间对齐频谱与REVE融合|源验证无增益，仅REVE对照复现53.17%|[结果](SPECTRAL_FUSION_V10_RESULTS.md)|
 
 ## 使用结果的边界
 
