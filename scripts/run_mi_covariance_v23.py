@@ -8,19 +8,19 @@ from pathlib import Path
 ROOT = Path('artifacts/mi_covariance_v23_controller')
 
 
-def main():
-    status_path = ROOT / 'fit_status.json'
+def main(root=ROOT, feature_root=Path('artifacts/mi_covariance_v23'), module='eeg_tasks.mi_covariance_fit_v23'):
+    status_path = root / 'fit_status.json'
     with status_path.open('x') as f:
         json.dump({'state': 'waiting_for_features'}, f)
     def status(**value):
-        tmp = ROOT / 'fit_status.tmp'
+        tmp = root / 'fit_status.tmp'
         tmp.write_text(json.dumps(value, indent=2))
         tmp.replace(status_path)
     try:
-        jobs = json.loads((ROOT / 'jobs.json').read_text())
+        jobs = json.loads((root / 'jobs.json').read_text())
         deadline = time.monotonic() + 3600
         while True:
-            pending = [j for j in jobs if not Path(f"artifacts/mi_covariance_v23/{j['shard']}.done.json").exists()]
+            pending = [j for j in jobs if not (feature_root / f"{j['shard']}.done.json").exists()]
             if not pending:
                 break
             for job in pending:
@@ -32,8 +32,8 @@ def main():
             time.sleep(5)
         status(state='auditing_and_fitting')
         env = dict(os.environ, PYTHONPATH=str(Path.cwd()))
-        with (ROOT / 'fit.log').open('x') as log:
-            p = subprocess.Popen(['laya/.venv-eeg/bin/python', '-u', '-m', 'eeg_tasks.mi_covariance_fit_v23'],
+        with (root / 'fit.log').open('x') as log:
+            p = subprocess.Popen(['laya/.venv-eeg/bin/python', '-u', '-m', module],
                                  stdout=log, stderr=subprocess.STDOUT, env=env)
             status(state='auditing_and_fitting', pid=p.pid)
             if p.wait() != 0:

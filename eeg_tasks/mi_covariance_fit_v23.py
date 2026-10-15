@@ -38,24 +38,24 @@ def fit_model(x, y, rows, indices, c):
     return model, [str(w.message) for w in caught]
 
 
-def load_cache():
-    manifest = SOURCE / 'manifest.jsonl'
+def load_cache(root=ROOT, source=SOURCE, arms=ARMS, dimension=30):
+    manifest = source / 'manifest.jsonl'
     digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
     original = [json.loads(line) for line in manifest.read_text().splitlines()]
-    keep = np.load(SOURCE / 'keep_indices.npy')
-    arrays = {arm: np.empty((len(original), 30), np.float32) for arm in ARMS}
+    keep = np.load(source / 'keep_indices.npy')
+    arrays = {arm: np.empty((len(original), dimension), np.float32) for arm in arms}
     seen, hashes = [], {}
     for shard in range(4):
-        path = ROOT / f'{shard}.npz'
-        done = json.loads((ROOT / f'{shard}.done.json').read_text())
+        path = root / f'{shard}.npz'
+        done = json.loads((root / f'{shard}.done.json').read_text())
         hashes[str(shard)] = hashlib.sha256(path.read_bytes()).hexdigest()
         assert done['manifest_sha256'] == digest and done['feature_sha256'] == hashes[str(shard)]
         with np.load(path) as data:
             indices = data['indices']
             assert len(indices) == done['n']
             seen.extend(indices.tolist())
-            for arm in ARMS:
-                assert data[arm].shape == (len(indices), 30) and np.isfinite(data[arm]).all()
+            for arm in arms:
+                assert data[arm].shape == (len(indices), dimension) and np.isfinite(data[arm]).all()
                 arrays[arm][indices] = data[arm]
     assert len(seen) == len(set(seen)) == 37432 and sorted(seen) == sorted(keep.tolist())
     rows = [original[int(i)] for i in keep]
@@ -67,9 +67,9 @@ def load_cache():
     return rows, {k: v[keep] for k, v in arrays.items()}, {'manifest_sha256': digest, 'shards_sha256': hashes}
 
 
-def main():
-    rows, features, provenance = load_cache()
-    out = ROOT / 'fits'
+def main(root=ROOT, source=SOURCE, arms=ARMS, dimension=30):
+    rows, features, provenance = load_cache(root, source, arms, dimension)
+    out = root / 'fits'
     out.mkdir(exist_ok=False)
     (out / 'cache_audit.json').write_text(json.dumps(provenance, indent=2))
     y = np.array([r['label'] for r in rows])
@@ -77,7 +77,7 @@ def main():
     train = [i for i, r in enumerate(rows) if r['split'] == 'train']
     val = [i for i, r in enumerate(rows) if r['split'] == 'validation']
     final = {}
-    for arm in ARMS:
+    for arm in arms:
         x = features[arm]
         sweep = []
         for c in [.001, .01, .1, 1., 10.]:
