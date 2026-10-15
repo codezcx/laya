@@ -42,3 +42,26 @@ def prepare_spatial(rows,x,valid,cfg):
             output[ii]=spatial_pool(x[ii,:len(channels)],positions,anchors,cfg['sigma']).to(x.dtype)
     audit={'anchors':cfg['anchors'],'anchor_coordinates':anchors.cpu().tolist(),'sigma':cfg['sigma'],'emotion_channels':names,'mi_channels':['C3','Cz','C4'],'positions_checkpoint':base['positions_checkpoint']}
     return output,torch.ones(output.shape[:2],dtype=torch.bool,device=x.device),audit
+
+class SeparateTaskClassifier(nn.Module):
+    """Compute both task readouts, without giving a task ID to forward()."""
+    def __init__(self,prototypes,arm,n_anchors,width=256,feature_dim=512):
+        super().__init__();self.arm=arm;dim=n_anchors*feature_dim
+        self.branches=nn.ModuleList([nn.Sequential(nn.LayerNorm(dim),nn.Linear(dim,width),nn.GELU(),nn.Dropout(.1),nn.Linear(width,classes if arm=='learned_ce' else prototypes.shape[1])) for classes in [3,2]])
+        self.register_buffer('prototypes',F.normalize(prototypes.float(),dim=-1));self.log_scale=nn.Parameter(torch.full((2,),2.3));self.bias=nn.Parameter(torch.full((2,),-2.))
+    def forward(self,x,valid):
+        if not valid.all():raise ValueError('All spatial anchors required')
+        output=[]
+        for task,(lo,hi) in enumerate([(0,3),(3,5)]):
+            z=self.branches[task](x.flatten(1))
+            if self.arm!='learned_ce':
+                z=self.log_scale[task].clamp(0,4.6).exp()*(F.normalize(z,dim=-1)@self.prototypes[lo:hi].T)
+                if self.arm=='text_sigmoid':z=z+self.bias[task]
+            output.append(z)
+        return torch.cat(output+[x.new_zeros(len(x),2)],dim=-1)
+
+
+def make_spatial_model(prototypes,arm,cfg,feature_dim=512):
+    if cfg.get('separate_task_readouts'):
+        return SeparateTaskClassifier(prototypes,arm,len(cfg['anchors']),width=cfg.get('branch_width',256),feature_dim=feature_dim)
+    return SpatialPrototypeClassifier(prototypes,arm,len(cfg['anchors']),feature_dim=feature_dim)

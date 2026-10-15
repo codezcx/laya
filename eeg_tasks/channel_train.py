@@ -53,8 +53,8 @@ def main(arm,config_path):
  if arm=='random_ce':proto=F.normalize(torch.randn_like(proto),dim=-1)
  torch.manual_seed(cfg['seed'])
  if cfg.get('pool')=='spatial':
-  from .spatial_model import SpatialPrototypeClassifier
-  model=SpatialPrototypeClassifier(proto,arm,len(cfg['anchors']),feature_dim=x.shape[-1]).cuda()
+  from .spatial_model import make_spatial_model
+  model=make_spatial_model(proto,arm,cfg,feature_dim=x.shape[-1]).cuda()
  else:model=ChannelPrototypeClassifier(proto,arm).cuda()
  opt=torch.optim.AdamW(model.parameters(),lr=cfg['learning_rate'],weight_decay=.01)
  within=[]

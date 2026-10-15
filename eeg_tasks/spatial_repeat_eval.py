@@ -3,7 +3,7 @@ import argparse,hashlib,json
 from pathlib import Path
 import numpy as np
 import torch
-from .spatial_model import SpatialPrototypeClassifier,prepare_spatial
+from .spatial_model import make_spatial_model,prepare_spatial
 from .spatial_external import balanced
 from .channel_train import predict
 
@@ -22,7 +22,7 @@ def main(jobs_path='artifacts/spatial_repeats_v7/jobs.json',output='artifacts/sp
    assert (folder/f'{i}.done.json').exists();arrays.append(np.load(folder/f'features_{i}.npy').reshape(-1,channels,512));rows.extend(json.loads(s) for s in (folder/f'rows_{i}.jsonl').read_text().splitlines())
   x=torch.from_numpy(np.concatenate(arrays)).cuda();valid=torch.ones(x.shape[:2],dtype=torch.bool,device='cuda');base=json.loads(Path(jobs[0]['config']).read_text());x,valid,_=prepare_spatial(rows,x,valid,base);results[name]={}
   for job in jobs:
-   cfg=json.loads(Path(job['config']).read_text());assert cfg['anchors']==base['anchors'] and cfg['sigma']==base['sigma'];p=Path(cfg['output'])/job['arm'];state=torch.load(p/'best.pt',weights_only=True,map_location='cuda');model=SpatialPrototypeClassifier(state['prototypes'],job['arm'],len(cfg['anchors'])).cuda();model.load_state_dict(state);logits=predict(model,x,valid);np.save(root/f"{name}_{job['name']}_logits.npy",logits.numpy());results[name][job['name']]=balanced(rows,logits)
+   cfg=json.loads(Path(job['config']).read_text());assert cfg['anchors']==base['anchors'] and cfg['sigma']==base['sigma'];p=Path(cfg['output'])/job['arm'];state=torch.load(p/'best.pt',weights_only=True,map_location='cuda');model=make_spatial_model(state['prototypes'],job['arm'],cfg).cuda();model.load_state_dict(state);logits=predict(model,x,valid);np.save(root/f"{name}_{job['name']}_logits.npy",logits.numpy());results[name][job['name']]=balanced(rows,logits)
   print(name,{k:v['subject_macro_balanced_accuracy'] for k,v in results[name].items()},flush=True)
  out.write_text(json.dumps({'frozen':frozen,'results':results,'jobs':jobs,'note':'All predeclared configurations reported; exploratory repeated-target evaluation, no target model selection. Encoder pretraining includes2b.'},indent=2))
 if __name__=='__main__':
