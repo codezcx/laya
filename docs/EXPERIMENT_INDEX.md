@@ -21,6 +21,7 @@
 |v16|共同30通道频谱跨情绪源|FACED→SEED约44%，反向约38%；三通道接近随机|[结果](EMOTION_TRANSFER_V16_RESULTS.md)|
 |v17|同一30通道REVE与频谱融合|八组完成；拼接与文本头均未超过频谱基线|[结果](EMOTION_FUSION_V17_RESULTS.md)|
 |v18|冻结模型概率融合|源验证选权重后无迁移收益；保留频谱基线|[结果](EMOTION_LATE_FUSION_V18_RESULTS.md)|
+|v19|幅值信号统一平均参考|原参考频谱复现；CAR无一致收益，反向下降|[结果](EMOTION_REFERENCE_V19_RESULTS.md)|
 
 ## 使用结果的边界
 
