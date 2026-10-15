@@ -1,9 +1,10 @@
 """Audit completed FACED preprocessing without treating partial acquisition as complete."""
-import hashlib,json
+import argparse,hashlib,json
 from collections import Counter
 from pathlib import Path
 import numpy as np
-root=Path('artifacts/faced_source_v14');plan=json.loads((root/'cohort.json').read_text());expected=set(plan['train']+plan['validation']);reports=[];seen={}
+parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,default=Path('artifacts/faced_source_v14'));args=parser.parse_args()
+root=args.root;plan=json.loads((root/'cohort.json').read_text());expected=set(plan['train']+plan['validation']);reports=[];seen={}
 for subject in sorted(expected):
  folder=root/'prepared'/f'sub-{subject:03d}';path=folder/'audit.json'
  if not path.exists():continue

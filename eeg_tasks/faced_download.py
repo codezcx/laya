@@ -14,14 +14,15 @@ def read_range(url,start,end,total):
  if len(chunk)!=end-start+1:raise IOError('Incomplete or oversized range')
  return chunk
 
-def download(subject):
- ROOT.mkdir(parents=True,exist_ok=True);pin=ROOT/'source_revision.json'
+def download(subject, root=ROOT):
+ root=Path(root)
+ root.mkdir(parents=True,exist_ok=True);pin=root/'source_revision.json'
  if not pin.exists():
   revision=json.loads(fetch('https://api.github.com/repos/nemarDatasets/nm000112/commits/main'))['sha'];pin.write_text(json.dumps({'repository':'https://github.com/nemarDatasets/nm000112','revision':revision},indent=2))
- revision=json.loads(pin.read_text())['revision'];base=f'https://raw.githubusercontent.com/nemarDatasets/nm000112/{revision}/';sub=f'sub-{subject:03d}';prefix=f'{sub}_task-watchingVideoClips';folder=ROOT/sub;folder.mkdir(exist_ok=True)
+ revision=json.loads(pin.read_text())['revision'];base=f'https://raw.githubusercontent.com/nemarDatasets/nm000112/{revision}/';sub=f'sub-{subject:03d}';prefix=f'{sub}_task-watchingVideoClips';folder=root/sub;folder.mkdir(exist_ok=True)
  if (folder/'download.done.json').exists():raise FileExistsError(folder)
  for filename in ['README.md','dataset_description.json']:
-  path=ROOT/filename
+  path=root/filename
   if not path.exists():path.write_bytes(fetch(base+filename))
  for suffix in ['channels.tsv','eeg.json','events.tsv','events.json']:
   filename=f'{prefix}_{suffix}';(folder/filename).write_bytes(fetch(base+f'{sub}/eeg/{filename}'))
@@ -49,7 +50,7 @@ def download(subject):
  with part.open('rb') as f:
   for block in iter(lambda:f.read(8*1024*1024),b''):h.update(block)
  assert part.stat().st_size==size and h.hexdigest()==digest,'Incomplete or corrupt download'
- part.rename(dest);result={'subject':subject,'revision':revision,'url':url,'size':size,'sha256':digest,'seconds':time.time()-start,'license':json.loads((ROOT/'dataset_description.json').read_text())['License']};(folder/'download.done.json').write_text(json.dumps(result,indent=2));print(result,flush=True)
+ part.rename(dest);result={'subject':subject,'revision':revision,'url':url,'size':size,'sha256':digest,'seconds':time.time()-start,'license':json.loads((root/'dataset_description.json').read_text())['License']};(folder/'download.done.json').write_text(json.dumps(result,indent=2));print(result,flush=True)
 
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--subject',type=int,default=0);a=p.parse_args();assert 0<=a.subject<123;download(a.subject)

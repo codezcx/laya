@@ -21,8 +21,8 @@ def video_events(rows):
  return valid
 
 
-def main(subject):
- root=Path('artifacts/faced_source_v14');folder=root/'raw'/f'sub-{subject:03d}';prefix=f'sub-{subject:03d}_task-watchingVideoClips';done=json.loads((folder/'download.done.json').read_text());path=folder/f'{prefix}_eeg.bdf'
+def main(subject, root=Path('artifacts/faced_source_v14')):
+ root=Path(root);folder=root/'raw'/f'sub-{subject:03d}';prefix=f'sub-{subject:03d}_task-watchingVideoClips';done=json.loads((folder/'download.done.json').read_text());path=folder/f'{prefix}_eeg.bdf'
  assert path.stat().st_size==done['size']
  h=hashlib.sha256()
  with path.open('rb') as f:
