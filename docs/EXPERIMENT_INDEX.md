@@ -24,6 +24,7 @@
 |v19|幅值信号统一平均参考|原参考频谱复现；CAR无一致收益，反向下降|[结果](EMOTION_REFERENCE_V19_RESULTS.md)|
 |v20|频段×连续时长对照|45Hz或9秒均未超过30Hz/3秒频谱控制|[结果](EMOTION_CONTEXT_V20_RESULTS.md)|
 |v21|REVE末两层跨源同类约束与频谱辅助|四卡训练完成；SEED-VII约41%，仍低于43.72%频谱基线|[结果](EMOTION_ALIGNMENT_V21_RESULTS.md)|
+|v22|扩大FACED源被试并匹配验证集|73训练/25验证采集中；25测试保留，规模对照已排队|[协议](FACED_FULL_V22_PROTOCOL.md)|
 
 ## 使用结果的边界
 
