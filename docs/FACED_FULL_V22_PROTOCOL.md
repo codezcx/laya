@@ -31,3 +31,11 @@ frozen-encoder baselines. A pilot model selected on8 subjects cannot be directly
 compared to a full-data model selected on25 without a matched-selection control.
 First compare source validation; freeze all models before any further exploratory
 target evaluation. MI coverage remains unchanged. No task expansion yet.
+
+The initial scale controls are four source-only linear spectral runs: pilot/full
+FACED training crossed with full/spatially-centered common30-channel fractions.
+SEED training remains4050 windows. Both scales use the same8350 validation rows
+(SEED1350 + FACED7000); each completion file stores their ordered-row hash and
+the controller requires all four to match. Expected training counts are8530
+and24490. Source training uses equal dataset/class weight and the unchanged
+C grid. No target evaluation is automatically launched after these controls.
