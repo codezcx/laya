@@ -27,11 +27,11 @@ def fold_indices(rows, held):
     return train, validation
 
 
-def fit_model(x, y, rows, indices, c):
+def fit_model(x, y, rows, indices, c, max_iter=2000):
     counts = Counter((rows[i]['dataset'], int(y[i])) for i in indices)
     weights = np.array([1 / counts[(rows[i]['dataset'], int(y[i]))] for i in indices])
     weights /= weights.mean()
-    model = make_pipeline(StandardScaler(), LogisticRegression(C=c, max_iter=2000, random_state=42))
+    model = make_pipeline(StandardScaler(), LogisticRegression(C=c, max_iter=max_iter, random_state=42))
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter('always')
         model.fit(x[indices], y[indices], logisticregression__sample_weight=weights)

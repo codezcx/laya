@@ -29,3 +29,17 @@ This isolates input scaling within a frozen encoder plus linear readout, not
 end-to-end language alignment. Even a positive result does not prove a universal
 task recognizer.2b has previous development exposure and is in REVE pretraining;
 any downstream result remains exploratory. Emotion unchanged; no task expansion.
+
+## Source fitting convergence amendment
+
+Feature extraction finished: all37,432 control inputs match theirv12 hashes,
+and all cached control feature replay differences are0. Common scaling clips7
+values across the complete source pool; per-channel scaling clips0.
+
+The initial C=10 folds for held Cho2017 and Lee2019_MI reached the2,000-iteration
+limit in both arms. The initial complete file remains in`fits/` and must not be
+used for target evaluation. Before any target access, recompute only these four
+warned folds with max_iter10,000, keeping the same data, grid and scoring rule.
+Reselect C and refit both models using the increased limit. Any remaining warning
+stops completion. Save separately in`fits_converged/`, linking the original
+completion-file hash; only this corrected run can authorize target evaluation.
