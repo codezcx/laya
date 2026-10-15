@@ -49,3 +49,20 @@ FACED按自身实际通道名（首个记录含T3/T4/T5/T6和A1/A2）查REVE位�
 `audit_faced_prepared.py`对当时已完成的11人/3080窗口逐条复算标准化信号SHA256，确认无重复、每人120负性/40中性/120正性窗口、28trial×10窗口、与既定被试split一致。其状态明确是partial，不能作为完整cohort通过的证明。全部下载完成后仍需完整检查。
 
 训练程序新增运行时采样质量核验，记录每任务及每dataset/class的采样概率质量。两任务各1/2，任务内数据集均分、数据集内类别均分；任何缺失类别导致质量不符会中止。只记录和核验既有采样规则，没有改变权重。
+
+### Complete acquisition and channel correction
+
+All 24 fixed-cohort participants completed download and preparation; the full
+integrity gate passed 6,720 windows. Full extraction exposed a montage variation
+missed by the sub-000 smoke check: subjects 066, 074, 094, 097, 108, 109, 121,
+and 122 also contain HEOR/HEOL auxiliary horizontal EOG channels. Extraction
+explicitly excludes those two channels before REVE, retains all remaining
+supported EEG channels, and fails on any other unsupported name. Original
+prepared signals remain intact. Included channel names are saved per subject
+in feature completion manifests; excluded EOG names are printed in shard logs.
+This supersedes any earlier assumption that every record has exactly 32 channels.
+
+The failed extraction logs are preserved in
+`artifacts/multi_emotion_v14_controller_attempt3_eog`. The corrected controller
+reruns the complete integrity audit before extracting and training; no cohort,
+label, split, target evaluation, or model-selection criterion changed.
