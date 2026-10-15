@@ -32,14 +32,23 @@ def load():
  assert len(seen)==len(rows) and np.isfinite(x).all()
  return rows,torch.from_numpy(x).cuda(),torch.from_numpy(valid).cuda()
 
-def main(arm):
- cfg=json.loads(Path('configs/channel_prototypes_v5.json').read_text());out=Path(cfg['output'])/arm;out.mkdir(parents=True,exist_ok=False)
+def main(arm,config_path):
+ cfg=json.loads(Path(config_path).read_text());out=Path(cfg['output'])/arm;out.mkdir(parents=True,exist_ok=False)
  torch.set_num_threads(4);torch.manual_seed(cfg['seed']);rng=np.random.default_rng(cfg['seed']);rows,x,valid=load()
+ if cfg.get('pool')=='spatial':
+  from .spatial_model import prepare_spatial
+  x,valid,audit=prepare_spatial(rows,x,valid,cfg);(out/'spatial_audit.json').write_text(json.dumps(audit,indent=2))
  proto=torch.from_numpy(np.load('artifacts/multitask_prototypes_v1/text_prototypes.npy')).cuda()
  # Center every task to remove shared prompt direction, fixed before this run.
- for lo,hi in [(0,3),(3,5),(5,7)]:proto[lo:hi]=F.normalize(proto[lo:hi]-proto[lo:hi].mean(0,keepdim=True),dim=-1)
+ if cfg.get('center_prototypes',True):
+  for lo,hi in [(0,3),(3,5),(5,7)]:proto[lo:hi]=F.normalize(proto[lo:hi]-proto[lo:hi].mean(0,keepdim=True),dim=-1)
  if arm=='random_ce':proto=F.normalize(torch.randn_like(proto),dim=-1)
- torch.manual_seed(cfg['seed']);model=ChannelPrototypeClassifier(proto,arm).cuda();opt=torch.optim.AdamW(model.parameters(),lr=cfg['learning_rate'],weight_decay=.01)
+ torch.manual_seed(cfg['seed'])
+ if cfg.get('pool')=='spatial':
+  from .spatial_model import SpatialPrototypeClassifier
+  model=SpatialPrototypeClassifier(proto,arm,len(cfg['anchors'])).cuda()
+ else:model=ChannelPrototypeClassifier(proto,arm).cuda()
+ opt=torch.optim.AdamW(model.parameters(),lr=cfg['learning_rate'],weight_decay=.01)
  train=[i for i,r in enumerate(rows) if r['split']=='train'];val=[i for i,r in enumerate(rows) if r['split']=='validation'];vr=[rows[i] for i in val];labels=torch.tensor([r['class_id'] for r in rows],device='cuda');tasks=torch.tensor([r['task'] for r in rows],device='cuda')
  counts=Counter((rows[i]['task'],rows[i]['dataset'],rows[i]['class_id']) for i in train);ds={t:len({rows[i]['dataset'] for i in train if rows[i]['task']==t}) for t in (0,1)}
  w=np.array([1/(counts[(rows[i]['task'],rows[i]['dataset'],rows[i]['class_id'])]*ds[rows[i]['task']]*{0:3,1:2}[rows[i]['task']]) for i in train]);w/=w.sum()
@@ -61,4 +70,4 @@ def main(arm):
  (out/'complete.json').write_text(json.dumps({'seconds':time.time()-start,'sha256':hashlib.sha256((out/'best.pt').read_bytes()).hexdigest(),'note':'Source validation only; no external or source test evaluated.'},indent=2))
 
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--arm',required=True,choices=['text_ce','text_sigmoid','random_ce','learned_ce']);main(p.parse_args().arm)
+ p=argparse.ArgumentParser();p.add_argument('--arm',required=True,choices=['text_ce','text_sigmoid','random_ce','learned_ce']);p.add_argument('--config',default='configs/channel_prototypes_v5.json');a=p.parse_args();main(a.arm,a.config)

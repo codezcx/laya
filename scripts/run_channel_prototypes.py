@@ -1,9 +1,9 @@
 """Wait for known cache workers, then launch four source-only training arms."""
-import json,os,subprocess,time
+import argparse,json,os,subprocess,time
 from pathlib import Path
 
-def main():
- cache=Path('artifacts/emotion_reve60_v5');jobs=json.loads((cache/'jobs.json').read_text());cfg=json.loads(Path('configs/channel_prototypes_v5.json').read_text());root=Path(cfg['output']);root.mkdir(exist_ok=False)
+def main(config_path):
+ cache=Path('artifacts/emotion_reve60_v5');jobs=json.loads((cache/'jobs.json').read_text());cfg=json.loads(Path(config_path).read_text());root=Path(cfg['output']);root.mkdir(exist_ok=False)
  def status(value):(root/'controller.json').write_text(json.dumps(value,indent=2))
  try:
   status({'state':'waiting_for_cache','cache_jobs':jobs})
@@ -18,7 +18,7 @@ def main():
   processes=[];records=[]
   for gpu,arm in enumerate(cfg['arms']):
    env=os.environ.copy();env['CUDA_VISIBLE_DEVICES']=str(gpu)
-   with (root/f'{arm}.log').open('w') as f:p=subprocess.Popen(['laya/.venv-eeg/bin/python','-m','eeg_tasks.channel_train','--arm',arm],stdout=f,stderr=subprocess.STDOUT,env=env)
+   with (root/f'{arm}.log').open('w') as f:p=subprocess.Popen(['laya/.venv-eeg/bin/python','-m','eeg_tasks.channel_train','--arm',arm,'--config',config_path],stdout=f,stderr=subprocess.STDOUT,env=env)
    processes.append(p);records.append({'arm':arm,'gpu':gpu,'pid':p.pid})
   status({'state':'training','jobs':records})
   while any(p.poll() is None for p in processes):
@@ -32,4 +32,5 @@ def main():
  except Exception as error:
   status({'state':'failed','error':repr(error)});raise
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--config',default='configs/channel_prototypes_v5.json');main(p.parse_args().config)
