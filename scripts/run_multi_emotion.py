@@ -26,6 +26,9 @@ def main():
    if not p.exists() or p.read_text().split()[2]=='Z':raise RuntimeError('Known acquisition process ended without completion')
    if time.monotonic()>deadline:raise TimeoutError('Four-hour acquisition wait exceeded; downloader is not restarted')
    time.sleep(5)
+  status(state='auditing_prepared_cohort')
+  with (root/'prepared_audit.log').open('w') as f:subprocess.run(['laya/.venv-eeg/bin/python','scripts/audit_faced_prepared.py'],stdout=f,stderr=subprocess.STDOUT,check=True)
+  assert json.loads((source/'prepared_integrity.json').read_text())['status']=='complete'
   run_stage('features',[(str(i),['-m','eeg_tasks.faced_features','--shard',str(i)]) for i in range(4)])
   commands=[]
   for name in ['seed_only','seed_faced','faced_only','seed_faced_text']:
