@@ -8,9 +8,9 @@ from transformers import AutoModel
 from .data import preprocess,normalized_window
 
 @torch.no_grad()
-def main(shard):
+def main(shard,prefix=False):
  torch.set_num_threads(4);cfg=json.loads(Path('configs/multitask_prototypes_v1.json').read_text());base=json.loads(Path(cfg['base_config']).read_text())
- root=Path('artifacts/emotion_reve60_v5');root.mkdir(exist_ok=True);out=root/f'{shard}.npz'
+ root=Path('artifacts/reve_prefix_v8/emotion' if prefix else 'artifacts/emotion_reve60_v5');root.mkdir(parents=True,exist_ok=True);out=root/f'{shard}.npz'
  if out.exists() or (root/f'{shard}.done.json').exists():raise FileExistsError(out)
  rows=[json.loads(s) for s in Path('artifacts/emotion_source_probe_v4/rows.jsonl').read_text().splitlines()]
  assert all(r['dataset']=='SEED' and r['split'] in ('train','validation') for r in rows)
@@ -22,6 +22,9 @@ def main(shard):
  excluded=[name for name in names if name not in bank.mapping];assert excluded==['CB1','CB2'],excluded
  picks=[i for i,name in enumerate(names) if name in bank.mapping];names=[names[i] for i in picks]
  pos=bank(names).detach().cuda();assert pos.shape==(60,3)
+ capture={}
+ if prefix:
+  model.transformer.layers[-2][0].register_forward_pre_hook(lambda module,args:capture.update(x=args[0].detach()))
  start=time.time()
  for path in files:
   data=loadmat(path);keys={str(int(re.search(r'eeg(\d+)$',k).group(1))):k for k in data if re.search(r'eeg(\d+)$',k)};signals=[];ids=[]
@@ -34,10 +37,11 @@ def main(shard):
   del data
   for begin in range(0,len(ids),24):
    x=torch.from_numpy(np.stack(signals[begin:begin+24])).cuda();stride=model.config.patch_size-model.config.patch_overlap;tail=(-(600-model.config.patch_size))%stride;x=torch.nn.functional.pad(x,(0,tail),mode='replicate');z=model(x,pos[None].expand(len(x),-1,-1)).mean(2)
-   assert z.shape[1:]==(60,512) and torch.isfinite(z).all();features.append(z.cpu().numpy().astype(np.float16));indices.extend(ids[begin:begin+24])
+   assert z.shape[1:]==(60,512) and torch.isfinite(z).all()
+   features.append((capture['x'] if prefix else z).cpu().numpy().astype(np.float16));indices.extend(ids[begin:begin+24])
   print(shard,Path(path).name,'windows',len(indices),flush=True)
  np.savez(out,indices=np.array(indices),features=np.concatenate(features))
- (root/f'{shard}.done.json').write_text(json.dumps({'n':len(indices),'seconds':time.time()-start,'channels':names,'rows_sha256':hashlib.sha256(Path('artifacts/emotion_source_probe_v4/rows.jsonl').read_bytes()).hexdigest(),'checkpoint':base['reve_checkpoint'],'shape_per_sample':[60,512],'excluded_channels':excluded,'note':'Frozen REVE fp32 compute; fp16 cached outputs; time mean only. No source test or external data.'},indent=2)+'\n')
+ (root/f'{shard}.done.json').write_text(json.dumps({'n':len(indices),'seconds':time.time()-start,'channels':names,'rows_sha256':hashlib.sha256(Path('artifacts/emotion_source_probe_v4/rows.jsonl').read_bytes()).hexdigest(),'checkpoint':base['reve_checkpoint'],'shape_per_sample':([240,512] if prefix else [60,512]),'excluded_channels':excluded,'prefix_before_last_two':prefix,'note':'Frozen REVE fp32 compute; fp16 cached outputs. No source test or external data.'},indent=2)+'\n')
 
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--shard',required=True,type=int,choices=range(4));main(p.parse_args().shard)
+ p=argparse.ArgumentParser();p.add_argument('--shard',required=True,type=int,choices=range(4));p.add_argument('--prefix',action='store_true');a=p.parse_args();main(a.shard,a.prefix)
