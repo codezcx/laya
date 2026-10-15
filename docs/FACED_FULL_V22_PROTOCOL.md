@@ -39,3 +39,30 @@ SEED training remains4050 windows. Both scales use the same8350 validation rows
 the controller requires all four to match. Expected training counts are8530
 and24490. Source training uses equal dataset/class weight and the unchanged
 C grid. No target evaluation is automatically launched after these controls.
+
+## Quality-rule amendment before any v22 model fitting
+
+Subject100 failed the unchanged flat-channel guard. Raw BDF reinspection with
+the same filter/window locations identified13 windows with PO3 std<1e-12volts,
+including nearly constant values around8e-17. All13 are negative-class windows
+in trials4,10,7. SHA256 verified; retrying network transfer cannot repair this.
+Evidence: `artifacts/faced_full_v22/sub100_flat_audit.json`.
+
+Opt-in full-cohort policy now quarantines such flat windows with exact trial,
+start, label, offending channel and measured std. No replacement window, subject
+removal, interpolation or threshold relaxation. Strict mode remains the default
+for old workflows. Nonfinite values still fail; every subject must retain all
+three classes. Audits require retained+quarantined=280 per subject, unique
+candidate locations, original class counts120/40/120 and28trials×10candidates.
+Actual model counts may be lower than nominal counts above; dataset/class
+sampling weights are recomputed from retained rows. This quality exclusion may
+be label-correlated and is disclosed rather than treated as missing at random.
+
+Subject100 now has267 valid windows and13 explicit quarantines; its original
+files and cohort membership are unchanged. The current live downloader had
+already imported strict code and retains its original failure record. Let it
+finish other subjects; only after terminal status, resume the same cohort using
+the corrected code to reconcile already repaired records. Do not restart a live
+download or erase historical errors. Complete full-cohort integrity validation
+is still required before feature extraction and training. Pilot/full controls
+must use the same actual validation rows, checked by hash.

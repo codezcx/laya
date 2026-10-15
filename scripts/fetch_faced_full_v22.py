@@ -27,8 +27,8 @@ def main(resume):
   if not (raw/'download.done.json').exists():download(subject,ROOT/'raw')
   if not (prepared/'audit.json').exists():
    if prepared.exists():raise FileExistsError(f'Incomplete prepared directory requires explicit inspection: {prepared}')
-   prepare(subject,ROOT)
-  a=json.loads((prepared/'audit.json').read_text());assert a['split']==('train' if subject in plan['train'] else 'validation') and a['windows']==280;assert a['source_revision']==plan['source_revision']
+   prepare(subject,ROOT,quarantine_flat=True)
+  a=json.loads((prepared/'audit.json').read_text());assert a['split']==('train' if subject in plan['train'] else 'validation') and a['windows']+len(a.get('quarantined_windows',[]))==280;assert a['source_revision']==plan['source_revision']
   return {'subject':subject,'split':a['split'],'sample_rate':a['sampling_rate']}
  persist()
  with ThreadPoolExecutor(max_workers=4) as pool:
@@ -40,6 +40,6 @@ def main(resume):
  progress['state']='failed' if progress['failed'] else 'auditing';persist()
  if progress['failed']:raise RuntimeError('Inspect failed records; no blind retry or replacement subjects')
  with (ROOT/'prepared_audit.log').open('w') as f:subprocess.run(['laya/.venv-eeg/bin/python','scripts/audit_faced_prepared.py','--root',str(ROOT)],stdout=f,stderr=subprocess.STDOUT,check=True)
- audit=json.loads((ROOT/'prepared_integrity.json').read_text());assert audit['status']=='complete' and audit['completed_subjects']==98 and audit['windows_audited']==27440;progress['state']='complete';progress['seconds']=time.time()-progress['started'];persist()
+ audit=json.loads((ROOT/'prepared_integrity.json').read_text());assert audit['status']=='complete' and audit['completed_subjects']==98 and audit['windows_audited']+audit.get('windows_quarantined',0)==27440;progress['state']='complete';progress['seconds']=time.time()-progress['started'];persist()
 if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--resume',action='store_true');main(p.parse_args().resume)
