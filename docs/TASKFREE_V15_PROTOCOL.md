@@ -11,7 +11,7 @@ channels after full-montage contextual encoding. Existing SEED and MI caches
 were already encoded from this same three-channel montage.
 
 Four runs: ordinary five-class head or text-prototype head, crossed with
-held-out emotion dataset SEED or FACED. Lee2019 is held out in every run.
+held-out emotion dataset SEED or FACED. Lee2019_MI is held out in every run.
 Training uses the other emotion dataset plus Cho2017 and Dreyer2023. Only
 subject-held-out validation from training datasets selects checkpoints; no
 held-out dataset contributes to fitting or selection. All available existing

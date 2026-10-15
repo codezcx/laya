@@ -16,7 +16,7 @@ class JointClassifier(nn.Module):
   return z if self.arm=='ordinary' else self.scale.clamp(0,4.6).exp()*(F.normalize(z,dim=-1)@self.prototypes.T)
 
 def split_indices(rows,held_emotion):
- held={held_emotion,'Lee2019'}
+ held={held_emotion,'Lee2019_MI'}
  train=[i for i,r in enumerate(rows) if r['dataset'] not in held and r['split']=='train']
  val=[i for i,r in enumerate(rows) if r['dataset'] not in held and r['split']=='validation']
  test=[i for i,r in enumerate(rows) if r['dataset'] in held]

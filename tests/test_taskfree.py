@@ -9,7 +9,7 @@ def test_joint_scores_do_not_mask_wrong_task():
  assert scores['macro_task']['oracle_balanced']==1
 
 def test_dataset_holdout_excludes_every_subject_and_split():
- rows=[dict(dataset=d,subject=s,split=sp) for d in ['SEED','FACED-NEMAR','Cho2017','Dreyer2023','Lee2019'] for s,sp in [('1','train'),('2','validation')]]
+ rows=[dict(dataset=d,subject=s,split=sp) for d in ['SEED','FACED-NEMAR','Cho2017','Dreyer2023','Lee2019_MI'] for s,sp in [('1','train'),('2','validation')]]
  tr,va,te=split_indices(rows,'FACED-NEMAR')
  assert len(tr)==len(va)==3 and len(te)==4
  assert {rows[i]['dataset'] for i in tr+va}=={'SEED','Cho2017','Dreyer2023'}
