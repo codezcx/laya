@@ -25,7 +25,7 @@
 |v20|频段×连续时长对照|45Hz或9秒均未超过30Hz/3秒频谱控制|[结果](EMOTION_CONTEXT_V20_RESULTS.md)|
 |v21|REVE末两层跨源同类约束与频谱辅助|四卡训练完成；SEED-VII约41%，仍低于43.72%频谱基线|[结果](EMOTION_ALIGNMENT_V21_RESULTS.md)|
 |v22|扩大FACED源被试并匹配验证集|源验证提升1.18–1.43点；SEED-VII普通频谱仍43.72%，无明确迁移收益|[结果](FACED_FULL_V22_RESULTS.md)|
-|v23|MI通道相对幅值与整域验证|完整三源池两组协方差特征提取中；尚未拟合或读取2b|[协议](MI_COVARIANCE_V23_PROTOCOL.md)|
+|v23|MI通道相对幅值与整域验证|相对协方差2b准确率69.61%，相关矩阵53.27%；信号基线有收益，尚非REVE/语言模型收益|[结果](MI_COVARIANCE_V23_RESULTS.md)|
 
 ## 使用结果的边界
 
