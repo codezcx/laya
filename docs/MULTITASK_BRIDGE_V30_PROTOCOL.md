@@ -59,3 +59,11 @@ All source validation samples are evaluated at initialization and every 100 step
 The ordinary readout remains under the `connector` attribute so the identical optimizer/checkpoint code applies. Invalid NaN padding is removed before normalization and then masked again, avoiding contamination by LayerNorm bias. Three tests pass: invalid-padding logit/gradient safety and two selection-metric tests. The control is not automatically launched by the Qwen controller; schedule it once GPU resources are free and preserve a separate output directory.
 
 Cache extraction finished with shard counts 17,626 / 17,743 / 17,445 / 17,445. Verification and training status must be read from their live artifacts; extraction completion alone is not yet the verification result.
+
+## Verified cache and interim training evidence
+
+Full verification passed for all 70,259 rows: exhaustive unique index coverage, finite values, expected token lengths, zero padding, and matching file/manifest hashes. Training uses 57,749 rows; source validation contains 12,510 rows. The four-GPU frozen-Qwen run started successfully and reached optimizer updates without DDP errors.
+
+An additional comparison against the earlier 12-sample independent fp32 extraction initially failed a naive absolute tolerance of .02. This was investigated rather than relaxed: MI differences are exactly fp16 rounding (up to .0312); emotion differences also reflect singleton versus batch encoder computation. `scripts/audit_bridge_replay_v30.py` reconstructs the same signals and the same batch slices used during caching. All twelve input hashes match the independent smoke, and all twelve matched-batch fp16 token arrays replay exactly (maximum difference zero). Evidence is retained in `source_cache/smoke_replay_audit.json` and `source_cache/matched_batch_replay.json`. This is a targeted replay check, not an exhaustive raw-data replay of every window.
+
+At step 200, source subject-balanced joint accuracy was Cho 58.40%, Dreyer 57.13%, Lee 49.60%, SEED 37.85%, FACED 34.97%; the task-macro selection score was 45.73%. Task routing was 100% for all sources. This can exploit the three-channel versus thirty-channel acquisition format; it is not evidence of semantic task discovery. These are interim source validation scores, not external zero-shot accuracy, and do not change the predeclared 500-step schedule.
