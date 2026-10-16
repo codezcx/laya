@@ -1,24 +1,23 @@
-# EEG → Qwen
+# EEG 与任务＋类别文本对齐
 
-当前正在准备显式 EEG–文本对齐，文本向量诊断与配对损失已实现，尚未启动对比训练。已完成的分类接口作为必要对照：冻结 REVE 编码原始 EEG，通过可训练 connector 接入冻结 Qwen，输出情绪三类和运动想象两类。参数量匹配的信号分类器是同一方案的必要对照。
+当前方案将冻结 REVE 的 EEG tokens，经一个可训练聚合投影器，映射到冻结 Qwen3-Embedding-0.6B 的文本空间。对齐完整的任务＋类别描述，五类联合检索；不设独立任务头，不生成答案文本。必要对照使用相同 EEG 投影结构和分类交叉熵。
 
-- `eeg_align/`：当前 token 缓存、模型、训练和外部评估。
-- `eeg_tasks/`：当前方案所需的预处理、通道映射和标签读取辅助函数；旧模型与训练流程已删除。
-- `scripts/`：当前训练启动、审计和小样本验证。
-- `configs/`：当前使用的数据与模型路径。
-- `tests/`：当前方案的接口与指标检查。
-- [当前实验协议](docs/PROTOCOL.md)：当前显式对齐准备与文本表示诊断。
-- [最近完成的结果](docs/RESULTS.md)：当前分类接口实验及外部结果。
+- [实验协议](docs/PROTOCOL.md)：数据划分、文本、损失、训练及选模。
+- [结果记录](docs/RESULTS.md)：本轮状态及此前完成的分类接口结果。
+- `eeg_align/`：缓存、模型、训练、评估；`eeg_tasks/`：必要预处理。
+- `configs/text_descriptions.json`：五类完整文本；其余配置保存数据和编码器路径。
 
-从仓库根运行，Python 为 `laya/.venv-eeg/bin/python`。当前 3,000 步两组训练及外部评估已完成；状态在 `artifacts/multitask_bridge_v31/status.json`。仅查看复现审计可运行：
+从仓库根目录运行：
 
 ```sh
-laya/.venv-eeg/bin/python scripts/audit_bridge_budget_prefix_v31.py
-PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests
+PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests -v
+laya/.venv-eeg/bin/python scripts/download_text_encoder.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/prepare_text_bank.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_alignment.py
 ```
 
-历史方案通过 Git 查看或恢复，不在主工作区复制多套代码。清理前完整快照是 `6642113`，例如 `git show 6642113:docs/EXPERIMENT_INDEX.md`。需要重跑历史实验时使用独立 worktree，避免覆盖当前训练代码。
+已有文本向量和实验目录时，准备/训练入口会拒绝覆盖。下载脚本可校验已由其他节点下载的权重。正式启动前检查文本表示诊断。
 
-当前仍有少量历史版本号文件名作为正在运行实验的兼容入口；其中仅保留当前方案用到的函数，没有旧方案训练实现。运行中的 v31 会校验训练器哈希，因此完成前不改其路径、实现或配置。
+运行产物位于 `artifacts/eeg_text_alignment/`。`runs/status.json` 记录阶段，每组的 `metrics.jsonl` 记录 loss 和分开的 MI、情绪验证指标。四卡分别训练对比对齐/CE 对照各两个 seed。
 
-`artifacts/`、`laya/`、`third_party/` 不纳入 Git。原始数据、checkpoint、日志和缓存不能通过 Git 恢复，本次代码清理保留它们。后续成果以当前协议和结果记录维护，旧代码只留在提交历史。
+仓库只保留当前方案及必要对照，历史代码通过 Git 恢复。前一方案完整提交为 `471cd15` 的父版本及其历史；准备阶段快照为 `471cd15`。`artifacts/`、`laya/`、`third_party/` 中的数据、权重、环境和日志不纳入 Git，也不随代码清理删除。

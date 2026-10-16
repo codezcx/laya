@@ -3,11 +3,10 @@ import json
 from pathlib import Path
 import numpy as np
 import torch
-from transformers import AutoTokenizer
-from eeg_align.model import load_text_only
-from eeg_align.cache_multitask_v30 import digest
+from transformers import AutoTokenizer, AutoModel
+from eeg_align.cache import digest
 
-OUT=Path('artifacts/eeg_text_alignment/text_bank')
+OUT=Path('artifacts/eeg_text_alignment/embedding_bank')
 
 
 def diagnostic(vectors,rows):
@@ -25,30 +24,35 @@ def diagnostic(vectors,rows):
 
 @torch.no_grad()
 def main():
-    OUT.mkdir(parents=True,exist_ok=False);torch.set_num_threads(4)
+    if (OUT/'complete.json').exists():raise FileExistsError('Text bank is already complete')
+    OUT.mkdir(parents=True,exist_ok=True);torch.set_num_threads(4)
     config=Path('configs/text_descriptions.json');rows=json.loads(config.read_text())['descriptions']
     assert len(rows)==30 and len({r['text'] for r in rows})==30
     for c in range(5):
         assert sum(r['class_id']==c and r['split']=='train' for r in rows)==4
         assert sum(r['class_id']==c and r['split']=='heldout_wording' for r in rows)==2
-    base=json.loads(Path('configs/reve_qwen_mi_multi.json').read_text());path=base['qwen_checkpoint']
-    tok=AutoTokenizer.from_pretrained(path,local_files_only=True)
-    token=tok.encode('A',add_special_tokens=False);assert len(token)==1
-    model,_,audit=load_text_only(path,token,'cuda:0',torch.bfloat16)
-    model.eval().requires_grad_(False);arrays={'mean':[],'last':[]}
+    path=Path('artifacts/models/Qwen3-Embedding-0.6B')
+    downloaded=json.loads((path/'download_complete.json').read_text())
+    for f in downloaded['files']:
+        assert digest(path/f['file'])==f['sha256']
+    tok=AutoTokenizer.from_pretrained(path,local_files_only=True,padding_side='left')
+    model,audit=AutoModel.from_pretrained(path,local_files_only=True,dtype=torch.float32,output_loading_info=True)
+    assert not any(audit.get(k) for k in ['missing_keys','unexpected_keys','mismatched_keys','error_msgs'])
+    model=model.cuda().eval().requires_grad_(False)
+    arrays={'last':[]}
     for r in rows:
-        ids=torch.tensor(tok.encode(r['text'],add_special_tokens=False),device='cuda')[None]
-        z=model(input_ids=ids,use_cache=False,return_dict=True).last_hidden_state.float()[0]
-        arrays['mean'].append(z.mean(0).cpu().numpy());arrays['last'].append(z[-1].cpu().numpy())
+        batch=tok(r['text'],return_tensors='pt').to('cuda')
+        z=model(**batch,use_cache=False,return_dict=True).last_hidden_state.float()[0,-1]
+        arrays['last'].append(z.cpu().numpy())
     reports={}
     for name,values in arrays.items():
-        x=np.stack(values);assert np.isfinite(x).all()
+        x=np.stack(values);assert x.shape==(30,1024) and np.isfinite(x).all()
         np.save(OUT/f'{name}.npy',x);reports[name]=diagnostic(x,rows)
     (OUT/'rows.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
-    (OUT/'complete.json').write_text(json.dumps(dict(checkpoint=path,loading=audit,
-        checkpoint_index_sha256=digest(Path(path)/'model.safetensors.index.json'),
+    (OUT/'complete.json').write_text(json.dumps(dict(checkpoint=str(path),loading={k:sorted(v) if isinstance(v,set) else v for k,v in audit.items()},
+        checkpoint_provenance=downloaded,
         descriptions_sha256=digest(config),reports=reports,
-        hashes={name:digest(OUT/name) for name in ['mean.npy','last.npy','rows.jsonl']}),indent=2))
+        hashes={name:digest(OUT/name) for name in ['last.npy','rows.jsonl']}),indent=2))
     print(json.dumps(reports),flush=True)
 
 

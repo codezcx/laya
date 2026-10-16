@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from eeg_align.train_multitask_v30 import metrics
+from eeg_align.data import metrics
 
 
 class MetricsTest(unittest.TestCase):

@@ -10,8 +10,8 @@ import torch
 from scipy.io import loadmat
 from transformers import AutoModel
 from eeg_tasks.data import preprocess, normalized_window
-from eeg_tasks.emotion_transfer_probe import CHANNELS, picks, readrows
-from eeg_tasks.mi_reve_scaling_v24 import scale_window
+from eeg_tasks.channels import CHANNELS, picks, readrows
+from eeg_tasks.normalization import scale_window
 
 ROOT = Path('artifacts/multitask_bridge_v30/source_cache')
 
@@ -101,7 +101,7 @@ def extract(shard):
     for i,r in enumerate(rows): groups.setdefault(r['path'], []).append(i)
     indices = [i for path in plan['paths'][shard] for i in groups[path]]
     out = ROOT/str(shard); out.mkdir(exist_ok=False)
-    cfg = json.loads(Path('configs/multitask_prototypes_v1.json').read_text())
+    cfg = json.loads(Path('configs/data.json').read_text())
     base = json.loads(Path(cfg['base_config']).read_text())
     model, info = AutoModel.from_pretrained(base['reve_checkpoint'], local_files_only=True,
         trust_remote_code=True, output_loading_info=True)

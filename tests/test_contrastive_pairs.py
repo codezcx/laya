@@ -1,6 +1,6 @@
 import unittest
 import torch
-from eeg_align.multitask_bridge import contrastive_pair_loss
+from eeg_align.model import contrastive_pair_loss
 
 
 class PairLossTest(unittest.TestCase):

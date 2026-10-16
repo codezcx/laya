@@ -2,20 +2,11 @@ import unittest
 import json
 import tempfile
 from pathlib import Path
-from eeg_align.external_v30 import metrics, frozen
-from eeg_align.cache_multitask_v30 import digest
+from eeg_align.evaluate import metrics
+from eeg_align.cache import digest
 
 
 class ExternalMetricsTest(unittest.TestCase):
-    def test_selected_checkpoint_freeze_rejects_tampering(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);(root/'qwen').mkdir();checkpoint=root/'qwen/best.pt'
-            checkpoint.write_bytes(b'original')
-            record={'arms':{'qwen':{'best.pt':digest(checkpoint)}}}
-            (root/'source_freeze.json').write_text(json.dumps(record))
-            self.assertEqual(frozen(root),digest(root/'source_freeze.json'))
-            checkpoint.write_bytes(b'changed')
-            with self.assertRaises(AssertionError):frozen(root)
 
     def test_binary_global_ids_and_wrong_task_predictions(self):
         rows=[{'subject':'1','class_id':c} for c in [3,3,3,4]]
