@@ -2,7 +2,7 @@
 
 ## 当前运行：JEV接口可学习性诊断
 
-已有REVE线性探针的源留出MI结果为Cho 57.80%、Lee 64.50%、Dreyer 71.76%，说明冻结特征包含可解码的类别信息。该证据不代表已实现跨数据集zero-shot。本轮已启动四卡，在固定60条源训练窗口上比较原接口、移动题目选项到EEG之前、匹配投影RMS，以及二者组合。原始JEV LoRA全程启用。此为训练集拟合与输入干预诊断，不使用目标集，也不冒充泛化成绩。源码提交 `4ac3505`，四个worker进程已核验存活并加载JEV权重；状态在 `artifacts/jev_interface_diagnostic/status.json`，结果尚未产生。
+已有REVE线性探针的源留出MI结果为Cho 57.80%、Lee 64.50%、Dreyer 71.76%，说明冻结特征包含可解码的类别信息。该证据不代表已实现跨数据集zero-shot。本轮已启动四卡，在固定60条源训练窗口上比较原接口、移动题目选项到EEG之前、匹配投影RMS，以及二者组合。原始JEV LoRA全程启用。此为训练集拟合与输入干预诊断，不使用目标集，也不冒充泛化成绩。源码提交 `4ac3505`，四个worker进程已核验存活并开始训练；状态在 `artifacts/jev_interface_diagnostic/status.json`。初始投影RMS为0.19947，文本embedding参考RMS为0.014107，相差约14.14倍；原顺序EEG后的文本为83 tokens，移动题目选项后为10 tokens，总文本长度均为95 tokens。此为待检验因素，不是已确认失败原因。完整拟合和干预结果尚未产生。独立核算脚本为 `scripts/report_interface_diagnostic.py`，快照报告在 `artifacts/jev_interface_diagnostic/REPORT.md`；报告区分最新训练步数与实际评估步数。
 
 ## 当前：真实 JEV-27B-VL 接入 EEG
 

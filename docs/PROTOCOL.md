@@ -69,3 +69,5 @@ checkpoint 文件哈希记录 `artifacts/jev_eeg/checkpoint_audit.json`。训练
 两任务各自达到95%训练小集准确率只是接口拟合门槛，**不是zero-shot成功标准，也不是泛化证据**。任何改进须随后在完整源训练、源留出及外部测试中验证；不从这60条的成绩直接推断性能。当前诊断不读取2b/SEED-VII，不使用验证/目标集选条件。
 
 入口 `scripts/run_interface_diagnostic.py`，实现 `eeg_align/interface_diagnostic.py`；产物 `artifacts/jev_interface_diagnostic/`。这是当前JEV方案的必要故障诊断，不另保留历史训练实现。
+
+只读核算命令：`PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_interface_diagnostic.py`。核验源索引仅来自训练分区、分组计数、代码与manifest哈希，并在每组完成后从保存logits独立重算CE、MI/情绪指标和预测分布；未完成组不排名或提前选条件。
