@@ -28,4 +28,21 @@ The control completed all 500 updates and selected step 500. Best/last checkpoin
 
 ## Interpretation and remaining work
 
-This round verifies a real EEG→connector→Qwen training path, unlike offline text prototypes. It still trains from categorical labels, not paired descriptive EEG reports. No external 2b/SEED-VII evaluation has been run for v30. Language benefit, cross-dataset improvement and universal task recognition remain unproven. Next: evaluate both frozen source-selected checkpoints on identical external token inputs with signal-shuffle diagnostics. Both external datasets have already been used in exploratory development; REVE pretraining includes 2b.
+This round verifies a real EEG→connector→Qwen training path, unlike offline text prototypes. It still trains from categorical labels, not paired descriptive EEG reports. Language benefit across both tasks and universal task recognition remain unproven. Both external datasets have already been used in exploratory development; REVE pretraining includes 2b.
+
+## Completed paired external evaluation
+
+Both frozen checkpoints were evaluated on the identical final-token cache: 2,840 2b E-session trials from nine subjects and 6,400 SEED-VII Happy/Neutral/Sad windows from twenty subjects. All logits are unmasked five-class predictions; no target fitting, calibration, checkpoint selection or hyperparameter change occurred. Task routing was 100% for both arms on both datasets, making oracle-task scores identical to joint scores here.
+
+| External metric | Signal control | Frozen Qwen + connector |
+|---|---:|---:|
+| 2b ordinary trial accuracy (primary MI) | 56.58% | 53.98% |
+| 2b subject-macro accuracy | 56.39% | 53.87% |
+| SEED-VII ordinary window accuracy | 42.30% | 38.05% |
+| SEED-VII subject-macro balanced accuracy (primary emotion) | 38.58% | 40.65% |
+
+Qwen-minus-control paired subject differences: MI −2.52 percentage points, subject-bootstrap 95% CI [−5.14,−0.18]; emotion +2.06 points, CI [+0.20,+3.89]. Intervals are conditional on these single-seed source-selected models and repeatedly exposed targets, not corrected confirmatory evidence over the many development rounds. Emotion ordinary accuracy falls while balanced accuracy rises: these metrics must not be conflated.
+
+Within-subject shuffled-input equivalents gave 2b ordinary accuracy 49.33% for both arms; emotion balanced accuracy was 32.53% (control) and 32.28% (Qwen). The models use some class-related signal beyond this negative control, but gains are limited. Qwen does not improve both tasks and remains below earlier stronger signal baselines. Routing can exploit token count/montage, so 100% routing is not evidence of semantic task recognition.
+
+Artifacts: `artifacts/multitask_bridge_v30/external/{results.json,rows.jsonl,qwen_frozen_logits.npy,signal_control_logits.npy,evaluation_audit.json}`. Metrics were independently recomputed from saved logits; source-freeze hashes were rechecked. Extraction logs and per-shard file/manifest hashes remain in the same directory. Neither task is declared solved, and no new stress/arithmetic task is added on this evidence.
