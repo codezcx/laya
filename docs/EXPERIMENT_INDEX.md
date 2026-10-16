@@ -33,6 +33,7 @@
 |v28|主观评分辅助与未见视频验证|四组完成；真实评分源增益0.26点，低于打乱评分0.55点，不支持个体评分收益|[结果](EMOTION_RATING_V28_RESULTS.md)|
 |v29|匹配trial推理上下文的训练单位对照|SEED-VII trial平衡准确率窗口训练46.88%、均值训练45.56%；无外部增益|[结果](EMOTION_TRIAL_V29_RESULTS.md)|
 |v30|恢复真实Qwen五类EEG token接口|Qwen／信号基线：2b 53.98%／56.58%；SEED-VII平衡准确率40.65%／38.58%；无双任务一致收益|[结果](MULTITASK_BRIDGE_V30_RESULTS.md)|
+|v31|固定扩大训练预算检查收敛|同一训练器／数据，双组3,000步源训练；不自动评估目标集|[协议](MULTITASK_BRIDGE_V31_PROTOCOL.md)|
 
 ## 使用结果的边界
 
