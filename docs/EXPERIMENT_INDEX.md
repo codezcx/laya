@@ -32,7 +32,7 @@
 |v27|情绪监督语义与刺激覆盖审计|FACED源2,744条主观评分完整；当前使用刺激类别，尚未训练评分辅助目标|[审计](EMOTION_SUPERVISION_V27_AUDIT.md)|
 |v28|主观评分辅助与未见视频验证|四组完成；真实评分源增益0.26点，低于打乱评分0.55点，不支持个体评分收益|[结果](EMOTION_RATING_V28_RESULTS.md)|
 |v29|匹配trial推理上下文的训练单位对照|SEED-VII trial平衡准确率窗口训练46.88%、均值训练45.56%；无外部增益|[结果](EMOTION_TRIAL_V29_RESULTS.md)|
-|v30|恢复真实Qwen五类EEG token接口|真实checkpoint合成反向检查通过；尚未开展数据集训练，无新准确率|[协议与接口检查](MULTITASK_BRIDGE_V30_PROTOCOL.md)|
+|v30|恢复真实Qwen五类EEG token接口|合成检查和五源12样本训练检查通过；尚无完整训练或外部准确率|[协议与接口检查](MULTITASK_BRIDGE_V30_PROTOCOL.md)|
 
 ## 使用结果的边界
 
