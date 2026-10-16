@@ -4,6 +4,10 @@
 
 已有REVE线性探针的源留出MI结果为Cho 57.80%、Lee 64.50%、Dreyer 71.76%，说明冻结特征包含可解码的类别信息。该证据不代表已实现跨数据集zero-shot。本轮已启动四卡，在固定60条源训练窗口上比较原接口、移动题目选项到EEG之前、匹配投影RMS，以及二者组合。原始JEV LoRA全程启用。此为训练集拟合与输入干预诊断，不使用目标集，也不冒充泛化成绩。源码提交 `4ac3505`，四个worker进程已核验存活并开始训练；状态在 `artifacts/jev_interface_diagnostic/status.json`。初始投影RMS为0.19947，文本embedding参考RMS为0.014107，相差约14.14倍；原顺序EEG后的文本为83 tokens，移动题目选项后为10 tokens，总文本长度均为95 tokens。此为待检验因素，不是已确认失败原因。完整拟合和干预结果尚未产生。独立核算脚本为 `scripts/report_interface_diagnostic.py`，快照报告在 `artifacts/jev_interface_diagnostic/REPORT.md`；报告区分最新训练步数与实际评估步数。
 
+接口诊断中间检查（第50步，仍是60条训练样本）：原接口MI80.00%、情绪96.67%；near为50.00%/50.00%；scaled为46.67%/50.00%；near_scaled为50.00%/40.00%。结果尚未收齐，不提前选条件，但原接口已有明显拟合能力，因此“向量尺度差异是失败原因”目前没有证据支持。
+
+输入一致性审计：60条特征向量全部不同，重复特征标签冲突为0；中心化样本Gram矩阵秩59（最大可能59）。同一训练小集的线性最小二乘读出MI/情绪均100%，仅证明训练小集可拟合，不是等预算优化对照或泛化结果。脚本 `scripts/audit_interface_inputs.py`，证据 `artifacts/jev_interface_diagnostic/input_audit.json`。
+
 ## 当前：真实 JEV-27B-VL 接入 EEG
 
 四组500步训练、完整源验证和外部测试均已完成，训练源码 `b2548c8`。所有组始终启用原始 JEV LoRA，冻结只表示不更新参数。最佳checkpoint由244窗源验证panel选定并冻结，再做完整评估；不是按外部成绩选模。
