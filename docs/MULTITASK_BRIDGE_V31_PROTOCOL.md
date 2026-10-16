@@ -15,3 +15,9 @@ The nominal sampled training volume is 144,000 examples (with replacement, task/
 `scripts/run_bridge_budget_v31.py` checks the v30 trainer source hash and cache audit before launching. It runs Qwen then signal, never restarts a failed job, and records process IDs and status under `artifacts/multitask_bridge_v31`. Each arm has its own output folder and log. Existing v30 artifacts remain intact. The controller does **not** load targets or launch external evaluation. Only after both source fits finish and their selected model hashes are frozen may a later evaluation use the existing identical external inputs.
 
 Expected runtime from v30 is roughly 25 minutes for Qwen plus about one minute for the control, subject to actual throughput. Training remains restricted to MI and emotion; no arithmetic/stress expansion is justified by v30.
+
+## Prefix reproducibility audit
+
+`scripts/audit_bridge_budget_prefix_v31.py` compares run metadata, all logged losses through step 500 and source validation records at steps 0–500 with v30. It ignores wall-clock timings, requires the budget to be the only metadata difference, reports numerical differences rather than silently accepting them, and marks the audit incomplete until all expected prefix records exist. A live writer's unfinished final line is not parsed as a complete record. Results are written atomically to `artifacts/multitask_bridge_v31/prefix_audit.json`.
+
+Initial inspection at step 120: metadata differ only in steps [500,3000], and available loss records plus validation at steps 0 and 100 reproduce v30 exactly (maximum numerical differences zero). This is a partial prefix check; the full 500-step prefix and signal arm remain pending. The existing controller and training process were confirmed live; no retry or restart occurred.
