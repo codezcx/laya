@@ -4,9 +4,7 @@
 
 **所有组始终启用 JEV LoRA。冻结仅表示不更新参数，绝不表示关闭 adapter。**
 
-上一轮500步实验和评估已完成，结果见下方记录。源训练小集接口诊断也已完成：原接口可以拟合并利用具体EEG窗口，尺度归一化未带来一致改善。下一步保留原接口，使用完整覆盖采样和完整源验证；新的正式训练尚未启动，总体目标尚未达成。
-
-已完成的四卡实验：投影器对照 seed42；LoRA＋投影器 seeds42/43；LoRA＋投影器＋REVE seed42。语言主干和 JEV A–E 决策权重始终冻结，不加载视觉 encoder。
+当前改为完整覆盖训练：两个匹配组各用两卡，比较只更新投影器与更新投影器＋原始JEV LoRA。REVE均冻结，固定两轮覆盖、每组4380步，全局batch48；用完整源验证集选模。正式启动前验证真实模型的梯度同步和断点恢复。总体跨数据集目标尚未达成。
 
 - [实验协议](docs/PROTOCOL.md)
 - [结果和状态](docs/RESULTS.md)
@@ -24,7 +22,7 @@ PYTHONPATH=. laya/.venv-eeg/bin/python -m eeg_align.signals
 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
 ```
 
-实际 checkpoint：`laya/JEV-27B-VL/`，adapter：其 `adapter_vllm/`。产物：`artifacts/jev_eeg/`；`runs/status.json` 记录阶段，各组 `metrics.jsonl` 记录 loss、MI 和情绪验证指标。
+实际 checkpoint：`laya/JEV-27B-VL/`，adapter：其 `adapter_vllm/`。当前训练产物：`artifacts/jev_eeg_coverage/`；`runs/status.json` 记录阶段，各组 `metrics.jsonl` 记录 loss、MI 和情绪验证指标。
 
 只保留当前实现和必要对照。此前“任务＋类别文本相似度”方案（非 JEV 推理）完整版本在 Git `0e6c506`；原始对比方案代码不再留在工作区。忽略目录中的数据、权重、日志和环境保留，不通过 Git 管理或随代码清理删除。
 

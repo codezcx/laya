@@ -48,6 +48,7 @@ def main():
     args=p.parse_args();torch.set_num_threads(4)
     freeze=json.loads(args.freeze.read_text());assert freeze['runs'][args.run.name]==digest(args.run/'best.pt')
     saved=torch.load(args.run/'best.pt',map_location='cpu',weights_only=False);cfg=saved['config']
+    assert not cfg.get('smoke',False), 'Smoke checkpoints cannot access external targets'
     text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,cfg['train_lora'])
     expected={n for n,p in model.named_parameters() if p.requires_grad}
     assert set(saved['trainable'])==expected
@@ -74,6 +75,7 @@ def main():
                 x=torch.tensor(signals[start:start+12],device='cuda');ch=torch.tensor(channels[start:start+12],device='cuda')
                 z,m=encoder(x,ch)
             scores.append(model(z,m)['logits'].cpu().numpy())
+            if start%240==0:print('external progress',shard,start,'/',len(rr),flush=True)
         rows.extend(rr);print('external shard complete',shard,flush=True)
     logits=np.concatenate(scores);np.save(args.run/'external_logits.npy',logits);pred=logits.argmax(1);result={}
     for ds in sorted({r['dataset'] for r in rows}):
