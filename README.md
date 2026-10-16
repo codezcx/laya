@@ -7,10 +7,10 @@
 - `scripts/`：当前训练启动、审计和小样本验证。
 - `configs/`：当前使用的数据与模型路径。
 - `tests/`：当前方案的接口与指标检查。
-- [当前实验协议](docs/MULTITASK_BRIDGE_V31_PROTOCOL.md)：固定 3,000 步的训练预算检查。
-- [最近完成的结果](docs/MULTITASK_BRIDGE_V30_RESULTS.md)：500 步对照及外部结果。
+- [当前实验协议](docs/PROTOCOL.md)：固定 3,000 步的训练预算检查。
+- [最近完成的结果](docs/RESULTS.md)：当前分类接口实验及外部结果。
 
-从仓库根运行，Python 为 `laya/.venv-eeg/bin/python`。当前已有训练进程，不要重复启动；状态在 `artifacts/multitask_bridge_v31/status.json`。仅查看复现审计可运行：
+从仓库根运行，Python 为 `laya/.venv-eeg/bin/python`。当前 3,000 步两组训练及外部评估已完成；状态在 `artifacts/multitask_bridge_v31/status.json`。仅查看复现审计可运行：
 
 ```sh
 laya/.venv-eeg/bin/python scripts/audit_bridge_budget_prefix_v31.py
