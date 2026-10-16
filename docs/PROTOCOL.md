@@ -76,3 +76,7 @@ checkpoint 文件哈希记录 `artifacts/jev_eeg/checkpoint_audit.json`。训练
 ## 评估后独立复算
 
 两组外部评估完成后运行 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_jev_results.py`。脚本独立由五类混淆矩阵计算普通准确率、被试平均准确率及被试平均平衡准确率，逐被试核对原报告，并验证冻结模型哈希、外部缓存来源和行顺序。输出 `artifacts/jev_eeg_coverage/runs/independent_results.json`；若评估未完成或数值不符则报错，不产生通过记录。此脚本不参与选模。
+
+## 用户要求的中途评估
+
+用户要求不停止训练，提前检查推理结果。`scripts/evaluate_jev_midrun.py` 读取原子保存的 `last.pt` 的固定快照，不加载仍在更新的内存权重。先评估每个源验证被试×类别最多2条窗口，再评估完整2b/SEED-VII；输出逐样本logits、checkpoint步数和单独指标。产物在 `artifacts/jev_eeg_coverage/midrun/`。推理与训练共享GPU，可能降低训练速度，不修改训练/采样代码。此评估是中途诊断，不参与原定源验证选模，也不作为正式最终结果；目标集已再次暴露。
