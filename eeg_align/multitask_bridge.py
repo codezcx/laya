@@ -11,6 +11,28 @@ SUFFIX = ('\nEEG ends.\nOptions: A. emotion recognition, negative; '
           'D. motor imagery, left hand; E. motor imagery, right hand.\nAnswer:')
 
 
+def contrastive_pair_loss(signal, text, signal_labels, text_labels, temperature=.1):
+    """Balanced sigmoid pair supervision; all same-class descriptions are positive.
+
+    This helper is not yet wired into the archived CE trainer. Repeated class
+    descriptions must not become off-diagonal negatives as in one-to-one CLIP.
+    Every row and column needs both positive and negative pairs.
+    """
+    if temperature<=0 or signal.ndim!=2 or text.ndim!=2 or signal.shape[1]!=text.shape[1]:
+        raise ValueError('Invalid embeddings/temperature')
+    if signal_labels.shape!=(len(signal),) or text_labels.shape!=(len(text),):
+        raise ValueError('Invalid label shape')
+    positive=signal_labels[:,None]==text_labels[None,:]
+    negative=~positive
+    if not all(mask.any(axis).all() for mask in [positive,negative] for axis in [0,1]):
+        raise ValueError('Both pair types required for every signal and text anchor')
+    scores=F.normalize(signal.float(),dim=-1)@F.normalize(text.float(),dim=-1).T/temperature
+    pos=F.softplus(-scores)*positive;neg=F.softplus(scores)*negative
+    row=.5*(pos.sum(1)/positive.sum(1)+neg.sum(1)/negative.sum(1))
+    col=.5*(pos.sum(0)/positive.sum(0)+neg.sum(0)/negative.sum(0))
+    return .5*(row.mean()+col.mean())
+
+
 class MultitaskBridge(nn.Module):
     """Frozen decoder and token readout, trainable bridge, unmasked five-class CE.
 

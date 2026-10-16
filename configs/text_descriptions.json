@@ -1,0 +1,215 @@
+{
+  "descriptions": [
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "train",
+      "text": "Task: emotion recognition. Class: negative emotional valence."
+    },
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "train",
+      "text": "This EEG segment belongs to emotion recognition, with the class negative emotional valence."
+    },
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "train",
+      "text": "The task is emotion recognition; the category is negative emotional valence."
+    },
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "train",
+      "text": "For the emotion recognition task, this recording is labeled negative emotional valence."
+    },
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "This recording represents negative emotional valence in a emotion recognition experiment."
+    },
+    {
+      "class_id": 0,
+      "class_name": "negative",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "An EEG example of emotion recognition corresponding to negative emotional valence."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "train",
+      "text": "Task: emotion recognition. Class: neutral emotional valence."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "train",
+      "text": "This EEG segment belongs to emotion recognition, with the class neutral emotional valence."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "train",
+      "text": "The task is emotion recognition; the category is neutral emotional valence."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "train",
+      "text": "For the emotion recognition task, this recording is labeled neutral emotional valence."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "This recording represents neutral emotional valence in a emotion recognition experiment."
+    },
+    {
+      "class_id": 1,
+      "class_name": "neutral",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "An EEG example of emotion recognition corresponding to neutral emotional valence."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "train",
+      "text": "Task: emotion recognition. Class: positive emotional valence."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "train",
+      "text": "This EEG segment belongs to emotion recognition, with the class positive emotional valence."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "train",
+      "text": "The task is emotion recognition; the category is positive emotional valence."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "train",
+      "text": "For the emotion recognition task, this recording is labeled positive emotional valence."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "This recording represents positive emotional valence in a emotion recognition experiment."
+    },
+    {
+      "class_id": 2,
+      "class_name": "positive",
+      "task_id": 0,
+      "split": "heldout_wording",
+      "text": "An EEG example of emotion recognition corresponding to positive emotional valence."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "Task: motor imagery recognition. Class: imagined left-hand movement."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "This EEG segment belongs to motor imagery recognition, with the class imagined left-hand movement."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "The task is motor imagery recognition; the category is imagined left-hand movement."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "For the motor imagery recognition task, this recording is labeled imagined left-hand movement."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "heldout_wording",
+      "text": "This recording represents imagined left-hand movement in a motor imagery recognition experiment."
+    },
+    {
+      "class_id": 3,
+      "class_name": "left_hand",
+      "task_id": 1,
+      "split": "heldout_wording",
+      "text": "An EEG example of motor imagery recognition corresponding to imagined left-hand movement."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "Task: motor imagery recognition. Class: imagined right-hand movement."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "This EEG segment belongs to motor imagery recognition, with the class imagined right-hand movement."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "The task is motor imagery recognition; the category is imagined right-hand movement."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "train",
+      "text": "For the motor imagery recognition task, this recording is labeled imagined right-hand movement."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "heldout_wording",
+      "text": "This recording represents imagined right-hand movement in a motor imagery recognition experiment."
+    },
+    {
+      "class_id": 4,
+      "class_name": "right_hand",
+      "task_id": 1,
+      "split": "heldout_wording",
+      "text": "An EEG example of motor imagery recognition corresponding to imagined right-hand movement."
+    }
+  ],
+  "note": "Task and class labels only; no dataset identifiers or invented per-trial physiological reports. Heldout wording is not an unseen class/task."
+}

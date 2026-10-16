@@ -1,25 +1,21 @@
-# v31: Fixed source-only training-budget check
+# 当前阶段：显式 EEG–文本对齐准备
 
-## Why this round
+上一轮分类接口实验已结束，结果见 [RESULTS.md](RESULTS.md)。该轮损失为类别交叉熵，不能称为信号–文本对比学习。历史协议由 Git 保留。
 
-Both v30 arms selected the last candidate (step 500), and source validation was still improving near the boundary. Those 500 updates sampled only 24,000 examples with replacement across a 57,749-row training set. This does not prove undertraining, but it leaves convergence unresolved. Test a larger fixed budget before changing representations, prompts or encoder weights. This decision is motivated by the source curves; the v30 targets have already been exposed and remain exploratory.
+## 对齐对象
 
-## Fixed recipe
+文本只描述任务和类别，不描述未经观测的生理现象，也不包含数据集身份。`configs/text_descriptions.json` 包含五类，每类四条训练描述、两条留出措辞，共30条。留出措辞用于文本表示诊断；不是未见类别或未见任务，也不是独立的最终文本测试集。
 
-Run both Qwen and parameter-matched signal arms for **3,000 updates**, sequentially on four GPUs. Use the exact unchanged v30 trainer and verified full-token source cache. Initialize afresh with the same seed and original Qwen checkpoint; do not reload connector-only checkpoints as if they included optimizer state. Sampling, optimizer/lr, batch size, prompt, freeze policy and source selection metric remain unchanged. Checkpoints are evaluated at steps 0,100,…,3000; select by the same task/dataset/subject-balanced joint accuracy, earlier candidate wins ties. This increases the number of source selection opportunities and is not a new unbiased validation.
+目标是让 EEG 表示与正确任务/类别的文本表示接近，与其他类别文本远离。同类别跨样本及多种措辞均为正配对，避免标准一对一批内目标把同类当成负样本。当前 `contrastive_pair_loss` 实现按行、按列分别平衡正负配对的 sigmoid 损失；正负两侧各占一半，两个方向再平均。温度默认0.1。它尚未接入 EEG 训练器，当前没有启动对比训练，不应将现有 CE 运行日志当作该损失结果。
 
-The nominal sampled training volume is 144,000 examples (with replacement, task/source/class balanced), not a guarantee of visiting every source row. Compare the first 500-step source trajectory against v30 as a reproducibility check, and report the selected step and full source curves. Distinguish source improvement from external transfer; even converged models may fail both targets.
+## 先检查文本表示
 
-## Execution and evidence
+`scripts/prepare_text_bank.py` 使用现有 CerebraGloss Qwen checkpoint 的冻结语言主干，分别导出最终层 mean pooling 和末 token 表示；不更新 Qwen。输入均是完整任务/类别句子，无 EEG。文本库、checkpoint索引和缓存数组记录哈希，产物在 `artifacts/eeg_text_alignment/text_bank/`。
 
-`scripts/run_bridge_budget_v31.py` checks the v30 trainer source hash and cache audit before launching. It runs Qwen then signal, never restarts a failed job, and records process IDs and status under `artifacts/multitask_bridge_v31`. Each arm has its own output folder and log. Existing v30 artifacts remain intact. The controller does **not** load targets or launch external evaluation. Only after both source fits finish and their selected model hashes are frozen may a later evaluation use the existing identical external inputs.
+实测两种表示的留出措辞类别检索均为7/10；两条左手描述都被检索为右手。mean pooling 的左右手类别原型余弦相似度约0.999935，末 token 约0.999813。说明当前直接池化的 Qwen 文本向量在所需细分类别上分离不足。这个诊断不证明模型无法理解左右手，但否定了“可以直接把原始 pooled hidden state 当作可靠语义目标”的假设。
 
-Expected runtime from v30 is roughly 25 minutes for Qwen plus about one minute for the control, subject to actual throughput. Training remains restricted to MI and emotion; no arithmetic/stress expansion is justified by v30.
+因此不直接用这套原始文本向量启动完整 EEG 对比训练。下一步先修正或更换文本表示，并用固定措辞诊断与明确的类别可分性检查验证；再将配对损失接入当前信号接口，保留必要的普通分类/非语义对照。模型选择仍只使用源验证，外部2b/SEED-VII保持明确的已暴露探索性测试身份。
 
-## Prefix reproducibility audit
+## 当前代码管理
 
-`scripts/audit_bridge_budget_prefix_v31.py` compares run metadata, all logged losses through step 500 and source validation records at steps 0–500 with v30. It ignores wall-clock timings, requires the budget to be the only metadata difference, reports numerical differences rather than silently accepting them, and marks the audit incomplete until all expected prefix records exist. A live writer's unfinished final line is not parsed as a complete record. Results are written atomically to `artifacts/multitask_bridge_v31/prefix_audit.json`.
-
-Initial inspection at step 120: metadata differ only in steps [500,3000], and available loss records plus validation at steps 0 and 100 reproduce v30 exactly (maximum numerical differences zero). This is a partial prefix check; the full 500-step prefix and signal arm remain pending. The existing controller and training process were confirmed live; no retry or restart occurred.
-
-The Qwen first-500-step prefix subsequently completed and reproduced every logged loss and validation metric exactly. The signal arm still awaits completion of Qwen. The existing external evaluator now accepts `--checkpoint-root` and `--output`, so the budget check can reuse the identical target token cache without another implementation copy. It requires a source-freeze record and completed checkpoints for both arms, checks source manifest/cache identities, preserves the cache's original freeze provenance separately, and prohibits writing new-model scores into the old external-results directory. It has not been launched for this round while training is incomplete.
+保留已完成分类接口作为本方案必要对照；替换训练目标时更新现有实现，不复制另一套版本目录。旧分类运行控制器不应再启动。文本准备和损失单元测试是当前已实现内容，EEG对比训练、跨措辞分类和外部评价尚未完成。
