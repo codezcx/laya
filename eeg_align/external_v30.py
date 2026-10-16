@@ -31,11 +31,12 @@ def metrics(rows,pred):
         subject_balanced_accuracy=float(values.mean()),subject_balanced_95ci=np.quantile(boot,[.025,.975]).tolist(),per_subject=people)
 
 
-def frozen():
-    record = json.loads((ROOT/'source_freeze.json').read_text())
+def frozen(root=ROOT):
+    root=Path(root)
+    record = json.loads((root/'source_freeze.json').read_text())
     for arm, files in record['arms'].items():
-        for name,h in files.items(): assert digest(ROOT/arm/name)==h
-    return digest(ROOT/'source_freeze.json')
+        for name,h in files.items(): assert digest(root/arm/name)==h
+    return digest(root/'source_freeze.json')
 
 
 @torch.no_grad()
@@ -100,15 +101,30 @@ def extract(shard):
 
 
 @torch.no_grad()
-def evaluate():
+def evaluate(checkpoint_root=ROOT, output=None):
     from .model import load_text_only
     from .multitask_bridge import MultitaskBridge,PREFIX,SUFFIX
     from .signal_control_v30 import SignalControl
-    freeze=frozen();torch.set_num_threads(4)
-    if (OUT/'results.json').exists(): raise FileExistsError(OUT/'results.json')
+    checkpoint_root=Path(checkpoint_root)
+    freeze=frozen(checkpoint_root);cache_freeze=frozen();torch.set_num_threads(4)
+    output=Path(output) if output is not None else checkpoint_root/'external'
+    if output.resolve()==OUT.resolve() and checkpoint_root.resolve()!=ROOT.resolve():
+        raise ValueError('New checkpoints require separate evaluation output')
+    if (output/'results.json').exists(): raise FileExistsError(output/'results.json')
+    # Preserve old run naming while allowing the current single trainer's arm names.
+    names={'signal_control':'signal_control','qwen_frozen':'qwen_frozen'} if checkpoint_root.resolve()==ROOT.resolve() else {'signal_control':'signal','qwen_frozen':'qwen'}
+    record=json.loads((checkpoint_root/'source_freeze.json').read_text())
+    assert set(record['arms'])==set(names.values())
+    for directory in names.values():
+        run=json.loads((checkpoint_root/directory/'run.json').read_text())
+        done=json.loads((checkpoint_root/directory/'complete.json').read_text())
+        assert run['source_manifest_sha256']==digest(ROOT/'source_cache/rows.jsonl')
+        assert run['cache_audit_sha256']==digest(ROOT/'source_cache/verified.json')
+        assert done['best_sha256']==digest(checkpoint_root/directory/'best.pt')
+    output.mkdir(parents=True,exist_ok=True)
     arrays=[];lens=[];rows=[]
     for shard in range(4):
-        p=OUT/str(shard);done=json.loads((p/'complete.json').read_text());assert done['freeze_sha256']==freeze
+        p=OUT/str(shard);done=json.loads((p/'complete.json').read_text());assert done['freeze_sha256']==cache_freeze
         for name,h in done['hashes'].items():assert digest(p/name)==h
         arrays.append(np.load(p/'tokens.npy'));lens.append(np.load(p/'lengths.npy'));rows+=readrows(p/'rows.jsonl')
     x=np.concatenate(arrays);lengths=np.concatenate(lens)
@@ -125,12 +141,12 @@ def evaluate():
             text,head,_=load_text_only(cfg['qwen_checkpoint'],[i[0] for i in ids],'cuda:0',torch.bfloat16)
             enc=lambda s:torch.tensor(tok.encode(s,add_special_tokens=False),device='cuda')
             model=MultitaskBridge(text,head,enc(PREFIX),enc(SUFFIX)).cuda()
-        model.connector.load_state_dict(torch.load(ROOT/arm/'best.pt',weights_only=True,map_location='cuda'));model.eval();logits=[]
+        model.connector.load_state_dict(torch.load(checkpoint_root/names[arm]/'best.pt',weights_only=True,map_location='cuda'));model.eval();logits=[]
         for start in range(0,len(rows),8):
             ll=lengths[start:start+8];k=int(max(ll));tokens=torch.from_numpy(x[start:start+8,:k].astype(np.float32)).cuda()
             valid=torch.arange(k,device='cuda')[None]<torch.tensor(ll,device='cuda')[:,None]
             logits.append(model(tokens,valid)['logits'].cpu().numpy())
-        z=np.concatenate(logits);assert np.isfinite(z).all();np.save(OUT/f'{arm}_logits.npy',z)
+        z=np.concatenate(logits);assert np.isfinite(z).all();np.save(output/f'{arm}_logits.npy',z)
         predictions[arm]=z.argmax(1);results[arm]={}
         for ds in ['2b','SEED-VII-HNS']:
             ii=np.array([i for i,r in enumerate(rows) if r['dataset']==ds]);rr=[rows[i] for i in ii];zz=z[ii];yy=np.array([r['class_id'] for r in rr]);pred=zz.argmax(1)
@@ -152,14 +168,15 @@ def evaluate():
         a=results['qwen_frozen'][ds]['per_subject'];b=results['signal_control'][ds]['per_subject']
         delta=np.array([a[s][key]-b[s][key] for s in sorted(a)]);boot=np.random.default_rng(2026).choice(delta,(10000,len(delta)),replace=True).mean(1)
         paired[ds]=dict(mean=float(delta.mean()),ci95=np.quantile(boot,[.025,.975]).tolist())
-    assert frozen()==freeze
-    (OUT/'rows.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
-    (OUT/'results.json').write_text(json.dumps(dict(freeze_sha256=freeze,results=results,paired_subject_delta=paired,
+    assert frozen(checkpoint_root)==freeze and frozen()==cache_freeze
+    (output/'rows.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
+    (output/'results.json').write_text(json.dumps(dict(freeze_sha256=freeze,cache_freeze_sha256=cache_freeze,checkpoint_root=str(checkpoint_root),results=results,paired_subject_delta=paired,
         note='Repeated-target exploratory evaluation. REVE pretraining includes 2b. No target fitting/selection.'),indent=2))
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--shard',type=int,choices=range(4));p.add_argument('--evaluate',action='store_true');a=p.parse_args()
-    if a.evaluate:evaluate()
+    p=argparse.ArgumentParser();p.add_argument('--shard',type=int,choices=range(4));p.add_argument('--evaluate',action='store_true')
+    p.add_argument('--checkpoint-root',type=Path,default=ROOT);p.add_argument('--output',type=Path);a=p.parse_args()
+    if a.evaluate:evaluate(a.checkpoint_root,a.output)
     elif a.shard is not None:extract(a.shard)
     else:p.error('Choose stage')
