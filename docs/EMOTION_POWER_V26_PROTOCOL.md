@@ -32,3 +32,21 @@ External SEED-VII HNS evaluation is separate, only after source freezing; both
 arms must be reported without target selection. Existing target exposure makes
 it exploratory. This signal diagnostic does not establish text alignment or
 task recognition; MI baselines remain unchanged and no new tasks are introduced.
+
+## Control precision audit before fitting
+
+The first audit stopped before model fitting:214 windows, all FACED subject30,
+differed fromv22 fractions by>.001 (maximum12.968 log units). Raw reinspection
+of all280 subject30 windows isolated float32 normalization/quantization effects,
+predominantly F8; no clipping occurred. Recomputing the old normalized-float32
+pipeline reproducedv22 within3.39e-6, while float64 normalization versus raw
+float64 fractions differed by at most7.70e-7. Detailed per-window evidence is in
+`artifacts/emotion_power_v26/control_precision_audit.json`.
+
+Retain all windows and bothv26 arms' float64 raw-power computations. This does
+not claim equivalence tov22's float32 control. A narrowly checked exception
+requires all214 discrepant indices to belong to the inspected280 windows,
+both replay bounds<1e-5, and zero clipping; any other mismatch still stops fitting.
+The pairedv26 comparison remains matched in precision and preprocessing. Preserve
+the initial failed audit/controller record. Label-correlated or low-signal quality
+effects remain possible; this audit does not assert F8 contains useful physiology.

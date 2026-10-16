@@ -38,9 +38,21 @@ def main():
     delta = np.abs(old - arrays['per_channel'])
     audit = {'n': len(rows), 'manifest_sha256': digest, 'feature_hashes': hashes,
              'control_max_abs_difference': float(delta.max()), 'control_mean_abs_difference': float(delta.mean())}
-    (ROOT / 'feature_audit.json').write_text(json.dumps(audit, indent=2))
     if delta.max() > .001:
-        raise ValueError('Inspect control mismatch before fitting')
+        # Explicitly inspected precision case; do not relax the general threshold.
+        precision_path = ROOT / 'control_precision_audit.json'
+        precision = json.loads(precision_path.read_text())
+        bad = set(np.flatnonzero(delta.max((1, 2)) > .001).tolist())
+        inspected = {r['index'] for r in precision['rows']}
+        assert precision['subject'] == 30 and precision['n'] == len(inspected) == 280
+        assert len(bad) == 214 and bad <= inspected
+        assert all(rows[i]['dataset'] == 'FACED-NEMAR' and rows[i]['subject'] == '30' for i in inspected)
+        assert precision['max_legacy_replay_delta'] < 1e-5 and precision['max_float64_normalization_delta'] < 1e-5
+        assert precision['clipped_values'] == 0
+        audit['precision_exception'] = {'subject': 30, 'affected_windows': len(bad),
+            'evidence_sha256': hashlib.sha256(precision_path.read_bytes()).hexdigest(),
+            'action': 'Retain all windows; both v26 arms use raw float64 features. Legacy fp32 control differs.'}
+    (ROOT / 'feature_audit.json').write_text(json.dumps(audit, indent=2))
     y = np.array([r['class_id'] for r in rows])
     assert set(y) == {0, 1, 2}
     out = ROOT / 'fits'
