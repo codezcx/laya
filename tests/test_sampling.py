@@ -1,4 +1,6 @@
 import unittest
+import copy
+import json
 import numpy as np
 from eeg_align.sampling import BalancedCoverageSampler
 
@@ -28,6 +30,23 @@ class CoverageTest(unittest.TestCase):
         s=BalancedCoverageSampler({'only':list(range(10))},per_group=4)
         sequence=np.concatenate([s.next_batch().flatten() for _ in range(3)])
         self.assertEqual(len(set(sequence[:10])),10)
+    def test_resume_matches_uninterrupted_sampling_across_rounds(self):
+        groups={'short':list(range(7)),'long':list(range(7,30))}
+        for checkpoint_step in [0,1,6,7,13]:
+            reference=BalancedCoverageSampler(groups,4,42)
+            for _ in range(checkpoint_step):reference.next_batch()
+            # State also survives a JSON round trip, without Python object aliases.
+            state=json.loads(json.dumps(reference.state_dict()))
+            resumed=BalancedCoverageSampler(groups,4,999);resumed.load_state_dict(state)
+            for _ in range(20):np.testing.assert_array_equal(reference.next_batch(),resumed.next_batch())
+            self.assertEqual(reference.state_dict(),resumed.state_dict())
+    def test_resume_rejects_partition_changes_and_queue_corruption(self):
+        original=BalancedCoverageSampler({'a':list(range(10))},4,42);original.next_batch();state=original.state_dict()
+        other=BalancedCoverageSampler({'a':list(range(1,11))},4,42)
+        with self.assertRaises(ValueError):other.load_state_dict(state)
+        corrupt=copy.deepcopy(state);corrupt['queues'][0][0]=100
+        with self.assertRaises(ValueError):original.load_state_dict(corrupt)
+        self.assertEqual(original.state_dict(),state)
     def test_rejects_duplicate_indices_and_invalid_rank_partition(self):
         with self.assertRaises(ValueError):BalancedCoverageSampler({'a':[1,2],'b':[2,3]})
         with self.assertRaises(ValueError):BalancedCoverageSampler.rank_batch(np.ones((2,3)),0,2)
