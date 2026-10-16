@@ -1,21 +1,24 @@
-# EEGJEV research workspace
+# EEG → Qwen
 
-当前工作分支：`experiment/multitask-text-prototypes`。
+工作区只保留当前方案：冻结 REVE 编码原始 EEG，通过可训练 connector 接入冻结 Qwen，输出情绪三类和运动想象两类。参数量匹配的信号分类器是同一方案的必要对照。
 
-- `eeg_align/`：历史 REVE→Qwen decoder / MI 实验。
-- `eeg_tasks/`：新增多任务 EEG→文本原型分类；与历史模型独立。
-- `configs/`：显式数据/模型路径、任务与超参数。
-- `docs/`：版本化实验协议与结果摘要。
-- `tests/`：数据划分、损失语义与输入处理检查。
-- `artifacts/`：日志、缓存、权重、预测；不进Git。
-- `third_party/`、`laya/`：外部仓库/模型；不纳入本仓库Git。
+- `eeg_align/`：当前 token 缓存、模型、训练和外部评估。
+- `eeg_tasks/`：当前方案所需的预处理、通道映射和标签读取辅助函数；旧模型与训练流程已删除。
+- `scripts/`：当前训练启动、审计和小样本验证。
+- `configs/`：当前使用的数据与模型路径。
+- `tests/`：当前方案的接口与指标检查。
+- [当前实验协议](docs/MULTITASK_BRIDGE_V31_PROTOCOL.md)：固定 3,000 步的训练预算检查。
+- [最近完成的结果](docs/MULTITASK_BRIDGE_V30_RESULTS.md)：500 步对照及外部结果。
 
-基线提交 `658a0b5` 保存本次多任务修改前的已有代码。保留原 `.JEV-27B-VL.git.backup-*`，不覆盖旧历史；未建立远程或推送。
+从仓库根运行，Python 为 `laya/.venv-eeg/bin/python`。当前已有训练进程，不要重复启动；状态在 `artifacts/multitask_bridge_v31/status.json`。仅查看复现审计可运行：
 
-协议见 [docs/MULTITASK_PROTOCOL_V1.md](docs/MULTITASK_PROTOCOL_V1.md)。所有命令从仓库根运行，Python用 `laya/.venv-eeg/bin/python`。先运行 `python -m eeg_tasks.data`，随后 `python scripts/run_multitask_prototypes.py`。每次重跑需新的输出目录，代码拒绝覆盖已经完成的训练。模型选择只看源验证，目标评估需要先保存冻结checkpoint哈希。
+```sh
+laya/.venv-eeg/bin/python scripts/audit_bridge_budget_prefix_v31.py
+PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests
+```
 
-`eeg_tasks.predict`支持原始 `(3,T)` C3/Cz/C4 numpy信号，返回情绪和MI的条件分类分数；不把未校准的跨任务分数伪装成任务置信度。
+历史方案通过 Git 查看或恢复，不在主工作区复制多套代码。清理前完整快照是 `6642113`，例如 `git show 6642113:docs/EXPERIMENT_INDEX.md`。需要重跑历史实验时使用独立 worktree，避免覆盖当前训练代码。
 
-持续目标：先建立MI/情绪跨数据集证据，再扩展心算、压力。任务已知分类、任务识别、未见任务泛化分别评估，不混用zero-shot概念。
+当前仍有少量历史版本号文件名作为正在运行实验的兼容入口；其中仅保留当前方案用到的函数，没有旧方案训练实现。运行中的 v31 会校验训练器哈希，因此完成前不改其路径、实现或配置。
 
-持续迭代记录与指标口径见 [实验索引](docs/EXPERIMENT_INDEX.md)。
+`artifacts/`、`laya/`、`third_party/` 不纳入 Git。原始数据、checkpoint、日志和缓存不能通过 Git 恢复，本次代码清理保留它们。后续成果以当前协议和结果记录维护，旧代码只留在提交历史。

@@ -1,1 +1,1 @@
-"""Task-masked EEG/text prototype experiments, separate from Qwen decoder work."""
+"""Shared signal and dataset helpers for the current EEG-to-Qwen experiment."""
