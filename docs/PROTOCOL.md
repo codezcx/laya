@@ -71,3 +71,9 @@ checkpoint 文件哈希记录 `artifacts/jev_eeg/checkpoint_audit.json`。训练
 入口 `scripts/run_interface_diagnostic.py`，实现 `eeg_align/interface_diagnostic.py`；产物 `artifacts/jev_interface_diagnostic/`。这是当前JEV方案的必要故障诊断，不另保留历史训练实现。
 
 只读核算命令：`PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_interface_diagnostic.py`。核验源索引仅来自训练分区、分组计数、代码与manifest哈希，并在每组完成后从保存logits独立重算CE、MI/情绪指标和预测分布；未完成组不排名或提前选条件。
+
+## 后续正式训练的数据覆盖准备（尚未启动）
+
+`eeg_align/sampling.py` 提供按分组覆盖轮定义预算的采样器，以修复旧500步配方实际仅覆盖约9.56%训练窗口的问题。每组内部按随机排列取样、耗尽才重新排列；小组会重复采样以维持数据集/类别权重。一个覆盖轮结束前所有训练窗口至少出现一次，不能把“有放回抽样次数/数据集大小”误称实际完整epoch。
+
+该采样器已通过单元检查和全部源训练索引干跑；尚未改动或接入正在运行的JEV接口诊断。正式训练的接口和预算须在200步诊断及输入干预完成后确定；完整源验证应与244窗训练诊断面板区分，外部集仍只在源选模冻结后评估。
