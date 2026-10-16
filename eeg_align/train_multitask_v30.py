@@ -77,7 +77,8 @@ def evaluate(model, cache, ids, rank, world, device):
 
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument('--steps',type=int,default=500)
-    parser.add_argument('--output',required=True); args = parser.parse_args()
+    parser.add_argument('--output',required=True)
+    parser.add_argument('--arm',choices=['qwen','signal'],default='qwen'); args = parser.parse_args()
     assert args.steps > 0
     rank = int(os.environ['RANK']); local = int(os.environ['LOCAL_RANK']); world = int(os.environ['WORLD_SIZE'])
     torch.cuda.set_device(local); device = torch.device(f'cuda:{local}')
@@ -96,19 +97,26 @@ def main():
     # Both tasks have six dataset/class groups; equal groups imply equal tasks.
     keys = sorted(groups); rng = np.random.default_rng(4200+rank)
     cfg = json.loads(Path('configs/reve_qwen_mi_multi.json').read_text())
-    tokenizer = AutoTokenizer.from_pretrained(cfg['qwen_checkpoint'],local_files_only=True)
-    ids = [tokenizer.encode(s,add_special_tokens=False) for s in 'ABCDE']
-    assert all(len(i)==1 for i in ids)
-    text,head,audit = load_text_only(cfg['qwen_checkpoint'],[i[0] for i in ids],str(device),torch.bfloat16)
-    enc = lambda s: torch.tensor(tokenizer.encode(s,add_special_tokens=False),device=device)
-    model = MultitaskBridge(text,head,enc(PREFIX),enc(SUFFIX)).to(device)
+    if args.arm=='qwen':
+        tokenizer = AutoTokenizer.from_pretrained(cfg['qwen_checkpoint'],local_files_only=True)
+        ids = [tokenizer.encode(s,add_special_tokens=False) for s in 'ABCDE']
+        assert all(len(i)==1 for i in ids)
+        text,head,audit = load_text_only(cfg['qwen_checkpoint'],[i[0] for i in ids],str(device),torch.bfloat16)
+        enc = lambda s: torch.tensor(tokenizer.encode(s,add_special_tokens=False),device=device)
+        model = MultitaskBridge(text,head,enc(PREFIX),enc(SUFFIX)).to(device)
+    else:
+        from .signal_control_v30 import SignalControl
+        model = SignalControl().to(device); audit = {'language_model_loaded':False}
     wrapped = DistributedDataParallel(model,device_ids=[local],broadcast_buffers=False)
     opt = torch.optim.AdamW(model.connector.parameters(),lr=1e-4,weight_decay=.01)
     if rank==0:
         (out/'run.json').write_text(json.dumps(dict(seed=42,rank_seeds=[4200+i for i in range(world)],
             steps=args.steps,world=world,batch_per_rank=12,learning_rate=1e-4,train_n=len(train),val_n=len(val),
             source_manifest_sha256=digest(ROOT/'rows.jsonl'),cache_audit_sha256=digest(ROOT/'verified.json'),
-            qwen_checkpoint=cfg['qwen_checkpoint'],loading=audit,prefix=PREFIX,suffix=SUFFIX,classes=CLASSES,
+            arm=args.arm,trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
+            trainer_sha256=digest(Path(__file__)),
+            qwen_checkpoint=cfg['qwen_checkpoint'] if args.arm=='qwen' else None,loading=audit,
+            prefix=PREFIX if args.arm=='qwen' else None,suffix=SUFFIX if args.arm=='qwen' else None,classes=CLASSES,
             selection='task macro of dataset macro of subject balanced joint five-class accuracy',
             source_only=True,trainable='connector only'),indent=2))
     best = -1.; start = time.monotonic()
