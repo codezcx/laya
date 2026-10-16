@@ -17,14 +17,15 @@ def spectrum(x):
  f,p=welch(x,fs=200,nperseg=200,noverlap=100,axis=-1);power=np.stack([p[...,(f>=lo)&(f<hi)].sum(-1) for lo,hi in BANDS],-1)
  return fractions(np.log(np.maximum(power,np.finfo(np.float64).tiny)))
 
-def prepare(shard):
+def prepare(shard,root=ROOT,manifest_path=Path('artifacts/emotion_transfer_v16/rows.jsonl'),feature_functions=None):
  import mne
  from .faced_prepare import read_table,video_events
- out=ROOT/'features';out.mkdir(parents=True,exist_ok=True)
+ out=root/'features';out.mkdir(parents=True,exist_ok=True)
  if (out/f'{shard}.npz').exists():raise FileExistsError(out)
- manifest=Path('artifacts/emotion_transfer_v16/rows.jsonl');rows=readrows(manifest);groups={}
+ manifest=Path(manifest_path);rows=readrows(manifest);groups={}
  for i,r in enumerate(rows):groups.setdefault(r['path'],[]).append(i)
- cfg=json.loads(Path('configs/multitask_prototypes_v1.json').read_text());names=[s.split()[-1] for s in Path(cfg['seed_channel_file']).read_text().splitlines() if s.strip()];indices=[];features={k:[] for k in ['as_recorded','car30']};audit=[]
+ if feature_functions is None:feature_functions={mode:(lambda x,m=mode:spectrum(reference(x,m))) for mode in ['as_recorded','car30']}
+ cfg=json.loads(Path('configs/multitask_prototypes_v1.json').read_text());names=[s.split()[-1] for s in Path(cfg['seed_channel_file']).read_text().splitlines() if s.strip()];indices=[];features={k:[] for k in feature_functions};audit=[]
  for path in sorted(groups)[shard::4]:
   ids=groups[path];rr=[rows[i] for i in ids];ds=rr[0]['dataset'];by_trial={}
   for i in ids:by_trial.setdefault(rows[i]['trial'],[]).append(i)
@@ -40,7 +41,7 @@ def prepare(shard):
    filtered=preprocess(signal,fs,cfg);assert filtered.shape[0]==30
    for i in ii:
     start=rows[i]['start_sample'];x=filtered[:,start:start+600];assert x.shape==(30,600) and np.isfinite(x).all()
-    for mode in features:features[mode].append(spectrum(reference(x,mode)))
+    for mode in features:features[mode].append(feature_functions[mode](x))
     indices.append(i)
   audit.append({'path':path,'dataset':ds,'sample_rate':fs,'reference_metadata':'unknown' if ds=='SEED' else side.get('EEGReference'),'units':'unconfirmed MAT amplitude' if ds=='SEED' else 'MNE volts','n':len(ids)})
   if ds=='SEED':del mat
