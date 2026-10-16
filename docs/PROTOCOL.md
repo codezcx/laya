@@ -46,3 +46,26 @@ batch=12，12 个数据集×类别分组各采样一个，任务各占一半，m
 实机检查真实 JEV 前向、反向、冻结基座无梯度、LoRA和投影器有梯度；检查原始信号 REVE 特征与旧缓存的一致性及 encoder 反向。单元检查涵盖冻结 adapter 后输出不变（证明仍启用）、LoRA 与合并矩阵等价、EEG拼接/决策位置和指标。
 
 checkpoint 文件哈希记录 `artifacts/jev_eeg/checkpoint_audit.json`。训练配置保存 checkpoint audit、数据 manifest 和代码哈希及 Git commit；只保存可训练参数和解冻 encoder。源码在启动前提交。旧方案在 Git `0e6c506`，不在工作区堆积旧实现。
+
+## 当前下一步：源训练集上的接口可学习性诊断
+
+上述500步正式训练和外部评估已完成，结果未达目标。特征探针显示REVE在源留出被试上可解码左右手，下一步先检查语言接口是否能利用这些特征，不重复扩大失败配方的预算。
+
+在五个源数据集的12个数据集×类别组中各固定抽取5个训练窗口，共60个；seed20261017，记录具体索引和manifest哈希。四卡采用相同初始化seed42、相同样本、相同轮换顺序，每步各组取一个窗口（batch12），200步；只训练投影器，JEV原始LoRA始终启用但冻结。REVE冻结，学习率1e-4、AdamW、weight decay0.01、clip1。每25步评估全部60条**训练样本**。
+
+四个条件形成2×2诊断：
+
+| 条件 | 文本/EEG顺序 | 投影输出 |
+|---|---|---|
+| original | 原模板，EEG后接完整题目及选项 | 原MLP |
+| near | 题目及选项移到EEG前，EEG后只保留结束边界和decision | 原MLP |
+| scaled | 原模板 | 每个token方向保留，RMS匹配该模板冻结文本embedding的参考RMS |
+| near_scaled | 题目选项在前、EEG靠近decision | 同上RMS匹配 |
+
+移动位置同时改变了提示内容的顺序，所以不能单凭这个对照将收益严格归因于距离或线性attention记忆。所有条件保留同样问题、五个任务＋类别选项、原始JEV有效决策头；不更换类别语义，不提供正确任务提示。
+
+记录初始化投影RMS、参考文本RMS、batch CE、梯度范数、完整训练小集的MI/情绪平衡准确率。最后追加两个干预：同任务内置换窗口与标签的对应关系；用每个任务的平均tokens替换各窗口。二者保留任务及token数、去除或破坏具体trial信息。检查预测是否依赖个体窗口，而不只依赖任务或固定答案偏好。
+
+两任务各自达到95%训练小集准确率只是接口拟合门槛，**不是zero-shot成功标准，也不是泛化证据**。任何改进须随后在完整源训练、源留出及外部测试中验证；不从这60条的成绩直接推断性能。当前诊断不读取2b/SEED-VII，不使用验证/目标集选条件。
+
+入口 `scripts/run_interface_diagnostic.py`，实现 `eeg_align/interface_diagnostic.py`；产物 `artifacts/jev_interface_diagnostic/`。这是当前JEV方案的必要故障诊断，不另保留历史训练实现。
