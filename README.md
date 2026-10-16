@@ -8,6 +8,7 @@
 
 - [实验协议](docs/PROTOCOL.md)
 - [结果和状态](docs/RESULTS.md)
+- [FBCSP／REVE 特征探测](docs/FEATURE_PROBES.md)：独立 CPU 诊断任务与被试信息，不改动 JEV 训练。
 - `eeg_align/jev.py`：严格加载语言权重、已有 LoRA、决策槽位，拼接 EEG/text embeddings。
 - `eeg_align/signals.py`：原始信号缓存、可训练 REVE；`cache.py`：冻结 REVE tokens。
 - `eeg_align/train_jev.py`、`evaluate_jev.py`：训练和源选模后的评估。
