@@ -72,3 +72,7 @@ checkpoint 文件哈希记录 `artifacts/jev_eeg/checkpoint_audit.json`。训练
 单组恢复须先确认旧进程终止，使用相同GPU数及参数，通过torchrun运行 `eeg_align.train_jev --resume`。不因观察超时自动重启。恢复受模型、数据manifest、代码哈希和采样配置检查约束。
 
 正式训练前进行真实两卡LoRA连续/中断恢复对照；smoke只有两步和12条源验证样本，禁止用于外部评估。测试记录在 `artifacts/jev_eeg_coverage/smoke/`。历史500步实现归档于Git `b5a7fd4`；旧数据、权重和日志保留。
+
+## 评估后独立复算
+
+两组外部评估完成后运行 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_jev_results.py`。脚本独立由五类混淆矩阵计算普通准确率、被试平均准确率及被试平均平衡准确率，逐被试核对原报告，并验证冻结模型哈希、外部缓存来源和行顺序。输出 `artifacts/jev_eeg_coverage/runs/independent_results.json`；若评估未完成或数值不符则报错，不产生通过记录。此脚本不参与选模。
