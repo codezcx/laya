@@ -1,23 +1,26 @@
-# EEG 与任务＋类别文本对齐
+# EEG → JEV-27B-VL
 
-当前方案将冻结 REVE 的 EEG tokens，经一个可训练聚合投影器，映射到冻结 Qwen3-Embedding-0.6B 的文本空间。对齐完整的任务＋类别描述，五类联合检索；不设独立任务头，不生成答案文本。必要对照使用相同 EEG 投影结构和分类交叉熵。
+当前方案使用真正的本地 JEV-27B-VL 语言 decoder、原始 JEV LoRA 与决策输出。REVE 编码 EEG 后，每个 512 维 token 经可训练投影器变为 5120 维，插入 JEV 的问题文本，单次 forward 输出 A–E 五类 logits。
 
-- [实验协议](docs/PROTOCOL.md)：数据划分、文本、损失、训练及选模。
-- [结果记录](docs/RESULTS.md)：本轮状态及此前完成的分类接口结果。
-- `eeg_align/`：缓存、模型、训练、评估；`eeg_tasks/`：必要预处理。
-- `configs/text_descriptions.json`：五类完整文本；其余配置保存数据和编码器路径。
+**所有组始终启用 JEV LoRA。冻结仅表示不更新参数，绝不表示关闭 adapter。**
 
-从仓库根目录运行：
+四卡实验：投影器对照 seed42；LoRA＋投影器 seeds42/43；LoRA＋投影器＋REVE seed42。语言主干和 JEV A–E 决策权重始终冻结，不加载视觉 encoder。
+
+- [实验协议](docs/PROTOCOL.md)
+- [结果和状态](docs/RESULTS.md)
+- `eeg_align/jev.py`：严格加载语言权重、已有 LoRA、决策槽位，拼接 EEG/text embeddings。
+- `eeg_align/signals.py`：原始信号缓存、可训练 REVE；`cache.py`：冻结 REVE tokens。
+- `eeg_align/train_jev.py`、`evaluate_jev.py`：训练和源选模后的评估。
+
+从仓库根目录运行（准备产物和实验目录已存在时会拒绝覆盖）：
 
 ```sh
 PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests -v
-laya/.venv-eeg/bin/python scripts/download_text_encoder.py
-PYTHONPATH=. laya/.venv-eeg/bin/python scripts/prepare_text_bank.py
-PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_alignment.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/audit_jev.py
+PYTHONPATH=. laya/.venv-eeg/bin/python -m eeg_align.signals
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
 ```
 
-已有文本向量和实验目录时，准备/训练入口会拒绝覆盖。下载脚本可校验已由其他节点下载的权重。正式启动前检查文本表示诊断。
+实际 checkpoint：`laya/JEV-27B-VL/`，adapter：其 `adapter_vllm/`。产物：`artifacts/jev_eeg/`；`runs/status.json` 记录阶段，各组 `metrics.jsonl` 记录 loss、MI 和情绪验证指标。
 
-运行产物位于 `artifacts/eeg_text_alignment/`。`runs/status.json` 记录阶段，每组的 `metrics.jsonl` 记录 loss 和分开的 MI、情绪验证指标。四卡分别训练对比对齐/CE 对照各两个 seed。
-
-仓库只保留当前方案及必要对照，历史代码通过 Git 恢复。前一方案完整提交为 `471cd15` 的父版本及其历史；准备阶段快照为 `471cd15`。`artifacts/`、`laya/`、`third_party/` 中的数据、权重、环境和日志不纳入 Git，也不随代码清理删除。
+只保留当前实现和必要对照。此前“任务＋类别文本相似度”方案（非 JEV 推理）完整版本在 Git `0e6c506`；原始对比方案代码不再留在工作区。忽略目录中的数据、权重、日志和环境保留，不通过 Git 管理或随代码清理删除。
