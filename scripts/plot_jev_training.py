@@ -15,7 +15,8 @@ def main():
     colors=['#555555','#0072B2','#56B4E9','#D55E00']
     for (name,label),color in zip(ARMS,colors):
         records=[]
-        for line in (ROOT/name/'metrics.jsonl').read_text().splitlines():
+        path=ROOT/name/'metrics.jsonl'
+        for line in path.read_text().splitlines() if path.exists() else []:
             try:records.append(json.loads(line))
             except json.JSONDecodeError:continue  # Last record may still be writing.
         snapshot[name]=records
@@ -23,7 +24,7 @@ def main():
         axes[0].plot([r['step'] for r in loss],[r['loss'] for r in loss],color=color,label=label,lw=1.7)
         for ax,key in zip(axes[1:],['MI','emotion']):
             ax.plot([r['step'] for r in val],[100*r['full_source_validation'][key] for r in val],color=color,lw=1.7,marker='o',ms=4)
-        summary[name]=dict(latest_loss=loss[-1],latest_validation=val[-1] if val else None,
+        summary[name]=dict(latest_loss=loss[-1] if loss else None,latest_validation=val[-1] if val else None,
                            selected=json.loads((ROOT/name/'best.json').read_text()) if (ROOT/name/'best.json').exists() else None)
         for filename in ['full_source_validation.json','external.json']:
             if (ROOT/name/filename).exists():summary[name][filename]=json.loads((ROOT/name/filename).read_text())
@@ -39,13 +40,14 @@ def main():
     fig.legend(*axes[0].get_legend_handles_labels(),loc='lower center',ncol=2,frameon=False,fontsize=9)
     fig.suptitle('Actual JEV-27B-VL: pretrained LoRA active in every arm',fontsize=14)
     fig.tight_layout(rect=[0,.13,1,.93]);fig.savefig(OUT/'training_curves.png',dpi=180);fig.savefig(OUT/'training_curves.pdf');plt.close(fig)
-    output=dict(created_utc=datetime.now(timezone.utc).isoformat(),validation_note='Fixed source panel, 244 windows; not external performance',
+    output=dict(created_utc=datetime.now(timezone.utc).isoformat(),validation_note='Complete source validation, 12510 windows, at coverage-round endpoints; not external performance',
                 runs=summary)
     (OUT/'metrics_snapshot.json').write_text(json.dumps(output,indent=2))
     (OUT/'logs_snapshot.json').write_text(json.dumps(snapshot,indent=2))
     for name,r in summary.items():
-        v=r['latest_validation']['full_source_validation'];b=r['selected']
-        print(name,'step',r['latest_loss']['step'],'loss',r['latest_loss']['loss'],'MI',v['MI'],'emotion',v['emotion'],'selected',b['step'],
-              'full_source',r.get('full_source_validation.json'))
+        loss=r['latest_loss'];val=r['latest_validation'];best=r['selected']
+        print(name,'step',loss['step'] if loss else None,'loss',loss['loss'] if loss else None,
+              'source_metrics',val['full_source_validation'] if val else 'pending first coverage round',
+              'selected',best['step'] if best else None)
 
 if __name__=='__main__':main()
