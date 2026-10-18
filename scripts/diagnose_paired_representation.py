@@ -15,7 +15,9 @@ from eeg_tasks.attribute_questions import absolute_power,mi_specifications
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('artifacts/jev_paired_qa/diagnostics'))
-    parser.add_argument('--normalization-audit',action='store_true')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--normalization-audit',action='store_true')
+    mode.add_argument('--label-budget-audit',action='store_true')
     args=parser.parse_args();out=args.output
     out.mkdir(exist_ok=False)
     specs=mi_specifications();records=[];signals=[];targets=[]
@@ -49,6 +51,42 @@ def main():
     tokens=np.concatenate(zs).reshape(len(y),2,3,3,512)
     features['reve_channel_pooled']=tokens.mean(axis=3).reshape(len(y),-1)
     features['reve_task_only']=tokens[:,1].mean(axis=2).reshape(len(y),-1)
+    if args.label_budget_audit:
+        from eeg_align.attribute_data import AttributeData
+        from eeg_align.sampling import BalancedCoverageSampler
+        data=AttributeData('datasets/eeg_attribute_qa','train')
+        sampler=BalancedCoverageSampler(data.groups,per_group=1,seed=42);sampler.next_batch()
+        class_q=next(i for i,s in enumerate(data.specs) if s['id']=='mi_class')
+        class_groups=[k for k in sampler.groups if k[0]==class_q]
+        assert len(class_groups)==2
+        lookup={r['source_id']:i for i,r in enumerate(records)}
+        x=features['reve_channel_pooled'].astype(np.float64);label=y[:,-1]
+        result={}
+        for budget in [400,800,3200,8800]:
+            ids=[lookup[int(data.records[j,0])] for k in class_groups for j in sampler.queues[k][:budget//2]]
+            chosen=np.zeros(len(y),bool);chosen[ids]=True
+            assert int(chosen.sum())==budget and not (chosen & test).any()
+            ii=chosen & fit;vv=chosen & inner;scores=[]
+            for alpha in [10,1000,100000]:
+                model=make_pipeline(StandardScaler(),Ridge(alpha=alpha,solver='cholesky'))
+                model.fit(x[ii],label[ii]);pred=model.predict(x[vv])>=.5
+                scores.append(balanced_accuracy_score(label[vv],pred))
+            alpha=[10,1000,100000][int(np.argmax(scores))]
+            model=make_pipeline(StandardScaler(),Ridge(alpha=alpha,solver='cholesky'))
+            model.fit(x[chosen],label[chosen]);pred=model.predict(x[test])>=.5
+            result[str(budget)]=dict(alpha=alpha,inner_scores=scores,fit_n=int(ii.sum()),inner_n=int(vv.sum()),
+                accuracy=accuracy_score(label[test],pred),balanced_accuracy=balanced_accuracy_score(label[test],pred),
+                per_subject={s:balanced_accuracy_score(label[test][subject[test]==s],pred[subject[test]==s]) for s in sorted(set(subject[test]))})
+            np.save(out/f'budget_{budget}_source_ids.npy',np.array([records[i]['source_id'] for i in ids]))
+            np.save(out/f'budget_{budget}_predictions.npy',pred.astype(int))
+            (out/'results.json').write_text(json.dumps(result,indent=2));print(budget,result[str(budget)],flush=True)
+        (out/'protocol.json').write_text(json.dumps(dict(
+            representation='paired REVE channel-pooled, no LayerNorm',budget_order='seed42 exact class queue prefixes from JEV sampler',
+            internal_validation_subjects=sorted(set(subject[inner])),source_validation_subjects=sorted(set(subject[test])),
+            selection='choose ridge alpha using only budget-limited internal held-out subjects; refit same label budget',
+            code_sha256=digest(__file__),limitations='Linear reader only; does not establish JEV learning curve or statistical significance'),indent=2))
+        (out/'complete.json').write_text(json.dumps(dict(status='complete',results_sha256=digest(out/'results.json')),indent=2))
+        return
     normalization_audit=None
     if args.normalization_audit:
         checkpoint=Path('artifacts/jev_paired_qa/initialization.pt')
