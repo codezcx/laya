@@ -8,6 +8,7 @@ from eeg_align.attribute_data import AttributeData,QuestionTokens,semantic_predi
 from eeg_align.paired_cache import PairedTokenCache
 from eeg_align.jev import load_jev,JEVBridge
 from eeg_align.cache import digest
+from eeg_align.readout import FrozenReadout,pool_reve
 
 
 class ExternalPairCache:
@@ -63,10 +64,12 @@ def main():
     p.add_argument('--batch-size',type=int,default=24)
     p.add_argument('--memory-fraction',type=float,default=.48)
     p.add_argument('--external-input',type=Path,help='Audited 2b pair directory; omitted means source validation')
+    p.add_argument('--readout-head',type=Path,help='Provenance-bound exported readout JSON; omitted keeps original JEV head')
+    p.add_argument('--cases',nargs='+',choices=['matched','swapped_options','shuffled_within_subject','randomized_options'])
     args=p.parse_args()
     if args.batch_size<1:raise ValueError('Positive batch size required')
     torch.set_num_threads(4)
-    torch.cuda.set_per_process_memory_fraction(args.memory_fraction,torch.device(args.device))
+    if args.device.startswith('cuda'):torch.cuda.set_per_process_memory_fraction(args.memory_fraction,torch.device(args.device))
     args.output.mkdir(parents=True,exist_ok=False)
     checkpoint_sha=digest(args.checkpoint);saved=torch.load(args.checkpoint,map_location='cpu',weights_only=False)
     data=AttributeData('datasets/eeg_attribute_qa_validation','validation')
@@ -85,39 +88,59 @@ def main():
         records=np.column_stack([ids,np.full(len(ids),q),labels,np.full(len(ids),-1)])
         random_order=draw_permutations(data,records,np.random.default_rng(20261018))
         evaluation_data_sha=cache.data_sha256;encoded_sha=cache.encoded_sha256
-    text,w,b,tok=load_jev(args.device)
-    model=JEVBridge(text,w,b,tok,train_lora=False)
-    assert set(saved['trainable'])==set(saved['config']['trainable_names'])
-    assert set(saved['trainable'])<=set(dict(model.named_parameters()))
-    incompatible=model.load_state_dict(saved['trainable'],strict=False);assert not incompatible.unexpected_keys
-    model.requires_grad_(False).eval();questions=QuestionTokens(tok,data.specs,device=args.device)
+    readout=None if args.readout_head is None else FrozenReadout(args.readout_head,checkpoint_sha,saved['config']['token_audit_sha256'],saved['config']['train_data_sha256'])
+    model=None;captured=[];handle=None
+    if readout is None or readout.feature!='reve':
+        text,w,b,tok=load_jev(args.device)
+        model=JEVBridge(text,w,b,tok,train_lora=False)
+        assert set(saved['trainable'])==set(saved['config']['trainable_names'])
+        assert set(saved['trainable'])<=set(dict(model.named_parameters()))
+        incompatible=model.load_state_dict(saved['trainable'],strict=False);assert not incompatible.unexpected_keys
+        model.requires_grad_(False).eval();questions=QuestionTokens(tok,data.specs,device=args.device)
+        if readout is not None:
+            def capture(module,inputs,kwargs,output):
+                h=output.last_hidden_state;last=kwargs['attention_mask'].long().sum(1)-1
+                captured.append(h[torch.arange(len(h),device=h.device),last].float().cpu().numpy())
+            handle=model.text.register_forward_hook(capture,with_kwargs=True)
     step=saved['step'];fixed_mi_class=saved['config'].get('fixed_mi_class',False);del saved
     matched_order=np.zeros_like(random_order) if fixed_mi_class else random_order
     signal=records[:,0];shuffled=shuffled_ids(signal,subjects)
     cases={'matched':(signal,matched_order),'swapped_options':(signal,1-matched_order),'shuffled_within_subject':(shuffled,matched_order)}
     if fixed_mi_class:cases['randomized_options']=(signal,random_order)
+    if args.cases:
+        if len(set(args.cases))!=len(args.cases) or not set(args.cases)<=set(cases):raise ValueError('Invalid selected cases')
+        cases={k:cases[k] for k in args.cases}
     results={};all_predictions={}
     for name,(signal_ids,order) in cases.items():
         predictions=[];scores=[]
         for start in range(0,len(ids),args.batch_size):
             if start % (args.batch_size*10)==0:print(name,start,len(ids),flush=True)
-            sl=slice(start,start+args.batch_size);z,mask,cuts=cache.batch(signal_ids[sl],args.device)
-            suffix,_=questions.batch(records[sl],order[sl])
-            logits=model(z,mask,suffix_ids=suffix,num_choices=2,segment_splits=cuts)['logits']
+            sl=slice(start,start+args.batch_size);z,mask,cuts=cache.batch(signal_ids[sl],args.device if model is not None else 'cpu')
+            if model is not None:
+                suffix,_=questions.batch(records[sl],order[sl])
+                logits=model(z,mask,suffix_ids=suffix,num_choices=2,segment_splits=cuts)['logits']
+            if readout is not None:
+                if model is not None:assert len(captured)==1
+                state=captured.pop() if model is not None else None
+                logits=torch.from_numpy(readout.score(state,pool_reve(z).cpu().numpy()))
             letters=logits.argmax(1).cpu().numpy()
             predictions.extend(semantic_predictions(letters,order[sl],[2]*len(letters)).tolist())
-            scores.extend(logits.float().cpu().tolist())
+            scores.extend(logits.cpu().tolist())
         predictions=np.array(predictions);all_predictions[name]=predictions
         results[name]=report(labels,predictions,subjects)
-        np.savez(args.output/f'{name}.npz',source_ids=signal_ids,subjects=subjects,labels=labels,predictions=predictions,option_permutations=order,letter_logits=np.array(scores))
+        np.savez(args.output/f'{name}.npz',source_ids=signal_ids,subjects=subjects,labels=labels,predictions=predictions,option_permutations=order,
+            **{'letter_scores' if readout is not None else 'letter_logits':np.array(scores)})
         (args.output/'results.json').write_text(json.dumps(results,indent=2));print(name,results[name],flush=True)
-    results['option_swap_agreement']=float(np.mean(all_predictions['matched']==all_predictions['swapped_options']))
-    results['matched_minus_shuffled']=results['matched']['overall']['accuracy']-results['shuffled_within_subject']['overall']['accuracy']
+    if 'matched' in cases and 'swapped_options' in cases:results['option_swap_agreement']=float(np.mean(all_predictions['matched']==all_predictions['swapped_options']))
+    if 'matched' in cases and 'shuffled_within_subject' in cases:results['matched_minus_shuffled']=results['matched']['overall']['accuracy']-results['shuffled_within_subject']['overall']['accuracy']
+    if handle is not None:handle.remove()
     (args.output/'results.json').write_text(json.dumps(results,indent=2))
     assert checkpoint_sha==digest(args.checkpoint),'Checkpoint changed during evaluation; use immutable copy'
     (args.output/'complete.json').write_text(json.dumps(dict(step=step,checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=checkpoint_sha,
         fixed_mi_class=fixed_mi_class,evaluation_dataset='external_2b' if args.external_input else 'source_OpenBMI',
         data_sha256=evaluation_data_sha,encoded_sha256=encoded_sha,source_validation_sha256=data.root_hash,
+        cases=list(cases),readout_metadata_sha256=None if readout is None else readout.metadata_sha256,
+        score_kind='jev_logits' if readout is None else 'ridge_regression_scores',
         code_sha256=digest(__file__),results_sha256=digest(args.output/'results.json')),indent=2))
 
 

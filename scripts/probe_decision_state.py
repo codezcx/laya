@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import numpy as np
 from eeg_align.cache import digest
+from eeg_align.readout import describe_head,pool_reve
 
 
 def fold_readout(model):
@@ -57,7 +58,7 @@ def extract(args):
                 rebuilt=torch.nn.functional.linear(torch.as_tensor(state,device='cuda:0'),model.head_weight[:2],model.head_bias[:2])
                 torch.testing.assert_close(rebuilt,out,rtol=1e-5,atol=1e-5)
                 sl=slice(cursor,cursor+len(rr));states[sl]=state;logits[sl]=out.cpu().numpy()
-                reve[sl]=z[:,:18].float().reshape(len(rr),2,3,3,512).mean(3).reshape(len(rr),3072).cpu().numpy()
+                reve[sl]=pool_reve(z).cpu().numpy()
                 records.extend(dict(source_id=int(r[0]),label=int(r[2]),subject=people[int(r[0])],split=split) for r in rr)
                 cursor+=len(rr)
                 if start%480==0:print('Extract decision states',split,start,len(rows),flush=True)
@@ -129,6 +130,7 @@ def fit(args):
             weight,bias=fold_readout(model)
             np.testing.assert_allclose(x[test]@weight.T+bias,model.predict(x[test]),rtol=1e-8,atol=1e-8)
             np.savez(out/f'{key}_head.npz',weight=weight,bias=bias)
+            describe_head(out/f'{key}_head.npz',name,protocol,alpha,int(allowed.sum()))
             np.save(out/f'{key}_predictions.npy',pred)
             print(key,'accuracy',results[key]['validation']['overall']['accuracy'],flush=True)
     fixed=np.load(args.output/'logits.npy')[test].argmax(1)

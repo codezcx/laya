@@ -53,3 +53,9 @@
 外部模型评估复用 `scripts/evaluate_paired_classification.py`，显式传入 `--external-input artifacts/jev_paired_qa/external_2b` 才会读取目标集；默认仍只评估源验证。必须指定不可变checkpoint和新的output目录。入口检查输入/编码哈希及源缓存兼容性，输出逐被试成绩、正常/交换/打乱/随机选项结果和逐trial logits。当前只验证了真实缓存加载及索引，没有执行目标集模型推理；先完成源验证诊断，目标成绩不用于本轮调参。
 
 联合读出命令：`PYTHONPATH=. laya/.venv-eeg/bin/python scripts/probe_decision_state.py --stage fit --output artifacts/jev_paired_qa/diagnostics/fixed_step100_readout --readout-output artifacts/jev_paired_qa/diagnostics/fixed_step100_readout/combined --features combined`。特征顺序固定为语言state5120维，再REVE3072维；只能使用同一冻结100步checkpoint。3,200和8,800标签预算分别训练，REVE单独读出是必要对照。正则只使用训练内被试选择，外部结果不反向指导配置。
+
+## 固定读出推理验证
+
+`--readout-head <head.json>`将评估器的最终分数替换为已导出的冻结读出，描述文件绑定checkpoint、源数据、token审计及权重哈希。联合特征顺序为最后决策state5120维、配对REVE池化3072维。通过hook读取相同决策位置，原语言LoRA保持启用；不改变backbone权重。REVE单独头在CPU上评估，不运行语言模型。输出letter_scores是Ridge分数，不能称为校准概率。
+
+本次预定对照为联合/REVE × 3,200/8,800分类标签预算，分别在源验证和2b上测正常输入与被试内打乱输入；固定A=左手、B=右手。使用不可变100步checkpoint；所有alpha已由源训练内被试确定，禁止根据本次2b成绩再选alpha或改头。四卡分别承担两种预算的源/外部联合推理。只检验固定提示下MI分类，不宣称任意选项理解、属性问答改善或全链路未见2b的盲测。源验证需与已有离线预测逐trial核对，再解释外部成绩。
