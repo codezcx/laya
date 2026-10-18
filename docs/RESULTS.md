@@ -1,14 +1,26 @@
-# 当前阶段：EEG属性问答
+# 当前阶段：重建基线配对 MI 数据
 
-源训练346494条、独立源验证75060条问答均已构造并通过校验。十二类问题分别保存，固定1dB容差；训练集合并分布及逐数据集分布见 `datasets/eeg_attribute_qa/statistics.json`。部分题存在明显偏斜，使用语义答案分组采样和选项随机置换。
+旧四卡属性训练已停止，日志观察到 step 800，最后持久化 last.pt 为 step 700。检查点和日志保留在 `artifacts/jev_attribute_qa/`。旧属性训练结果定义及过程归档于 Git `7ab8f21`；不能将其数值作为新基线配对任务的成绩。新模型训练尚未启动，暂无新任务准确率。
 
-四卡属性训练进程已启动，训练前先记录初始化检查点的属性基线。实时结果以 `artifacts/jev_attribute_qa/status.json`、`run/metrics.jsonl` 为准。未得到结果前不声称属性读取或最终分类得到改善。
+## 数据重建审计（2026-10-18）
 
-启动代码提交 `f85bfd4`。29项单元检查通过；真实四卡两步smoke中，两次更新后各rank可训练参数哈希一致，loss/梯度有限，峰值分配显存58.73GB/卡。启动器确认smoke成功后进入正式run，smoke权重未作为正式初始化。证据：`artifacts/jev_attribute_qa/smoke.log`、`smoke/complete.json`。
+98 个 OpenBMI 原始 session 均通过事件时间、方向标签、被试与 session 核对。训练 44 名被试 / 8,800 trial / 61,600 MI 问答；验证 5 名被试 / 1,000 trial / 7,000 MI 问答。加上保持不变的情绪问答，总计训练 208,462 条、验证 57,100 条。
 
-1200步采样重放：108000次抽样、105601条不同问答、47036个不同训练窗口，单问答最多重复3次；不声称完整覆盖346494条问答。审计：`artifacts/jev_attribute_sampling_audit.json`。
+全部 58,800 道 MI 功率属性题通过独立 FFT 答案重算，9,800 道分类题通过原始标签核对；情绪信号、来源索引和六类问答逐文件 SHA256 与替换前一致，并保留独立频谱抽查。30 项单元检查通过。旧 MI 六类 JSONL 和 mi.npy 已从两套活动目录移除，mi_sources.jsonl 已替换为新配对索引，原始数据、缓存、检查点和日志保留。安装清单：`artifacts/mi_paired_rebuild/{train,validation}_installation.json`；验证证据：各数据目录 `verification.json`；执行日志：`artifacts/mi_paired_rebuild.log`。
 
-正式run已完成step0的2880条源验证panel：MI属性平衡准确率34.03%，情绪属性31.77%，CE1.16743；均为属性题，不是最终类别分数。已确认第1次正式优化器更新完成，训练loss1.19433、梯度有限。后续动态数值以metrics.jsonl为准；初始曲线在 `artifacts/jev_attribute_qa/plots/training_curves.png`，运行绘图脚本可刷新。
+发现部分旧 PKL 的 trial_event_index 重复为0；新构建以 event_index / trial 交叉核对，并逐条确认原始 MAT t 对应 annotation_onset，未使用有缺陷的字段进行配对。原始文件未修改。
+
+选项分布如下；每题独立保留真实答案，不强制改标平衡。变化题 A/B/C=下降/±1dB内/上升；左右题 A/B/C=C3变化更负/差异±1dB内/C4变化更负；分类题 A/B=左/右。
+
+| 问题 | 训练 A/B/C | 验证 A/B/C |
+|---|---:|---:|
+| mi_change_c3_alpha | 4993 / 1785 / 2022 | 537 / 216 / 247 |
+| mi_change_c4_alpha | 5073 / 1662 / 2065 | 557 / 203 / 240 |
+| mi_lateralization_alpha | 3068 / 2599 / 3133 | 336 / 289 / 375 |
+| mi_change_c3_beta | 5013 / 2486 / 1301 | 536 / 302 / 162 |
+| mi_change_c4_beta | 4915 / 2576 / 1309 | 554 / 288 / 158 |
+| mi_lateralization_beta | 2646 / 3690 / 2464 | 294 / 409 / 297 |
+| mi_class | 4400 / 4400 | 500 / 500 |
 
 ## 初始化检查点及五类分类对照
 
@@ -19,10 +31,6 @@
 | 投影器 | 61.73% | 42.44% | 58.94% | 36.89% |
 | 投影器＋LoRA | 63.89% | 41.66% | 56.87% | 33.77% |
 
-本轮初始化使用第二行源选出的4380步best.pt。来源：`artifacts/jev_eeg_coverage/runs/{projector,lora}_seed42/full_source_validation.json` 和 `external.json`。源指标按被试、数据集平均；外部栏为普通准确率，不能混用定义。2b/SEED-VII已经被多次查看，且REVE预训练包含2b，不属于全链路未接触盲测。
+旧属性训练初始化使用第二行源选出的4380步best.pt。来源：`artifacts/jev_eeg_coverage/runs/{projector,lora}_seed42/full_source_validation.json` 和 `external.json`。源指标按被试、数据集平均；外部栏为普通准确率，不能混用定义。2b/SEED-VII已经被多次查看，且REVE预训练包含2b，不属于全链路未接触盲测。
 
 此前完整实验记录归档于Git `6b42e3d`，原始日志与检查点保持在忽略目录。当前没有自动恢复旧训练或启动外部目标评估。
-
-## 停止旧 MI 属性方案（2026-10-18）
-
-用户要求停止训练并重建含同试次基线的 MI 问答。控制进程及四卡子进程已停止；日志观察到 step 800，最后持久化 last.pt 为 step 700。检查点、日志保留。旧 MI 前后半段比较不是静息/任务比较，不能解释为 ERD；旧结果仅属于旧数据定义。

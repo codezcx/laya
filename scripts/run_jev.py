@@ -11,6 +11,9 @@ OUT = Path('artifacts/jev_attribute_qa')
 
 
 def main():
+    for root in ['datasets/eeg_attribute_qa', 'datasets/eeg_attribute_qa_validation']:
+        if json.loads((Path(root)/'complete.json').read_text()).get('schema_version') != 1:
+            raise RuntimeError('Paired MI data requires segment-aware tokens/loader before training; old cache is incompatible')
     OUT.mkdir(parents=True, exist_ok=False)
     def status(phase, **kw):
         (OUT/'status.json').write_text(json.dumps(dict(phase=phase, timestamp=time.time(), **kw), indent=2))

@@ -11,6 +11,15 @@ class FakeTokenizer:
 
 
 class AttributeTrainingTest(unittest.TestCase):
+    def test_paired_schema_rejects_single_window_cache(self):
+        import tempfile
+        from pathlib import Path
+        from eeg_align.attribute_data import AttributeData
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder)/'complete.json').write_text('{"schema_version": 2}')
+            with self.assertRaisesRegex(ValueError, 'segment-aware'):
+                AttributeData(folder,'train')
+
     def test_option_permutation_roundtrip(self):
         specs=[dict(question='Compare channel powers.')]
         questions=QuestionTokens(FakeTokenizer(),specs,device='cpu')

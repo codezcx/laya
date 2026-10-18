@@ -1,101 +1,101 @@
-"""Audit coverage, split isolation, copied signals, and independently recompute QA."""
+"""Verify hashes, coverage, paired provenance and independently recompute QA labels."""
 import argparse
 from collections import Counter
 import hashlib
 import json
 from pathlib import Path
-
 import numpy as np
-
 from scripts.build_attribute_dataset import digest, write_json
 
 
-def independent_power(x, side, channels):
-    """Direct FFT Welch computation, independent of the generator's scipy.welch."""
-    sl = {'full': slice(None), 'early': slice(0, 300), 'late': slice(300, 600)}[side['window']]
-    x = np.asarray(x[[channels.index(c) for c in side['channels']], sl], dtype=np.float64)
-    spectra = []
-    for start in range(0, x.shape[-1] - 199, 100):
-        segment = x[:, start:start+200]
-        segment = (segment-segment.mean(-1, keepdims=True)) * np.hanning(201)[:-1]
-        p = np.abs(np.fft.rfft(segment, axis=-1)) ** 2
-        p[:, 1:-1] *= 2
-        spectra.append(p)
-    p = np.mean(spectra, axis=0)
-    band = {'alpha': slice(8, 13), 'beta': slice(13, 31)}[side['band']]
-    return float(np.mean(p[:, band].sum(-1) / p[:, 1:31].sum(-1)))
+def fft_power(x):
+    """Direct FFT implementation, independent of scipy.signal.welch."""
+    x=np.asarray(x,dtype=np.float64)
+    spectra=[]
+    for start in range(0,x.shape[-1]-199,100):
+        segment=x[...,start:start+200]
+        segment=(segment-segment.mean(-1,keepdims=True))*np.hanning(201)[:-1]
+        p=np.abs(np.fft.rfft(segment,axis=-1))**2
+        p[...,1:-1]*=2
+        spectra.append(p/(200*np.sum(np.hanning(201)[:-1]**2)))
+    return np.mean(spectra,axis=0)
 
 
 def verify(root):
-    complete = json.loads((root/'complete.json').read_text())
-    split, = complete['source_splits']
+    root=Path(root); complete=json.loads((root/'complete.json').read_text())
+    assert complete['schema_version']==2
     assert not (root/'BUILDING.json').exists()
-    for name, expected in complete['files'].items():
-        assert digest(root/name) == expected, name
-    manifest = Path(complete['source_manifest'])
-    assert digest(manifest) == complete['source_manifest_sha256']
-    original = [json.loads(s) for s in manifest.read_text().splitlines()]
-    raw = np.load(complete['source_signals'], mmap_mode='r')
-    arrays, sources = {}, {}
-    for task in ['mi', 'emotion']:
-        arrays[task] = np.load(root/f'signals/{task}.npy', mmap_mode='r')
-        sources[task] = [json.loads(s) for s in (root/f'{task}_sources.jsonl').read_text().splitlines()]
-        for i, source in enumerate(sources[task]):
-            r = source['source_metadata']
-            idx = source['source_row_index']
-            assert r == original[idx] and r['split'] == split
-            assert source['signal_index'] == i
-            signal = arrays[task][i]
-            assert hashlib.sha256(signal.tobytes()).hexdigest() == source['signal_sha256']
-            np.testing.assert_array_equal(signal, raw[idx, :signal.shape[0]])
-    actual = [s['source_row_index'] for group in sources.values() for s in group]
-    expected = [i for i, r in enumerate(original) if r['split'] == split]
-    assert len(actual) == len(set(actual)) and sorted(actual) == expected
-    stats = json.loads((root/'statistics.json').read_text())
-    report = {}
-    for spec in json.loads((root/'question_catalog.json').read_text()):
-        task = spec['task']
-        n = len(sources[task])
-        selected = set(np.random.default_rng(42).choice(n, size=min(24, n), replace=False).tolist())
-        counts, seen, by_dataset = Counter(), set(), {}
+    for name,sha in complete['files'].items():assert digest(root/name)==sha,name
+    for name,sha in complete['preserved_emotion_sha256'].items():assert digest(root/name)==sha,name
+    assert digest(complete['source_manifest'])==complete['source_manifest_sha256']
+    original=[json.loads(s) for s in Path(complete['source_manifest']).read_text().splitlines()]
+    split,=complete['source_splits']
+    expected={i for i,r in enumerate(original) if r['split']==split and r['dataset']=='Lee2019_MI'}
+    sources=[json.loads(s) for s in (root/'mi_sources.jsonl').read_text().splitlines()]
+    assert {s['source_row_index'] for s in sources}==expected
+    assert len(sources)==len(expected)==complete['mi_pairs']
+    baseline=np.load(root/'signals/mi_baseline.npy',mmap_mode='r')
+    task=np.load(root/'signals/mi_task.npy',mmap_mode='r')
+    assert baseline.shape==task.shape==(len(sources),3,400)
+    for i,s in enumerate(sources):
+        assert s['signal_index']==i and s['source_metadata']==original[s['source_row_index']]
+        center=int(round(s['cue_sample_1000hz']/5))
+        assert s['slice_bounds_200hz']==[[center-500,center-100],[center+100,center+500]]
+        pair=np.stack([baseline[i],task[i]])
+        assert np.isfinite(pair).all() and abs(float(np.mean(pair**2))-1)<1e-6
+        assert np.max(np.abs(pair.mean(-1)))<1e-6
+        assert hashlib.sha256(pair.tobytes()).hexdigest()==s['pair_sha256']
+    # Batch all MI spectra; independent FFT labels for every trial/question.
+    p0,p1=fft_power(baseline),fft_power(task)
+    band_slices={'alpha':slice(8,13),'beta':slice(13,31)}
+    delta={b:10*np.log10(p1[...,sl].sum(-1)/p0[...,sl].sum(-1)) for b,sl in band_slices.items()}
+    emotion=np.load(root/'signals/emotion.npy',mmap_mode='r')
+    catalog=json.loads((root/'question_catalog.json').read_text())
+    stats=json.loads((root/'statistics.json').read_text())
+    total=0; emotion_recomputed=0
+    for spec in catalog:
+        seen=set();counts=Counter()
         with (root/'questions'/f'{spec["id"]}.jsonl').open() as f:
-            for i, line in enumerate(f):
-                item = json.loads(line)
-                src = sources[task][i]
-                assert item['sample_id'] == src['sample_id'] and item['split'] == split
-                assert item['id'] not in seen
-                seen.add(item['id'])
-                inp = item['input']
-                assert inp['signal_index'] == i and inp['signal_file'] == src['signal_file']
-                assert inp['question'] == spec['question'] and set(inp['options']) == {'A', 'B', 'C'}
-                ev = item['evidence']
-                db = 10*np.log10(max(ev['first_relative_power'], 1e-12)/max(ev['second_relative_power'], 1e-12))
-                np.testing.assert_allclose(db, ev['difference_db'], atol=1e-12)
-                answer = 'A' if db > 1 else 'C' if db < -1 else 'B'
-                assert item['target']['answer'] == answer
-                counts[answer] += 1
-                ds = src['source_metadata']['dataset']
-                by_dataset.setdefault(ds, Counter())[answer] += 1
-                if i in selected:
-                    for side, key in [('first', 'first_relative_power'), ('second', 'second_relative_power')]:
-                        value = independent_power(arrays[task][i], spec[side], inp['channels'])
-                        np.testing.assert_allclose(value, ev[key], rtol=1e-9, atol=1e-12)
-        assert len(seen) == n and dict(counts) == stats[spec['id']]['answers']
-        assert by_dataset == stats[spec['id']]['datasets']
-        report[spec['id']] = dict(n=n, independently_recomputed=len(selected), answers=dict(counts),
-                                 majority_baseline=max(counts.values())/n)
-        print(spec['id'], dict(counts), flush=True)
-    assert sum(r['n'] for r in report.values()) == complete['question_records']
-    write_json(root/'verification.json', dict(status='passed', source_windows=len(actual),
-        question_records=complete['question_records'], questions=report,
-        verifier_sha256=digest(__file__),
-        checks=['all artifact hashes', 'all signal copies and per-window hashes',
-                f'exact {split}-only coverage', 'all evidence-to-target comparisons',
-                '24 independent FFT recomputations per question', 'answer counts by dataset']))
-    print('Verification passed.', flush=True)
+            for j,line in enumerate(f):
+                item=json.loads(line); inp=item['input']; answer=item['target']['answer']
+                assert item['split']==split and inp['question']==spec['question']
+                assert item['id'] not in seen;seen.add(item['id']);counts[answer]+=1
+                if spec['task']=='mi':
+                    assert inp['options']==spec['options']
+                    assert set(inp)=={'segments','sample_rate','channels','question','options'}
+                    assert inp['sample_rate']==200 and inp['channels']==['C3','Cz','C4']
+                    i=inp['segments'][0]['signal_index'];assert i==j
+                    for seg,role,window in zip(inp['segments'],['baseline','task'],[[-2.5,-.5],[.5,2.5]]):
+                        assert seg==dict(role=role,signal_file=f'signals/mi_{role}.npy',signal_index=i,cue_relative_seconds=window)
+                    assert item['sample_id']==sources[i]['sample_id']
+                    assert item['provenance']['source_row_index']==sources[i]['source_row_index']
+                    if spec['family']=='classification':expected_answer='AB'[sources[i]['label']]
+                    else:
+                        d=delta[spec['band']][i]
+                        value=float(d[['C3','Cz','C4'].index(spec['channel'])]) if spec['family']=='baseline_change' else float(d[0]-d[2])
+                        np.testing.assert_allclose(value,item['evidence']['decision_value_db'],rtol=1e-8,atol=1e-8)
+                        expected_answer='A' if value < -1 else 'C' if value > 1 else 'B'
+                    assert answer==expected_answer
+                elif j%997==0: # emotion payloads hash-identical; retain independent spot checks
+                    x=emotion[inp['signal_index']];channels=inp['channels']
+                    values=[]
+                    for side in [spec['first'],spec['second']]:
+                        window={'full':slice(None),'early':slice(0,300),'late':slice(300,600)}[side['window']]
+                        p=fft_power(x[[channels.index(c) for c in side['channels']],window])
+                        values.append((p[...,band_slices[side['band']]].sum(-1)/p[...,1:31].sum(-1)).mean())
+                    db=10*np.log10(max(values[0],1e-12)/max(values[1],1e-12))
+                    assert answer==('A' if db>1 else 'C' if db < -1 else 'B')
+                    emotion_recomputed+=1
+        assert counts==Counter(stats[spec['id']]['answers'])
+        assert len(seen)==(len(sources) if spec['task']=='mi' else len(emotion))
+        total+=len(seen)
+    assert total==complete['question_records']
+    write_json(root/'verification.json',dict(status='passed',complete_sha256=digest(root/'complete.json'),
+        mi_pairs=len(sources),mi_questions_recomputed=len(sources)*7,
+        emotion_payloads_hash_unchanged=True,emotion_questions_recomputed=emotion_recomputed,
+        question_records=total))
+    print(f'PASS {root}: {len(sources)} paired MI trials; {total} QA records',flush=True)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('root', type=Path, nargs='?', default=Path('datasets/eeg_attribute_qa'))
-    verify(parser.parse_args().root)
+if __name__=='__main__':
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path);verify(p.parse_args().root)

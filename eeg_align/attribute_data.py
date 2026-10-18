@@ -14,6 +14,8 @@ class AttributeData:
     def __init__(self, root, split):
         self.root = Path(root)
         complete = json.loads((self.root/'complete.json').read_text())
+        if complete.get('schema_version') != 1:
+            raise ValueError('Paired MI schema requires new segment-aware REVE tokens and training loader; old single-window cache is incompatible')
         if complete['source_splits'] != [split]:raise ValueError('Wrong attribute split')
         if json.loads((self.root/'verification.json').read_text())['status'] != 'passed':
             raise ValueError('Attribute QA audit missing')
