@@ -45,3 +45,5 @@
 ## 外部输入准备
 
 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/build_external_paired_mi.py`构建独立2b配对输入，默认输出`artifacts/jev_paired_qa/external_2b/`，目录存在时拒绝覆盖。该目录不进入训练加载器。保留两段共享尺度、明确的事件锚点与原始文件哈希；准备期参考含提示音，不能称纯静息。详见[诊断记录](PAIRED_DIAGNOSTICS.md)。
+
+冻结编码命令：`CUDA_VISIBLE_DEVICES=3 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/encode_external_paired_mi.py`。输出为external_2b/encoded，已存在则拒绝覆盖；使用源缓存anchor核对表示兼容，编码时不使用标签。当前仅准备外部输入，评估结果尚不存在。

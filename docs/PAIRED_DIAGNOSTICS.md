@@ -107,3 +107,9 @@ REVE包含当前线性探针可读取的分类与属性信息，不能把JEV失�
 `scripts/build_external_paired_mi.py`从B01E至B09E原始连续信号构造2,840条独立外部输入，左右手各1,420条。逐trial核对现有manifest与PKL事件时间/标签，排除EOG，仅取双极C3/Cz/C4；按源协议在本地采样率250 Hz进行连续1–30 Hz滤波，再4/5重采样到200 Hz，截取提示前[-2.5,-0.5]与提示后[0.5,2.5]秒，逐段/通道去均值后共享RMS。全部有限且单位均方功率，最大事件取整误差2毫秒。已用已知原始trial与既有annotation测试1-based换算和窗口边界（2项通过）。
 
 产物 `artifacts/jev_paired_qa/external_2b/`包含pairs.npy、labels.npy、sources.jsonl和原始文件/输出/代码哈希。尚未编码或计算模型成绩，不参与训练、验证选模或阈值选择。参考段包含提示音，不称为纯静息；双极参考与源数据参考方式不同。
+
+## 2b 冻结REVE tokens已编码
+
+`scripts/encode_external_paired_mi.py`完成2,840个配对输入的冻结REVE编码，输出`external_2b/encoded/tokens.npy`，形状[2840,18,512]、float16，全部有限且token范数非零。每段同样复制补齐160点、独立编码，再按baseline9/task9拼接。脚本未将目标标签送入编码器。
+
+编码前重新运行一条源训练输入，检查缓存token布局与数值兼容：相对L2误差0.000358（阈值0.001，包含缓存float16量化与批次计算差异），不宣称逐bit相同。完成记录保存encoder/positions权重及代码、输入、输出哈希。独立编码进程已退出，未改变四卡训练或执行2b模型评价。
