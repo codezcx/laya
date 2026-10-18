@@ -2,7 +2,11 @@
 
 源训练346494条、独立源验证75060条问答均已构造并通过校验。十二类问题分别保存，固定1dB容差；训练集合并分布及逐数据集分布见 `datasets/eeg_attribute_qa/statistics.json`。部分题存在明显偏斜，使用语义答案分组采样和选项随机置换。
 
-当前准备启动四卡属性训练，训练前先记录初始化检查点的属性基线。实时结果以 `artifacts/jev_attribute_qa/status.json`、`run/metrics.jsonl` 为准。未得到结果前不声称属性读取或最终分类得到改善。
+四卡属性训练进程已启动，训练前先记录初始化检查点的属性基线。实时结果以 `artifacts/jev_attribute_qa/status.json`、`run/metrics.jsonl` 为准。未得到结果前不声称属性读取或最终分类得到改善。
+
+启动代码提交 `f85bfd4`。29项单元检查通过；真实四卡两步smoke中，两次更新后各rank可训练参数哈希一致，loss/梯度有限，峰值分配显存58.73GB/卡。启动器确认smoke成功后进入正式run，smoke权重未作为正式初始化。证据：`artifacts/jev_attribute_qa/smoke.log`、`smoke/complete.json`。
+
+1200步采样重放：108000次抽样、105601条不同问答、47036个不同训练窗口，单问答最多重复3次；不声称完整覆盖346494条问答。审计：`artifacts/jev_attribute_sampling_audit.json`。
 
 ## 初始化检查点及五类分类对照
 
