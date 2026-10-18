@@ -77,3 +77,15 @@ REVE包含当前线性探针可读取的分类与属性信息，不能把JEV失�
 这将问题具体定位为最终决策的固定字母塌缩，不能据此单独证明选项随机化、encoder或某层是因果根源。覆盖改进仍在运行，下一次检查需要同时评估准确率和字母分布；如果继续固定字母，再考虑稳定分类标签映射或更直接的接口监督，不把训练loss下降当作恢复。
 
 证据：`artifacts/jev_paired_qa/control_sparse_labels/classification_audit/` 的results.json、三份逐trial logits/predictions npz及complete.json。评估在GPU3约83GiB空闲时启动，限制独立分配为设备显存的48%，与原训练并行；峰值总占用约113GiB，评估完成后显存释放，当前训练持续运行。
+
+## 训练日志的固定字母重放检查
+
+在不读取活跃GPU权重的情况下，按config中的seed、分组采样与每步选项置换重放训练批次。第20/40/50/60步分类准确率均不同于该批次恒选A或恒选B的准确率。例如第50步实际65.625%，恒选A/B分别53.125%/46.875%。这排除了这些训练批次全部选同一字母的情况，但不证明源验证泛化；同分也不能反推逐样本预测相同。证据：`diagnostics/constant_letter_training_audit.json`。
+
+## 外部2b原始数据可用性
+
+已找到 `mne_data/MNE-bnci-data/~bci/database/004-2014/B01E.mat` 至 `B09E.mat`，与既有外部manifest的9名被试、2,840个试次对应。原始MAT的trial为试次开始，现有PKL的annotation_onset为提示开始：`cue_sample = trial - 1 + 3*250`。应逐条核对，不能把两种时间锚点混用。
+
+[竞赛官方协议](https://www.bbci.de/competition/iv/desc_2b.pdf)说明反馈会话在试次第2秒有提示音，第3秒起显示方向提示。因此若保持当前提示前[-2.5,-0.5]秒窗口，其中包含提示音；只能称为准备期参考，不能称为纯静息。其C3/Cz/C4是双极记录，与源数据的通道名称相同并不保证参考方式或空间测量完全相同。
+
+当前仅做可用性、有限值与事件/标签对应审计，尚未构建新外部输入或用当前模型测2b，更未将2b用于本轮训练或选模。审计记录：`artifacts/jev_paired_qa/diagnostics/external_2b_availability.json`。后续目标集成绩必须与源验证分开报告。
