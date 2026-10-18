@@ -5,6 +5,7 @@ __pycache__/
 .env
 .env.*
 artifacts/
+datasets/eeg_attribute_qa/
 third_party/
 laya/
 .JEV-27B-VL.git.backup*/
