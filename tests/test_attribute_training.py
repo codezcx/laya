@@ -41,6 +41,17 @@ class AttributeTrainingTest(unittest.TestCase):
         pred=mask_choices(torch.tensor([[1.,2.,99.],[2.,1.,99.]]),[2,2]).argmax(1)
         np.testing.assert_array_equal(semantic_predictions(pred.numpy(),[1,1],[2,2]),[0,1])
 
+    def test_coverage_change_preserves_task_loss_mass(self):
+        from eeg_align.attribute_data import training_weights
+        specs=[{'id':'mi_class','task':'mi'},{'id':'mi_attribute','task':'mi'},{'id':'emotion_attribute','task':'emotion'}]
+        groups={(0,0,a):[a] for a in range(2)}
+        groups.update({(q,0,a):[10*q+a] for q in [1,2] for a in range(3)})
+        data=SimpleNamespace(specs=specs,groups=groups)
+        counts={k:16 if k[0]==0 else 1 for k in groups}
+        weights=training_weights(data,counts);batch=sum(counts.values())
+        mass=[sum(n*weights[q]/batch for (q,_,_),n in counts.items() if q==i) for i in range(3)]
+        np.testing.assert_allclose(mass,[.25,.25,.5])
+
     def test_metric_uses_semantics_and_macro_datasets(self):
         data=SimpleNamespace(specs=[{'id':'mi_test'},{'id':'emotion_test'}],datasets=['a','b'])
         data.records=np.array([[i,q,a,d] for i,(q,a,d) in enumerate(

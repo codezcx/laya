@@ -7,13 +7,16 @@ import numpy as np
 
 class BalancedCoverageSampler:
     def __init__(self,groups,per_group=8,seed=42):
-        if not groups or per_group<1:raise ValueError('Nonempty groups and positive per_group required')
+        if not groups:raise ValueError('Nonempty groups required')
+        self.counts={k:per_group[k] if isinstance(per_group,dict) else per_group for k in groups}
+        if any(not isinstance(n,int) or n<1 for n in self.counts.values()):raise ValueError('Positive integer draws required')
+        if isinstance(per_group,dict) and set(per_group)!=set(groups):raise ValueError('Draw counts must match groups')
         self.groups={k:np.array(groups[k],dtype=np.int64,copy=True) for k in sorted(groups)}
         if any(len(v)==0 for v in self.groups.values()):raise ValueError('Empty group')
         flat=np.concatenate(list(self.groups.values()))
         if len(np.unique(flat))!=len(flat):raise ValueError('Indices must be unique across groups')
         self.per_group=per_group;self.rng=np.random.default_rng(seed)
-        self.steps_per_round=max(math.ceil(len(v)/per_group) for v in self.groups.values())
+        self.steps_per_round=max(math.ceil(len(v)/self.counts[k]) for k,v in self.groups.items())
         self.step=0;self.round=0;self.queues={};self.positions={}
     def _signature(self):
         payload=[(repr(k),v.tolist()) for k,v in self.groups.items()]
@@ -51,14 +54,15 @@ class BalancedCoverageSampler:
         batch=[]
         for key,values in self.groups.items():
             drawn=[]
-            while len(drawn)<self.per_group:
+            count=self.counts[key]
+            while len(drawn)<count:
                 if self.positions[key]==len(values):
                     self.queues[key]=self.rng.permutation(values);self.positions[key]=0
-                n=min(self.per_group-len(drawn),len(values)-self.positions[key]);start=self.positions[key]
+                n=min(count-len(drawn),len(values)-self.positions[key]);start=self.positions[key]
                 drawn.extend(self.queues[key][start:start+n].tolist());self.positions[key]+=n
             batch.append(drawn)
         self.step+=1
-        return np.asarray(batch,dtype=np.int64)
+        return np.asarray(batch,dtype=np.int64) if len(set(self.counts.values()))==1 else np.concatenate(batch).astype(np.int64)
     @staticmethod
     def rank_batch(grouped,rank,world_size):
         if grouped.ndim!=2 or world_size<1 or not 0<=rank<world_size or grouped.shape[1]%world_size:

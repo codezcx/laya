@@ -52,3 +52,13 @@ class CoverageTest(unittest.TestCase):
         with self.assertRaises(ValueError):BalancedCoverageSampler.rank_batch(np.ones((2,3)),0,2)
 
 if __name__=='__main__':unittest.main()
+
+class MixedDrawCoverageTest(unittest.TestCase):
+    def test_variable_draws_coverage_and_resume(self):
+        groups={(0,0,0):list(range(4400)),(0,0,1):list(range(4400,8800)),(1,0,0):list(range(8800,9300))}
+        counts={(0,0,0):16,(0,0,1):16,(1,0,0):1}
+        a=BalancedCoverageSampler(groups,counts,seed=42);seen=[]
+        for _ in range(275):seen.extend(a.next_batch()[:32])
+        self.assertEqual(sorted(seen),list(range(8800)))
+        b=BalancedCoverageSampler(groups,counts,seed=1);b.load_state_dict(a.state_dict())
+        np.testing.assert_array_equal(a.next_batch(),b.next_batch())

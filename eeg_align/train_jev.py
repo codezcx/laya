@@ -1,6 +1,7 @@
 """Four-rank EEG attribute QA; frozen REVE, active/updatable JEV LoRA."""
 import argparse
 import hashlib
+import math
 import json
 import os
 import random
@@ -84,8 +85,9 @@ def main():
     p.add_argument('--init', type=Path, default=Path('artifacts/jev_paired_qa/initialization.pt'))
     p.add_argument('--train-data', type=Path, default=Path('datasets/eeg_attribute_qa'))
     p.add_argument('--validation-data', type=Path, default=Path('datasets/eeg_attribute_qa_validation'))
-    p.add_argument('--steps', type=int, default=1200)
-    p.add_argument('--eval-every', type=int, default=200)
+    p.add_argument('--steps', type=int, default=600)
+    p.add_argument('--eval-every', type=int, default=100)
+    p.add_argument('--classification-per-class',type=int,default=16)
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--resume', action='store_true')
     p.add_argument('--smoke', action='store_true')
@@ -105,11 +107,12 @@ def main():
     assert train.specs == val.specs
     assert not set(train.records[:,0]) & set(val.records[:,0])
     assert len(train.groups) == 56 and len(val.groups) == 56
-    batch_size=len(train.groups);nq=len(train.specs);question_weights=training_weights(train)
+    draw_counts={k:args.classification_per_class if train.specs[k[0]]['id']=='mi_class' else 1 for k in train.groups}
+    batch_size=sum(draw_counts.values());nq=len(train.specs);question_weights=training_weights(train,draw_counts)
     steps = 2 if args.smoke else args.steps
     # No example can recur more than four times in this bounded run.
-    assert steps <= 4 * min(map(len, train.groups.values()))
-    sampler = BalancedCoverageSampler(train.groups, per_group=1, seed=args.seed)
+    assert max(math.ceil(steps*draw_counts[k]/len(v)) for k,v in train.groups.items()) <= 4
+    sampler = BalancedCoverageSampler(train.groups, per_group=draw_counts, seed=args.seed)
     panel = val.panel(per_group=1 if args.smoke else 16)
     cache = PairedTokenCache()
     text, w, b, tok = load_jev()
@@ -135,7 +138,8 @@ def main():
         manifest_sha256=digest(ROOT/'rows.jsonl'), validation_ids=panel.tolist(),
         validation_n=len(panel), eval_every=args.eval_every,
         selection='fixed source-subject validation panel; task/question/dataset macro semantic balanced accuracy',
-        sampler='one draw per question x dataset x semantic answer; without replacement within group until exhausted',
+        sampler='16 draws per MI classification answer, one per attribute answer/dataset; without replacement until group exhausted',
+        classification_per_class=args.classification_per_class,
         max_repeats=4, task_loss_mass=dict(mi_attributes=.25,mi_classification=.25,emotion_attributes=.5),
         question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
         code_sha256={f:digest(f) for f in paths},

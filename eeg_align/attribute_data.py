@@ -94,12 +94,14 @@ def mask_choices(logits,counts):
     return logits.masked_fill(torch.arange(logits.shape[1],device=logits.device)[None]>=counts[:,None],float('-inf'))
 
 
-def training_weights(data):
+def training_weights(data,draw_counts=None):
     # Half of MI loss targets actual left/right classification; half targets six attributes.
     category=lambda q: 'mi_class' if data.specs[q]['id']=='mi_class' else data.specs[q].get('task', 'emotion')
     masses={'mi_class':.25,'mi':.25,'emotion':.5}
-    groups={c:sum(category(q)==c for q,_,_ in data.groups) for c in masses}
-    return np.array([len(data.groups)*masses[category(q)]/groups[category(q)] for q in range(len(data.specs))])
+    if draw_counts is None:draw_counts={k:1 for k in data.groups}
+    groups={c:sum(n for (q,_,_),n in draw_counts.items() if category(q)==c) for c in masses}
+    batch=sum(draw_counts.values())
+    return np.array([batch*masses[category(q)]/groups[category(q)] for q in range(len(data.specs))])
 
 
 def summarize(data, ids, predictions):
