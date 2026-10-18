@@ -1,6 +1,6 @@
 # EEG 属性选择题：仅源训练集
 
-本次只构造数据，不启动训练，也不改变现有 JEV 模型和训练入口。候选辅助监督用于检验信号可读性；尚未证明可以改善跨数据集分类。
+候选辅助监督用于检验信号可读性；尚未证明可以改善跨数据集分类。首次只构造源训练数据；经用户授权后，现已新增独立源验证问答并接入训练，参见 [当前协议](PROTOCOL.md)。
 
 ## 位置与拆分
 
@@ -51,7 +51,9 @@ MI 每题33,272条，情绪每题24,477条，共346,494条问答。这是57,749�
 
 每条JSONL含 `input`、`target`、`evidence`、`provenance`。模型只接收input中的信号内容、通道/采样元信息、问题与选项；文件路径和索引用于加载，不渲染到prompt。target作为训练标签，evidence是计算依据，provenance用于审计。sources包含原始类别等历史元信息，也不得进入prompt。
 
-构造时未shuffle，便于逐窗核对；未来训练应按独立窗口/被试划分后shuffle，不能将同一窗口的不同问题随机分配到训练与验证。现有源验证集保持未生成状态。通道覆盖可能透露任务身份，本数据不能用来证明自动任务识别能力。
+构造时未shuffle，便于逐窗核对；训练按问题×数据集×语义答案分组shuffle，同一窗口的不同问题不能随机分配到训练与验证。通道覆盖可能透露任务身份，本数据不能用来证明自动任务识别能力。
+
+源验证目录为 `datasets/eeg_attribute_qa_validation/`：MI4160窗、情绪8350窗，共12510窗和75060问答。仅选原manifest的validation被试，规则和训练集完全相同，不拟合阈值。其complete.json明确记录source_splits=[validation]。训练目录不包含这些验证记录。
 
 ## 重建和检查
 
@@ -61,6 +63,8 @@ MI 每题33,272条，情绪每题24,477条，共346,494条问答。这是57,749�
 PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests -p test_attribute_questions.py -v
 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/build_attribute_dataset.py
 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/verify_attribute_dataset.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/build_attribute_dataset.py --split validation --output datasets/eeg_attribute_qa_validation
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/verify_attribute_dataset.py datasets/eeg_attribute_qa_validation
 ```
 
 构造前核对原始缓存完整SHA256和manifest；复制信号的逐窗SHA256保存在sources，产物完整SHA256保存在complete.json。没有下载、GPU模型调用、伪造CoT或自动训练。

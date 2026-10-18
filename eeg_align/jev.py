@@ -28,7 +28,9 @@ class LoadedLoRA(nn.Module):
         return self.base(x)+(F.linear(F.linear(x.float(),self.lora_A),self.lora_B)*self.scale).to(x.dtype)
 
 def assemble_embeddings(prefix,eeg,suffix,valid):
-    seqs=[torch.cat([prefix,x[m],suffix]) for x,m in zip(eeg,valid)]
+    suffixes = [suffix] * len(eeg) if isinstance(suffix, torch.Tensor) and suffix.ndim == 2 else suffix
+    if len(suffixes) != len(eeg):raise ValueError('One suffix required per EEG sample')
+    seqs=[torch.cat([prefix,x[m],s]) for x,m,s in zip(eeg,valid,suffixes)]
     lengths=torch.tensor([len(s) for s in seqs],device=eeg.device)
     inputs=nn.utils.rnn.pad_sequence(seqs,batch_first=True)
     mask=torch.arange(inputs.shape[1],device=eeg.device)[None]<lengths[:,None]
@@ -92,12 +94,14 @@ class JEVBridge(nn.Module):
         # Train mode activates checkpointing even for a frozen decoder: gradients must reach connector.
         self.text.train(mode)
         return self
-    def forward(self,tokens,valid,labels=None):
+    def forward(self,tokens,valid,labels=None,suffix_ids=None,num_choices=5):
         if valid.dtype!=torch.bool or tokens.shape[:2]!=valid.shape or not valid.any(1).all():raise ValueError('Invalid EEG mask')
         z=self.connector(tokens.masked_fill(~valid[...,None],0).float())
-        embed=self.text.get_input_embeddings();prefix=embed(self.prefix_ids);suffix=embed(self.suffix_ids)
+        embed=self.text.get_input_embeddings();prefix=embed(self.prefix_ids)
+        suffix=embed(self.suffix_ids) if suffix_ids is None else [embed(s) for s in suffix_ids]
         x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid)
         hidden=self.text(inputs_embeds=x,attention_mask=mask,position_ids=positions,use_cache=False,return_dict=True).last_hidden_state
         state=hidden[torch.arange(len(hidden),device=hidden.device),last]
-        logits=F.linear(state.float(),self.head_weight,self.head_bias)
+        if not 1 <= num_choices <= len(self.head_weight):raise ValueError('Invalid choice count')
+        logits=F.linear(state.float(),self.head_weight[:num_choices],self.head_bias[:num_choices])
         return dict(logits=logits,loss=None if labels is None else F.cross_entropy(logits,labels))

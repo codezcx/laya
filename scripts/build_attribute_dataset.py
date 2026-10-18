@@ -1,4 +1,4 @@
-"""Build separable, source-training-only EEG attribute QA files (CPU only)."""
+"""Build separable EEG attribute QA for one source split (CPU only)."""
 import argparse
 from collections import Counter
 import hashlib
@@ -58,7 +58,7 @@ def build(args):
     write_json(out / 'BUILDING.json', {'status': 'incomplete; do not train until complete.json exists'})
     counts, example, total = {}, {}, 0
     for task, channels in [('mi', ['C3', 'Cz', 'C4']), ('emotion', CHANNELS)]:
-        ids = [i for i, r in enumerate(rows) if r['split'] == 'train'
+        ids = [i for i, r in enumerate(rows) if r['split'] == args.split
                and (r['dataset'] in {'SEED', 'FACED-NEMAR'}) == (task == 'emotion')]
         signal_file = f'signals/{task}.npy'
         dest = np.lib.format.open_memmap(out / signal_file, mode='w+', dtype=np.float32,
@@ -87,7 +87,7 @@ def build(args):
                         for j, original in enumerate(batch_ids):
                             r = rows[original]
                             sid = f'source-{original:06d}'
-                            item = dict(id=f'{sid}:{spec["id"]}', sample_id=sid, split='train',
+                            item = dict(id=f'{sid}:{spec["id"]}', sample_id=sid, split=args.split,
                                 question_type=spec['id'],
                                 input=dict(signal_file=signal_file, signal_index=start+j, sample_rate=200,
                                            channels=channels, question=spec['question'], options=OPTIONS),
@@ -112,6 +112,10 @@ def build(args):
     write_json(out / 'examples.json', example)
     write_json(out / 'statistics.json', counts)
     shutil.copyfile('docs/ATTRIBUTE_DATASET.md', out / 'README.md')
+    if args.split == 'validation':
+        note = '# This directory contains SOURCE VALIDATION ONLY\n\n'
+        note += f'{total} held-out windows; no training examples. See complete.json for exact contents.\n\n'
+        (out/'README.md').write_text(note + (out/'README.md').read_text())
     files = {str(p.relative_to(out)): digest(p) for p in sorted(out.rglob('*'))
              if p.is_file() and p.name != 'BUILDING.json'}
     write_json(out / 'complete.json', dict(schema_version=1, source_windows=total,
@@ -120,7 +124,7 @@ def build(args):
         source_signals=str(args.signals.resolve()), source_signals_sha256=signal_hash,
         code_sha256={p: digest(p) for p in ['scripts/build_attribute_dataset.py', 'eeg_tasks/attribute_questions.py']},
         files=files, threshold_db=1.0, threshold_fitting='none; fixed descriptive tolerance',
-        source_splits=['train'], sfreq=200, samples=600,
+        source_splits=[args.split], sfreq=200, samples=600,
         spectral_method='Welch Hann 200 samples, overlap100, nfft200; band-bin sum / 1–30 Hz bin sum',
         band_bins_hz={'theta': '[4,8)', 'alpha': '[8,13)', 'beta': '[13,30]'},
         input_contract='Only input is fed to model; target/evidence/provenance/source_metadata must not be included',
@@ -134,4 +138,5 @@ if __name__ == '__main__':
     parser.add_argument('--manifest', type=Path, default=Path('artifacts/multitask_bridge_v30/source_cache/rows.jsonl'))
     parser.add_argument('--signals', type=Path, default=Path('artifacts/jev_eeg/source_signals/signals.npy'))
     parser.add_argument('--output', type=Path, default=Path('datasets/eeg_attribute_qa'))
+    parser.add_argument('--split', choices=['train', 'validation'], default='train')
     build(parser.parse_args())

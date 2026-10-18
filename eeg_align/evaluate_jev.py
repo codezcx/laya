@@ -10,11 +10,25 @@ from .data import TokenCache
 from .evaluate import metrics
 from .jev import load_jev,JEVBridge
 from .signals import SignalCache,SignalEncoder
-from .train_jev import validate
+from .data import metrics as source_metrics
 from eeg_tasks.data import preprocess,normalized_window
 from eeg_tasks.normalization import scale_window
 from eeg_tasks.channels import picks
 from eeg_tasks.emotion_labels import SOURCE
+
+
+@torch.no_grad()
+def validate(model,cache,raw,encoder,ids):
+    """Fixed five-class evaluation retained as a matched downstream diagnostic."""
+    model.eval();values=[]
+    if encoder is not None:encoder.eval()
+    for start in range(0,len(ids),12):
+        ii=ids[start:start+12]
+        if encoder is None:z,m,_=cache.batch(ii,'cuda')
+        else:
+            x,channels,_=raw.batch(ii,'cuda');z,m=encoder(x,channels)
+        values.append(model(z,m)['logits'].cpu().numpy())
+    return source_metrics([cache.rows[i] for i in ids],np.concatenate(values))
 
 
 def raw_external(rows):

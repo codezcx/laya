@@ -28,6 +28,7 @@ def independent_power(x, side, channels):
 
 def verify(root):
     complete = json.loads((root/'complete.json').read_text())
+    split, = complete['source_splits']
     assert not (root/'BUILDING.json').exists()
     for name, expected in complete['files'].items():
         assert digest(root/name) == expected, name
@@ -42,13 +43,13 @@ def verify(root):
         for i, source in enumerate(sources[task]):
             r = source['source_metadata']
             idx = source['source_row_index']
-            assert r == original[idx] and r['split'] == 'train'
+            assert r == original[idx] and r['split'] == split
             assert source['signal_index'] == i
             signal = arrays[task][i]
             assert hashlib.sha256(signal.tobytes()).hexdigest() == source['signal_sha256']
             np.testing.assert_array_equal(signal, raw[idx, :signal.shape[0]])
     actual = [s['source_row_index'] for group in sources.values() for s in group]
-    expected = [i for i, r in enumerate(original) if r['split'] == 'train']
+    expected = [i for i, r in enumerate(original) if r['split'] == split]
     assert len(actual) == len(set(actual)) and sorted(actual) == expected
     stats = json.loads((root/'statistics.json').read_text())
     report = {}
@@ -61,7 +62,7 @@ def verify(root):
             for i, line in enumerate(f):
                 item = json.loads(line)
                 src = sources[task][i]
-                assert item['sample_id'] == src['sample_id'] and item['split'] == 'train'
+                assert item['sample_id'] == src['sample_id'] and item['split'] == split
                 assert item['id'] not in seen
                 seen.add(item['id'])
                 inp = item['input']
@@ -89,7 +90,7 @@ def verify(root):
         question_records=complete['question_records'], questions=report,
         verifier_sha256=digest(__file__),
         checks=['all artifact hashes', 'all signal copies and per-window hashes',
-                'exact training-only coverage', 'all evidence-to-target comparisons',
+                f'exact {split}-only coverage', 'all evidence-to-target comparisons',
                 '24 independent FFT recomputations per question', 'answer counts by dataset']))
     print('Verification passed.', flush=True)
 

@@ -23,4 +23,14 @@ class JEVTest(unittest.TestCase):
         torch.testing.assert_close(x[1,8:10],suffix)
         self.assertEqual(p[1].tolist(),list(range(10)))
 
+    def test_variable_questions_keep_decision_at_valid_suffix_end(self):
+        prefix=torch.randn(2,8);eeg=torch.randn(2,4,8)
+        suffix=[torch.randn(3,8),torch.randn(5,8)]
+        valid=torch.tensor([[1,1,0,0],[1,1,1,1]],dtype=torch.bool)
+        x,m,p,last=assemble_embeddings(prefix,eeg,suffix,valid)
+        self.assertEqual(last.tolist(),[6,10])
+        torch.testing.assert_close(x[0,4:7],suffix[0])
+        torch.testing.assert_close(x[1,6:11],suffix[1])
+        self.assertFalse(m[0,7:].any())
+
 if __name__=='__main__':unittest.main()
