@@ -30,7 +30,13 @@ def shuffled_ids(signal_ids,subjects,seed=1701):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
-    p.add_argument('--device',default='cuda:0');args=p.parse_args()
+    p.add_argument('--device',default='cuda:0')
+    p.add_argument('--batch-size',type=int,default=24)
+    p.add_argument('--memory-fraction',type=float,default=.48)
+    args=p.parse_args()
+    if args.batch_size<1:raise ValueError('Positive batch size required')
+    torch.set_num_threads(4)
+    torch.cuda.set_per_process_memory_fraction(args.memory_fraction,torch.device(args.device))
     args.output.mkdir(parents=True,exist_ok=False)
     checkpoint_sha=digest(args.checkpoint);saved=torch.load(args.checkpoint,map_location='cpu',weights_only=False)
     data=AttributeData('datasets/eeg_attribute_qa_validation','validation')
@@ -54,8 +60,9 @@ def main():
     results={};all_predictions={}
     for name,(signal_ids,order) in cases.items():
         predictions=[];scores=[]
-        for start in range(0,len(ids),6):
-            sl=slice(start,start+6);z,mask,cuts=cache.batch(signal_ids[sl],args.device)
+        for start in range(0,len(ids),args.batch_size):
+            if start % (args.batch_size*10)==0:print(name,start,len(ids),flush=True)
+            sl=slice(start,start+args.batch_size);z,mask,cuts=cache.batch(signal_ids[sl],args.device)
             suffix,_=questions.batch(records[sl],order[sl])
             logits=model(z,mask,suffix_ids=suffix,num_choices=2,segment_splits=cuts)['logits']
             letters=logits.argmax(1).cpu().numpy()
