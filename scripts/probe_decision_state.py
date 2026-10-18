@@ -66,6 +66,9 @@ def extract(args):
 
 
 def fit(args):
+    import warnings
+    from scipy.linalg import LinAlgWarning
+    warnings.filterwarnings('error',category=LinAlgWarning)
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import Ridge
@@ -92,12 +95,12 @@ def fit(args):
     budgets={'seen_classification_labels':train & np.array([r['source_id'] in seen for r in records]),'all_training_labels':train}
     target=np.eye(2)[y];results={};alphas=[10,1000,100000]
     np.savez(args.output/'probe_partitions.npz',fit=training,inner=inner,test=test,seen_labels=budgets['seen_classification_labels'])
-    (args.output/'readout_protocol.json').write_text(json.dumps(dict(alphas=alphas,
+    (args.output/'readout_protocol.json').write_text(json.dumps(dict(alphas=alphas,solver_dtype='float64',
         fit_subjects=sorted(set(subjects[training])),inner_subjects=sorted(set(subjects[inner])),
         validation_subjects=sorted(set(subjects[test])),budgets={k:int(v.sum()) for k,v in budgets.items()},
         limitation=protocol['limitation']),indent=2))
     for name in ['reve','states']:
-        x=np.load(args.output/f'{name}.npy',mmap_mode='r')
+        x=np.load(args.output/f'{name}.npy',mmap_mode='r').astype(np.float64)
         for budget,allowed in budgets.items():
             scores=[]
             for alpha in alphas:
