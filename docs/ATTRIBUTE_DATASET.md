@@ -29,4 +29,4 @@ input 只有分段信号引用、时间关系、采样率、通道、问题和�
 
 `scripts/build_attribute_dataset.py --install` 会先在 artifacts 暂存、校验新数据，之后仅移除旧 MI 问答/MI 信号，替换索引与元数据；不会删除原始数据、检查点、日志或缓存。此次删除得到用户明确授权。安装日志保存在 `artifacts/mi_paired_rebuild/*_installation.json`。情绪 payload 通过 SHA256 确认未改动。所有 MI 答案由独立 FFT 实现重算；源 train/validation 按被试隔离。
 
-旧单窗 REVE token cache 不含基线，禁止用于新 schema。重新启动模型训练前，必须实现带 baseline/task 边界的编码/加载和可变选项训练；当前只完成数据重建，不自动重新训练。
+旧单窗 REVE token cache 不含基线，禁止用于新 schema。当前已实现分别编码、baseline/task 文本边界及二/三选项训练，详见 PROTOCOL.md。构建时附带的各数据目录 README 是数据构建时的说明快照。

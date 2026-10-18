@@ -1,46 +1,47 @@
-"""Audit source inputs, run real four-GPU QA smoke, then bounded attribute training."""
+"""Verify current paired inputs, four-GPU smoke, then train the current approach."""
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import time
-from eeg_align.cache import ROOT, digest
+from eeg_align.cache import digest
+from eeg_align.paired_cache import verify, DATA
 
-OUT = Path('artifacts/jev_attribute_qa')
+OUT=Path('artifacts/jev_paired_qa')
 
 
 def main():
-    for root in ['datasets/eeg_attribute_qa', 'datasets/eeg_attribute_qa_validation']:
-        if json.loads((Path(root)/'complete.json').read_text()).get('schema_version') != 1:
-            raise RuntimeError('Paired MI data requires segment-aware tokens/loader before training; old cache is incompatible')
-    OUT.mkdir(parents=True, exist_ok=False)
-    def status(phase, **kw):
-        (OUT/'status.json').write_text(json.dumps(dict(phase=phase, timestamp=time.time(), **kw), indent=2))
+    assert not (OUT/'run').exists() and not (OUT/'smoke').exists()
+    def status(phase,**kw):
+        (OUT/'status.json').write_text(json.dumps(dict(phase=phase,timestamp=time.time(),**kw),indent=2))
     status('verifying_inputs')
-    for shard in range(4):
-        folder = ROOT/str(shard)
-        audit = json.loads((folder/'complete.json').read_text())
-        assert audit['manifest_sha256'] == digest(ROOT/'rows.jsonl')
-        for name, sha in audit['hashes'].items():assert digest(folder/name) == sha
-    previous = Path('artifacts/jev_eeg_coverage/runs/lora_seed42')
-    assert digest(previous/'best.pt') == json.loads((previous/'complete.json').read_text())['best_sha256']
-    for root in ['datasets/eeg_attribute_qa','datasets/eeg_attribute_qa_validation']:
-        assert json.loads((Path(root)/'verification.json').read_text())['status'] == 'passed'
-    env = dict(os.environ, CUDA_VISIBLE_DEVICES='0,1,2,3', PYTHONPATH='.',
-               OMP_NUM_THREADS='4', OPENBLAS_NUM_THREADS='1', TOKENIZERS_PARALLELISM='false')
-    for name, extra in [('smoke',['--smoke']), ('run',[])]:
-        cmd = [sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=4',
-               '-m','eeg_align.train_jev','--out',str(OUT/name),*extra]
+    init=json.loads((OUT/'initialization.json').read_text())
+    assert digest(OUT/'initialization.pt')==init['sha256']
+    verify()
+    for root in DATA:
+        complete=json.loads((root/'complete.json').read_text())
+        audit=json.loads((root/'verification.json').read_text())
+        assert complete['schema_version']==2 and audit['status']=='passed'
+        assert audit['complete_sha256']==digest(root/'complete.json')
+        for name,sha in complete['files'].items():assert digest(root/name)==sha
+    env=dict(os.environ,CUDA_VISIBLE_DEVICES='0,1,2,3',PYTHONPATH='.',
+        OMP_NUM_THREADS='4',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
+    for name,extra in [('smoke',['--smoke']),('run',[])]:
+        cmd=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=4',
+            '-m','eeg_align.train_jev','--out',str(OUT/name),*extra]
         with (OUT/f'{name}.log').open('w') as log:
-            process = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
-            status(name, pid=process.pid, command=cmd)
-            code = process.wait()
+            process=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
+            status(name,pid=process.pid,command=cmd)
+            code=process.wait()
         if code:
-            status('failed', stage=name, returncode=code)
+            status('failed',stage=name,returncode=code)
             raise RuntimeError(f'{name} failed: {code}')
         assert (OUT/name/'complete.json').exists()
+        if name=='smoke':
+            # Smoke weights are not initialization; keep only its metrics and audit.
+            for file in ['best.pt','last.pt']:(OUT/name/file).unlink()
     status('complete')
 
 
-if __name__ == '__main__':main()
+if __name__=='__main__':main()

@@ -33,4 +33,14 @@ class JEVTest(unittest.TestCase):
         torch.testing.assert_close(x[1,6:11],suffix[1])
         self.assertFalse(m[0,7:].any())
 
+    def test_paired_markers_and_segment_order(self):
+        prefix=torch.full((1,2),-1.);suffix=torch.full((1,2),-2.)
+        eeg=torch.arange(16.).reshape(2,4,2);valid=torch.ones((2,4),dtype=torch.bool)
+        markers=(torch.full((1,2),-3.),torch.full((1,2),-4.))
+        x,mask,positions,last=assemble_embeddings(prefix,eeg,suffix,valid,[2,0],markers)
+        torch.testing.assert_close(x[0],torch.cat([prefix,markers[0],eeg[0,:2],markers[1],eeg[0,2:],suffix]))
+        self.assertEqual(last.tolist(),[7,5])
+        self.assertEqual(mask.sum(1).tolist(),[8,6])
+        self.assertFalse(mask[1,6:].any())
+
 if __name__=='__main__':unittest.main()

@@ -13,11 +13,11 @@ import torch
 import torch.distributed as dist
 from torch.nn import functional as F
 from .cache import ROOT, digest
-from .data import TokenCache
+from .paired_cache import PairedTokenCache, ROOT as TOKEN_ROOT
 from .jev import load_jev, JEVBridge, CHECKPOINT
 from .sampling import BalancedCoverageSampler
 from .distributed import average_gradients, atomic_save
-from .attribute_data import AttributeData, QuestionTokens, semantic_predictions, summarize
+from .attribute_data import AttributeData, QuestionTokens, semantic_predictions, summarize, draw_permutations, mask_choices, training_weights
 
 
 def cpu_trainable(model, names):
@@ -45,7 +45,7 @@ def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuf
     model.eval()
     ids = np.asarray(ids, dtype=np.int64)
     # A deterministic, target-independent choice order, unchanged across checkpoints.
-    permutations = np.random.default_rng(20261018).integers(0, 6, size=len(data.records))
+    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018))
     signal_ids = data.records[:,0].copy()
     if shuffle:
         rng = np.random.default_rng(1701)
@@ -57,11 +57,12 @@ def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuf
     started = time.monotonic()
     for start in range(0, len(mine), microbatch):
         ii = mine[start:start+microbatch]
-        z, mask, _ = cache.batch(signal_ids[ii], 'cuda')
+        z, mask, segments = cache.batch(signal_ids[ii], 'cuda')
         suffix, labels = questions.batch(data.records[ii], permutations[ii])
-        logits = model(z, mask, suffix_ids=suffix, num_choices=3)['logits']
+        logits = model(z, mask, suffix_ids=suffix, num_choices=3, segment_splits=segments)['logits']
+        logits = mask_choices(logits,data.choice_counts[data.records[ii,1]])
         letter = logits.argmax(1).cpu().numpy()
-        predictions.extend(semantic_predictions(letter, permutations[ii]).tolist())
+        predictions.extend(semantic_predictions(letter, permutations[ii],data.choice_counts[data.records[ii,1]]).tolist())
         losses.extend(F.cross_entropy(logits, labels, reduction='none').cpu().tolist())
         letters_correct.extend((letter == labels.cpu().numpy()).tolist())
         if rank == 0 and start % 600 == 0:
@@ -80,7 +81,7 @@ def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuf
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--out', type=Path, required=True)
-    p.add_argument('--init', type=Path, default=Path('artifacts/jev_eeg_coverage/runs/lora_seed42/best.pt'))
+    p.add_argument('--init', type=Path, default=Path('artifacts/jev_paired_qa/initialization.pt'))
     p.add_argument('--train-data', type=Path, default=Path('datasets/eeg_attribute_qa'))
     p.add_argument('--validation-data', type=Path, default=Path('datasets/eeg_attribute_qa_validation'))
     p.add_argument('--steps', type=int, default=1200)
@@ -103,13 +104,14 @@ def main():
     val = AttributeData(args.validation_data, 'validation')
     assert train.specs == val.specs
     assert not set(train.records[:,0]) & set(val.records[:,0])
-    assert len(train.groups) == 90 and len(val.groups) == 90
+    assert len(train.groups) == 56 and len(val.groups) == 56
+    batch_size=len(train.groups);nq=len(train.specs);question_weights=training_weights(train)
     steps = 2 if args.smoke else args.steps
     # No example can recur more than four times in this bounded run.
     assert steps <= 4 * min(map(len, train.groups.values()))
     sampler = BalancedCoverageSampler(train.groups, per_group=1, seed=args.seed)
-    panel = val.panel(per_group=1 if args.smoke else 32)
-    cache = TokenCache()
+    panel = val.panel(per_group=1 if args.smoke else 16)
+    cache = PairedTokenCache()
     text, w, b, tok = load_jev()
     model = JEVBridge(text, w, b, tok, train_lora=True)
     names = [n for n,p in model.named_parameters() if p.requires_grad]
@@ -123,8 +125,8 @@ def main():
         dict(params=list(model.connector.parameters()), lr=5e-5),
         dict(params=[p for p in model.text.parameters() if p.requires_grad], lr=5e-6)], weight_decay=.01)
     paths = ['eeg_align/train_jev.py','eeg_align/jev.py','eeg_align/attribute_data.py',
-             'eeg_align/data.py','eeg_align/sampling.py','eeg_align/distributed.py','eeg_tasks/attribute_questions.py']
-    config = dict(stage='attribute_qa', seed=args.seed, steps=steps, world_size=world, batch_size=90,
+             'eeg_align/paired_cache.py','eeg_align/sampling.py','eeg_align/distributed.py','eeg_tasks/attribute_questions.py']
+    config = dict(stage='paired_attribute_qa', seed=args.seed, steps=steps, world_size=world, batch_size=batch_size,
         microbatch=6, learning_rates=dict(projector=5e-5,lora=5e-6),
         train_lora=True, train_encoder=False, jev_lora_always_active=True, smoke=args.smoke,
         init=str(args.init.resolve()), init_step=init_step, init_sha256=digest(args.init),
@@ -134,7 +136,8 @@ def main():
         validation_n=len(panel), eval_every=args.eval_every,
         selection='fixed source-subject validation panel; task/question/dataset macro semantic balanced accuracy',
         sampler='one draw per question x dataset x semantic answer; without replacement within group until exhausted',
-        max_repeats=4, task_loss_weights=dict(mi=5/6,emotion=5/4),
+        max_repeats=4, task_loss_mass=dict(mi_attributes=.25,mi_classification=.25,emotion_attributes=.5),
+        question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
         code_sha256={f:digest(f) for f in paths},
         git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
     best = -1.;prior_seconds = 0.;start_step = 0
@@ -159,7 +162,7 @@ def main():
         if rank == 0:
             log.write(json.dumps(dict(step=step,validation=result))+'\n')
             (args.out/f'validation_{step:04d}.json').write_text(json.dumps(result,indent=2))
-            print('VALIDATION',step,'MI',result['MI'],'emotion',result['emotion'],'loss',result['loss'],flush=True)
+            print('VALIDATION',step,'MI attributes',result['MI'],'MI classification',result['MI_classification'],'emotion',result['emotion'],'loss',result['loss'],flush=True)
         if result['selection_score'] > best:
             best = result['selection_score']
             if rank == 0:
@@ -175,17 +178,18 @@ def main():
         global_ids = sampler.next_batch().reshape(-1)
         rng = np.random.default_rng(args.seed+step*1009)
         rng.shuffle(global_ids)
-        permutations = rng.integers(0,6,size=len(global_ids))
+        permutations = draw_permutations(train,train.records[global_ids],rng)
         ids = global_ids[rank::world];perms = permutations[rank::world]
-        loss_sum = 0.;correct_sum = 0.; semantic_correct = np.zeros(12); semantic_count = np.zeros(12)
+        loss_sum = 0.;correct_sum = 0.; semantic_correct = np.zeros(nq); semantic_count = np.zeros(nq)
         for start in range(0,len(ids),6):
             ii = ids[start:start+6];records = train.records[ii]
-            z,mask,_ = cache.batch(records[:,0],'cuda')
+            z,mask,segments = cache.batch(records[:,0],'cuda')
             suffix, labels = questions.batch(records,perms[start:start+6])
-            logits = model(z,mask,suffix_ids=suffix,num_choices=3)['logits']
+            logits = model(z,mask,suffix_ids=suffix,num_choices=3,segment_splits=segments)['logits']
+            logits = mask_choices(logits,train.choice_counts[records[:,1]])
             per_sample = F.cross_entropy(logits,labels,reduction='none')
-            weights = torch.tensor([5/6 if train.specs[q]['task']=='mi' else 5/4 for q in records[:,1]],device='cuda')
-            # Unequal local batches (23,23,22,22) still equal the exact global weighted mean.
+            weights = torch.tensor(question_weights[records[:,1]],device='cuda')
+            # Exact global weighted mean after cross-rank gradient averaging.
             loss = (per_sample*weights).sum()*world/len(global_ids)
             if not torch.isfinite(loss):raise FloatingPointError('Nonfinite loss')
             loss.backward();loss_sum += loss.item()
@@ -207,10 +211,10 @@ def main():
             assert len(set(hashes)) == 1, 'Rank parameters diverged'
             if rank == 0:print('Four-rank parameter synchronization verified',step,flush=True)
         if rank == 0 and (step == 1 or step%10 == 0 or args.smoke):
-            item = dict(step=step,loss=float(stats[0]),accuracy=float(stats[1])/90,
-                question_accuracy={s['id']:float(stats[2+q]/stats[14+q]) for q,s in enumerate(train.specs)},
+            item = dict(step=step,loss=float(stats[0]),accuracy=float(stats[1])/batch_size,
+                question_accuracy={s['id']:float(stats[2+q]/stats[2+nq+q]) for q,s in enumerate(train.specs)},
                 gradient_norm=float(grad),elapsed_seconds=prior_seconds+time.monotonic()-began,
-                draws=step*90,peak_gpu_gb=torch.cuda.max_memory_allocated()/1e9)
+                draws=step*batch_size,peak_gpu_gb=torch.cuda.max_memory_allocated()/1e9)
             log.write(json.dumps(item)+'\n');print(json.dumps(item),flush=True)
         endpoint = step == steps
         if step%args.eval_every == 0 or endpoint:evaluate(step)

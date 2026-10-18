@@ -1,12 +1,12 @@
 # 当前阶段：重建基线配对 MI 数据
 
-旧四卡属性训练已停止，日志观察到 step 800，最后持久化 last.pt 为 step 700。检查点和日志保留在 `artifacts/jev_attribute_qa/`。旧属性训练结果定义及过程归档于 Git `7ab8f21`；不能将其数值作为新基线配对任务的成绩。新模型训练尚未启动，暂无新任务准确率。
+旧四卡属性训练已停止（观察到 step 800，最后保存到700）；随后按用户授权清理其日志与权重。旧属性训练结果定义及过程归档于 Git `7ab8f21`；不能将其数值作为新基线配对任务的成绩。当前已适配配对训练接口，新运行目录为 `artifacts/jev_paired_qa/`；训练阶段以status.json为准，不能把启动或smoke当作正式效果。
 
 ## 数据重建审计（2026-10-18）
 
 98 个 OpenBMI 原始 session 均通过事件时间、方向标签、被试与 session 核对。训练 44 名被试 / 8,800 trial / 61,600 MI 问答；验证 5 名被试 / 1,000 trial / 7,000 MI 问答。加上保持不变的情绪问答，总计训练 208,462 条、验证 57,100 条。
 
-全部 58,800 道 MI 功率属性题通过独立 FFT 答案重算，9,800 道分类题通过原始标签核对；情绪信号、来源索引和六类问答逐文件 SHA256 与替换前一致，并保留独立频谱抽查。30 项单元检查通过。旧 MI 六类 JSONL 和 mi.npy 已从两套活动目录移除，mi_sources.jsonl 已替换为新配对索引，原始数据、缓存、检查点和日志保留。安装清单：`artifacts/mi_paired_rebuild/{train,validation}_installation.json`；验证证据：各数据目录 `verification.json`；执行日志：`artifacts/mi_paired_rebuild.log`。
+全部 58,800 道 MI 功率属性题通过独立 FFT 答案重算，9,800 道分类题通过原始标签核对；情绪信号、来源索引和六类问答逐文件 SHA256 与替换前一致，并保留独立频谱抽查。30 项单元检查通过。旧 MI 六类 JSONL 和 mi.npy 已从两套活动目录移除，mi_sources.jsonl 已替换为新配对索引，原始数据与缓存保留；旧训练检查点和日志随后按用户授权清理。安装清单：`artifacts/mi_paired_rebuild/{train,validation}_installation.json`；验证证据：各数据目录 `verification.json`；执行日志：`artifacts/mi_paired_rebuild.log`。
 
 发现部分旧 PKL 的 trial_event_index 重复为0；新构建以 event_index / trial 交叉核对，并逐条确认原始 MAT t 对应 annotation_onset，未使用有缺陷的字段进行配对。原始文件未修改。
 
@@ -33,4 +33,4 @@
 
 旧属性训练初始化使用第二行源选出的4380步best.pt。来源：`artifacts/jev_eeg_coverage/runs/{projector,lora}_seed42/full_source_validation.json` 和 `external.json`。源指标按被试、数据集平均；外部栏为普通准确率，不能混用定义。2b/SEED-VII已经被多次查看，且REVE预训练包含2b，不属于全链路未接触盲测。
 
-此前完整实验记录归档于Git `6b42e3d`，原始日志与检查点保持在忽略目录。当前没有自动恢复旧训练或启动外部目标评估。
+此前完整实验记录归档于Git `6b42e3d`，历史小体积指标汇总保留；旧权重和日志按用户授权清理，4380步初始化独立迁入当前目录。当前没有自动恢复旧训练或启动外部目标评估。

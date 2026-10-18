@@ -11,13 +11,13 @@ class FakeTokenizer:
 
 
 class AttributeTrainingTest(unittest.TestCase):
-    def test_paired_schema_rejects_single_window_cache(self):
+    def test_rejects_old_single_window_schema(self):
         import tempfile
         from pathlib import Path
         from eeg_align.attribute_data import AttributeData
         with tempfile.TemporaryDirectory() as folder:
-            (Path(folder)/'complete.json').write_text('{"schema_version": 2}')
-            with self.assertRaisesRegex(ValueError, 'segment-aware'):
+            (Path(folder)/'complete.json').write_text('{"schema_version": 1}')
+            with self.assertRaisesRegex(ValueError, 'schema version 2'):
                 AttributeData(folder,'train')
 
     def test_option_permutation_roundtrip(self):
@@ -30,6 +30,16 @@ class AttributeTrainingTest(unittest.TestCase):
             text=''.join(chr(c) for c in suffix[0].tolist())
             self.assertIn('A) ',text);self.assertIn('[decision]:',text)
             self.assertNotIn('dataset',text)
+
+    def test_binary_choices_are_masked_and_permuted(self):
+        from eeg_align.attribute_data import mask_choices
+        specs=[dict(question='Which hand?',options={'A':'Left','B':'Right'})]
+        q=QuestionTokens(FakeTokenizer(),specs,device='cpu')
+        records=np.array([[8,0,0,0],[9,0,1,0]])
+        _,labels=q.batch(records,[1,1])
+        self.assertEqual(labels.tolist(),[1,0])
+        pred=mask_choices(torch.tensor([[1.,2.,99.],[2.,1.,99.]]),[2,2]).argmax(1)
+        np.testing.assert_array_equal(semantic_predictions(pred.numpy(),[1,1],[2,2]),[0,1])
 
     def test_metric_uses_semantics_and_macro_datasets(self):
         data=SimpleNamespace(specs=[{'id':'mi_test'},{'id':'emotion_test'}],datasets=['a','b'])

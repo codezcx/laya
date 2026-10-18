@@ -27,10 +27,18 @@ class LoadedLoRA(nn.Module):
     def forward(self,x):
         return self.base(x)+(F.linear(F.linear(x.float(),self.lora_A),self.lora_B)*self.scale).to(x.dtype)
 
-def assemble_embeddings(prefix,eeg,suffix,valid):
+def assemble_embeddings(prefix,eeg,suffix,valid,segment_splits=None,segment_markers=None):
     suffixes = [suffix] * len(eeg) if isinstance(suffix, torch.Tensor) and suffix.ndim == 2 else suffix
     if len(suffixes) != len(eeg):raise ValueError('One suffix required per EEG sample')
-    seqs=[torch.cat([prefix,x[m],s]) for x,m,s in zip(eeg,valid,suffixes)]
+    if segment_splits is None:segment_splits=[0]*len(eeg)
+    seqs=[]
+    for x,m,s,cut in zip(eeg,valid,suffixes,segment_splits):
+        z=x[m]
+        if cut:
+            if segment_markers is None or not 0 < cut < len(z):raise ValueError('Invalid paired segment boundary')
+            baseline,task=segment_markers
+            seqs.append(torch.cat([prefix,baseline,z[:cut],task,z[cut:],s]))
+        else:seqs.append(torch.cat([prefix,z,s]))
     lengths=torch.tensor([len(s) for s in seqs],device=eeg.device)
     inputs=nn.utils.rnn.pad_sequence(seqs,batch_first=True)
     mask=torch.arange(inputs.shape[1],device=eeg.device)[None]<lengths[:,None]
@@ -88,18 +96,21 @@ class JEVBridge(nn.Module):
         self.register_buffer('head_weight',weight);self.register_buffer('head_bias',bias)
         self.register_buffer('prefix_ids',torch.tensor(tokenizer.encode(PREFIX,add_special_tokens=False),device=weight.device))
         self.register_buffer('suffix_ids',torch.tensor(tokenizer.encode(SUFFIX,add_special_tokens=False),device=weight.device))
+        self.register_buffer('baseline_ids',torch.tensor(tokenizer.encode('\nPre-cue fixation baseline [-2.5,-0.5] s:\n',add_special_tokens=False),device=weight.device),persistent=False)
+        self.register_buffer('task_ids',torch.tensor(tokenizer.encode('\nMotor imagery task [0.5,2.5] s:\n',add_special_tokens=False),device=weight.device),persistent=False)
         self.text.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     def train(self,mode=True):
         super().train(mode)
         # Train mode activates checkpointing even for a frozen decoder: gradients must reach connector.
         self.text.train(mode)
         return self
-    def forward(self,tokens,valid,labels=None,suffix_ids=None,num_choices=5):
+    def forward(self,tokens,valid,labels=None,suffix_ids=None,num_choices=5,segment_splits=None):
         if valid.dtype!=torch.bool or tokens.shape[:2]!=valid.shape or not valid.any(1).all():raise ValueError('Invalid EEG mask')
         z=self.connector(tokens.masked_fill(~valid[...,None],0).float())
         embed=self.text.get_input_embeddings();prefix=embed(self.prefix_ids)
         suffix=embed(self.suffix_ids) if suffix_ids is None else [embed(s) for s in suffix_ids]
-        x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid)
+        x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid,segment_splits,
+            (embed(self.baseline_ids),embed(self.task_ids)))
         hidden=self.text(inputs_embeds=x,attention_mask=mask,position_ids=positions,use_cache=False,return_dict=True).last_hidden_state
         state=hidden[torch.arange(len(hidden),device=hidden.device),last]
         if not 1 <= num_choices <= len(self.head_weight):raise ValueError('Invalid choice count')

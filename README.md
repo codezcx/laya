@@ -1,22 +1,20 @@
 # EEG → JEV-27B-VL：基线配对的信号属性问答
 
-当前阶段重建 MI 数据：同一 trial 的提示前 fixation 与提示后运动想象片段配对，生成 6 道功率变化辅助题和 1 道左右手分类题。情绪的六类属性问答保留。旧四卡训练已按用户要求停止，检查点与日志保留；**本次不自动重启训练**。
+当前训练使用 OpenBMI 同一trial的提示前基线和运动想象片段：6道功率变化辅助题＋1道左右手分类题；情绪六类属性问答保持不变。冻结REVE与语言基座，更新投影器与JEV已有LoRA，**LoRA始终开启**。两段独立编码，通过明确的baseline/task文字边界送入语言decoder。
 
-- [数据格式、问题与构建方法](docs/ATTRIBUTE_DATASET.md)
-- [当前协议与模型接入待办](docs/PROTOCOL.md)
-- [数据审计与匹配基线](docs/RESULTS.md)
-- [FBCSP／REVE 特征探测](docs/FEATURE_PROBES.md)
+- [训练协议与指标](docs/PROTOCOL.md)
+- [数据格式和问题清单](docs/ATTRIBUTE_DATASET.md)
+- [当前结果与数据审计](docs/RESULTS.md)
+- [FBCSP／REVE特征探测](docs/FEATURE_PROBES.md)
 
-活动数据位于 `datasets/eeg_attribute_qa/` 与 `datasets/eeg_attribute_qa_validation/`，均已 Git ignore。每题独立 JSONL，共享信号数组。当前 MI 仅使用有本地连续原始记录的 OpenBMI，沿用源被试划分。模型输入只允许 `input` 字段，不能包含 evidence / provenance / target。
-
-主要代码：`eeg_tasks/attribute_questions.py` 定义问题及答案；`scripts/build_attribute_dataset.py` 从原始 MAT 构建配对并安全替换旧 MI；`scripts/verify_attribute_dataset.py` 校验哈希并独立重算全部 MI 答案。
+数据在 `datasets/eeg_attribute_qa/` 和 `datasets/eeg_attribute_qa_validation/`，均Git ignore，每题独立JSONL、共享信号数组。只将input字段输入模型，不能加入evidence/provenance/target。训练208,462题、验证57,100题，按被试隔离。
 
 ```sh
-PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest tests.test_attribute_questions -v
-PYTHONPATH=. laya/.venv-eeg/bin/python scripts/verify_attribute_dataset.py datasets/eeg_attribute_qa
-PYTHONPATH=. laya/.venv-eeg/bin/python scripts/verify_attribute_dataset.py datasets/eeg_attribute_qa_validation
+PYTHONPATH=. laya/.venv-eeg/bin/python -m unittest discover -s tests -v
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/plot_jev_training.py
 ```
 
-旧单窗 REVE cache 没有基线，不兼容新 schema。`eeg_align/attribute_data.py` 明确拒绝新 schema 进入旧训练接口。`scripts/run_jev.py` 同样在启动前拒绝；训练适配完成前不要启动。已有 JEV/REVE 组件保留供本方案接入，LoRA 仍须始终启用。
+启动器先核对数据/缓存/初始化，再做真实四卡两步smoke，成功后运行1200步。已有run目录时拒绝覆盖。当前产物集中在 `artifacts/jev_paired_qa/`：`status.json`、`run/metrics.jsonl`、`run.log`、`run/best.pt`和`run/last.pt`。初始化独立保存在`initialization.pt`，旧实验日志/checkpoint按用户授权清理，清单见`cleanup.json`；数据缓存与预训练模型保留。
 
-旧方案归档于 Git `7ab8f21`；原始信号、检查点、日志、第三方环境不参与清理。仅经用户授权删除活动目录内已替换的旧 MI 问答和共享 MI 数组。
+核心实现：`eeg_align/paired_cache.py` 分段REVE缓存；`eeg_align/attribute_data.py` 混合选项、采样与指标；`eeg_align/jev.py` 分段文本与信号组装；`eeg_align/train_jev.py` 四卡训练与断点恢复。旧方案只通过Git历史保留代码。
