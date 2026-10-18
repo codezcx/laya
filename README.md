@@ -1,6 +1,6 @@
 # EEG → JEV-27B-VL：基线配对的信号属性问答
 
-配对输入使用 OpenBMI 同一trial的提示前基线和运动想象片段：6道功率变化辅助题＋1道左右手分类题；情绪六类属性问答保持不变。冻结REVE与语言基座，更新投影器与JEV已有LoRA，**LoRA始终开启**。两段独立编码，通过明确的baseline/task文字边界送入语言decoder。固定分类映射对照到200步仍单类输出，已停止并保留于control_fixed_mapping。当前准备保留EEG特征的读出对照，尚无新方案结果或活跃训练。
+配对输入使用 OpenBMI 同一trial的提示前基线和运动想象片段：6道功率变化辅助题＋1道左右手分类题；情绪六类属性问答保持不变。冻结REVE与语言基座，更新投影器与JEV已有LoRA，**LoRA始终开启**。两段独立编码，通过明确的baseline/task文字边界送入语言decoder。固定分类映射对照到200步仍单类输出，已停止并保留于control_fixed_mapping。联合读出已离线拟合：全部训练标签源验证58.7%，REVE单独58.5%，尚无语言分支额外收益证据。当前无活跃训练，端到端和外部2b验证待做。
 
 - [训练协议与指标](docs/PROTOCOL.md)
 - [数据格式和问题清单](docs/ATTRIBUTE_DATASET.md)

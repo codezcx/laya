@@ -1,6 +1,6 @@
 # 当前协议：配对输入与表示读出对照
 
-固定映射四卡训练已停止并保留于control_fixed_mapping；下文训练配置是该匹配对照的可复现配方。当前下一项工作为冻结REVE/决策位置的联合读出对照，尚未实施联合读出或重启训练。
+固定映射四卡训练已停止并保留于control_fixed_mapping；下文训练配置是该匹配对照的可复现配方。联合读出已在冻结表示上拟合，未重启四卡训练；下一步是固定头的端到端及外部2b验证。
 
 ## 数据与信号接口
 
@@ -51,3 +51,5 @@
 冻结编码命令：`CUDA_VISIBLE_DEVICES=3 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/encode_external_paired_mi.py`。输出为external_2b/encoded，已存在则拒绝覆盖；使用源缓存anchor核对表示兼容，编码时不使用标签。当前仅准备外部输入，评估结果尚不存在。
 
 外部模型评估复用 `scripts/evaluate_paired_classification.py`，显式传入 `--external-input artifacts/jev_paired_qa/external_2b` 才会读取目标集；默认仍只评估源验证。必须指定不可变checkpoint和新的output目录。入口检查输入/编码哈希及源缓存兼容性，输出逐被试成绩、正常/交换/打乱/随机选项结果和逐trial logits。当前只验证了真实缓存加载及索引，没有执行目标集模型推理；先完成源验证诊断，目标成绩不用于本轮调参。
+
+联合读出命令：`PYTHONPATH=. laya/.venv-eeg/bin/python scripts/probe_decision_state.py --stage fit --output artifacts/jev_paired_qa/diagnostics/fixed_step100_readout --readout-output artifacts/jev_paired_qa/diagnostics/fixed_step100_readout/combined --features combined`。特征顺序固定为语言state5120维，再REVE3072维；只能使用同一冻结100步checkpoint。3,200和8,800标签预算分别训练，REVE单独读出是必要对照。正则只使用训练内被试选择，外部结果不反向指导配置。

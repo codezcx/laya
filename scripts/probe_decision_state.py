@@ -6,6 +6,14 @@ import numpy as np
 from eeg_align.cache import digest
 
 
+def fold_readout(model):
+    """Fold the train-only standardizer into a linear layer; outputs are scores, not probabilities."""
+    scaler=model.named_steps['standardscaler'];ridge=model.named_steps['ridge']
+    weight=ridge.coef_/scaler.scale_[None]
+    bias=ridge.intercept_-weight@scaler.mean_
+    return weight,bias
+
+
 def extract(args):
     import torch
     from eeg_align.attribute_data import AttributeData,QuestionTokens
@@ -76,7 +84,9 @@ def fit(args):
     from eeg_align.attribute_data import AttributeData
     from eeg_align.sampling import BalancedCoverageSampler
     from scripts.evaluate_paired_classification import report
-    assert not (args.output/'results.json').exists()
+    out=args.readout_output or args.output
+    if out!=args.output:out.mkdir(parents=True,exist_ok=False)
+    assert not (out/'results.json').exists()
     for n,sha in json.loads((args.output/'extraction_complete.json').read_text()).items():assert digest(args.output/n)==sha
     protocol=json.loads((args.output/'protocol.json').read_text())
     records=[json.loads(s) for s in (args.output/'records.jsonl').read_text().splitlines()]
@@ -94,13 +104,16 @@ def fit(args):
         seen.update(rr[rr[:,1]==q,0].tolist())
     budgets={'seen_classification_labels':train & np.array([r['source_id'] in seen for r in records]),'all_training_labels':train}
     target=np.eye(2)[y];results={};alphas=[10,1000,100000]
-    np.savez(args.output/'probe_partitions.npz',fit=training,inner=inner,test=test,seen_labels=budgets['seen_classification_labels'])
-    (args.output/'readout_protocol.json').write_text(json.dumps(dict(alphas=alphas,solver_dtype='float64',
+    np.savez(out/'probe_partitions.npz',fit=training,inner=inner,test=test,seen_labels=budgets['seen_classification_labels'])
+    (out/'readout_protocol.json').write_text(json.dumps(dict(alphas=alphas,solver_dtype='float64',
+        features=args.features,combined_feature_order=['states','reve'],
+        extraction_complete_sha256=digest(args.output/'extraction_complete.json'),
         fit_subjects=sorted(set(subjects[training])),inner_subjects=sorted(set(subjects[inner])),
         validation_subjects=sorted(set(subjects[test])),budgets={k:int(v.sum()) for k,v in budgets.items()},
         limitation=protocol['limitation']),indent=2))
-    for name in ['reve','states']:
-        x=np.load(args.output/f'{name}.npy',mmap_mode='r').astype(np.float64)
+    for name in args.features:
+        parts=['states','reve'] if name=='combined' else [name]
+        x=np.concatenate([np.load(args.output/f'{n}.npy',mmap_mode='r') for n in parts],axis=1).astype(np.float64)
         for budget,allowed in budgets.items():
             scores=[]
             for alpha in alphas:
@@ -113,12 +126,16 @@ def fit(args):
             key=f'{name}_{budget}';results[key]=dict(alpha=alpha,inner_scores=scores,n_labels=int(allowed.sum()),
                 training_accuracy=float(np.mean(model.predict(x[allowed]).argmax(1)==y[allowed])),
                 validation=report(y[test],pred,subjects[test]))
-            np.save(args.output/f'{key}_predictions.npy',pred)
+            weight,bias=fold_readout(model)
+            np.testing.assert_allclose(x[test]@weight.T+bias,model.predict(x[test]),rtol=1e-8,atol=1e-8)
+            np.savez(out/f'{key}_head.npz',weight=weight,bias=bias)
+            np.save(out/f'{key}_predictions.npy',pred)
             print(key,'accuracy',results[key]['validation']['overall']['accuracy'],flush=True)
     fixed=np.load(args.output/'logits.npy')[test].argmax(1)
     results['fixed_head']=report(y[test],fixed,subjects[test])
-    (args.output/'results.json').write_text(json.dumps(results,indent=2))
-    (args.output/'complete.json').write_text(json.dumps(dict(results_sha256=digest(args.output/'results.json'),code_sha256=digest(__file__)),indent=2))
+    (out/'results.json').write_text(json.dumps(results,indent=2))
+    (out/'complete.json').write_text(json.dumps(dict(results_sha256=digest(out/'results.json'),
+        heads_sha256={p.name:digest(p) for p in out.glob('*_head.npz')},code_sha256=digest(__file__)),indent=2))
 
 
 if __name__=='__main__':
@@ -126,6 +143,8 @@ if __name__=='__main__':
     p.add_argument('--stage',choices=['extract','fit'],required=True)
     p.add_argument('--checkpoint',type=Path)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--readout-output',type=Path,help='New directory for a matched readout control; does not overwrite extracted features')
+    p.add_argument('--features',nargs='+',choices=['reve','states','combined'],default=['reve','states'])
     args=p.parse_args()
     if args.stage=='extract':
         if args.checkpoint is None:p.error('--checkpoint required for extract')
