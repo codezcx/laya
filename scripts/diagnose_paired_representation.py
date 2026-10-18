@@ -1,5 +1,7 @@
 """CPU-only matched probes: locate losses of MI/class or band-change information."""
 import json
+import argparse
+import torch
 from pathlib import Path
 import numpy as np
 from sklearn.pipeline import make_pipeline
@@ -10,11 +12,12 @@ from eeg_align.paired_cache import PairedTokenCache
 from eeg_align.cache import digest
 from eeg_tasks.attribute_questions import absolute_power,mi_specifications
 
-OUT=Path('artifacts/jev_paired_qa/diagnostics')
-
-
 def main():
-    OUT.mkdir(exist_ok=False)
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,default=Path('artifacts/jev_paired_qa/diagnostics'))
+    parser.add_argument('--normalization-audit',action='store_true')
+    args=parser.parse_args();out=args.output
+    out.mkdir(exist_ok=False)
     specs=mi_specifications();records=[];signals=[];targets=[]
     for split,root in [('train',Path('datasets/eeg_attribute_qa')),('validation',Path('datasets/eeg_attribute_qa_validation'))]:
         src=[json.loads(s) for s in (root/'mi_sources.jsonl').read_text().splitlines()]
@@ -46,12 +49,26 @@ def main():
     tokens=np.concatenate(zs).reshape(len(y),2,3,3,512)
     features['reve_channel_pooled']=tokens.mean(axis=3).reshape(len(y),-1)
     features['reve_task_only']=tokens[:,1].mean(axis=2).reshape(len(y),-1)
-    protocol=dict(train_subjects=sorted(set(subject[fit])),inner_validation_subjects=sorted(set(subject[inner])),
+    normalization_audit=None
+    if args.normalization_audit:
+        checkpoint=Path('artifacts/jev_paired_qa/initialization.pt')
+        weights=torch.load(checkpoint,map_location='cpu',weights_only=False)['trainable']
+        gamma=weights['connector.0.weight'].numpy();beta=weights['connector.0.bias'].numpy()
+        mean=tokens.mean(-1,keepdims=True);var=tokens.var(-1,keepdims=True)
+        normalized=(tokens-mean)/np.sqrt(var+1e-5)*gamma+beta
+        # Compare exactly the LayerNorm transformation used before the current MLP.
+        sample=torch.from_numpy(tokens[:2])
+        expected=torch.nn.functional.layer_norm(sample,(512,),torch.from_numpy(gamma),torch.from_numpy(beta),1e-5).numpy()
+        np.testing.assert_allclose(normalized[:2],expected,rtol=2e-5,atol=2e-5)
+        features={'reve_layernorm_channel_pooled':normalized.mean(axis=3).reshape(len(y),-1),
+                  'reve_token_moments':np.concatenate([mean.reshape(len(y),-1),np.sqrt(var).reshape(len(y),-1)],axis=1)}
+        normalization_audit=dict(eps=1e-5,checkpoint_sha256=digest(checkpoint),torch_equivalence_checked=True)
+    protocol=dict(normalization_audit=normalization_audit,train_subjects=sorted(set(subject[fit])),inner_validation_subjects=sorted(set(subject[inner])),
         source_validation_subjects=sorted(set(subject[test])),n=dict(fit=int(fit.sum()),inner=int(inner.sum()),source_validation=int(test.sum())),
         selection='alpha selected by inner subject-held-out balanced accuracy for each question, then refit all source training subjects',
         alphas=[10,1000,100000],limitations='Pooled REVE probe cannot establish information absence in unpooled/nonlinear features; repeated source validation is not blind.',
         code_sha256=digest(__file__),token_audit_sha256=digest('artifacts/jev_paired_qa/tokens/verified.json'))
-    (OUT/'protocol.json').write_text(json.dumps(protocol,indent=2))
+    (out/'protocol.json').write_text(json.dumps(protocol,indent=2))
     results={}
     for name,x in features.items():
         x=x.astype(np.float64);scores=[]
@@ -71,11 +88,11 @@ def main():
                     validation_accuracy=accuracy_score(y[test,j],pp),validation_balanced_accuracy=balanced_accuracy_score(y[test,j],pp),
                     confusion=confusion_matrix(y[test,j],pp,labels=np.arange(widths[j])).tolist(),
                     per_subject={s:balanced_accuracy_score(y[test,j][subject[test]==s],pp[subject[test]==s]) for s in sorted(set(subject[test]))})
-                np.save(OUT/f'{name}_{specs[j]["id"]}_predictions.npy',pp)
+                np.save(out/f'{name}_{specs[j]["id"]}_predictions.npy',pp)
         results[name]=result
-        (OUT/'results.json').write_text(json.dumps(results,indent=2))
+        (out/'results.json').write_text(json.dumps(results,indent=2))
         print('RESULT',name,json.dumps(result),flush=True)
-    (OUT/'complete.json').write_text(json.dumps(dict(status='complete',results_sha256=digest(OUT/'results.json')),indent=2))
+    (out/'complete.json').write_text(json.dumps(dict(status='complete',results_sha256=digest(out/'results.json')),indent=2))
 
 
 if __name__=='__main__':main()
