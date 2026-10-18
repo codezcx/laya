@@ -47,3 +47,5 @@
 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/build_external_paired_mi.py`构建独立2b配对输入，默认输出`artifacts/jev_paired_qa/external_2b/`，目录存在时拒绝覆盖。该目录不进入训练加载器。保留两段共享尺度、明确的事件锚点与原始文件哈希；准备期参考含提示音，不能称纯静息。详见[诊断记录](PAIRED_DIAGNOSTICS.md)。
 
 冻结编码命令：`CUDA_VISIBLE_DEVICES=3 PYTHONPATH=. laya/.venv-eeg/bin/python scripts/encode_external_paired_mi.py`。输出为external_2b/encoded，已存在则拒绝覆盖；使用源缓存anchor核对表示兼容，编码时不使用标签。当前仅准备外部输入，评估结果尚不存在。
+
+外部模型评估复用 `scripts/evaluate_paired_classification.py`，显式传入 `--external-input artifacts/jev_paired_qa/external_2b` 才会读取目标集；默认仍只评估源验证。必须指定不可变checkpoint和新的output目录。入口检查输入/编码哈希及源缓存兼容性，输出逐被试成绩、正常/交换/打乱/随机选项结果和逐trial logits。当前只验证了真实缓存加载及索引，没有执行目标集模型推理；先完成源验证诊断，目标成绩不用于本轮调参。
