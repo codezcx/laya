@@ -53,10 +53,12 @@ def main():
     assert set(saved['trainable'])<=set(dict(model.named_parameters()))
     incompatible=model.load_state_dict(saved['trainable'],strict=False);assert not incompatible.unexpected_keys
     model.requires_grad_(False).eval();questions=QuestionTokens(tok,data.specs,device=args.device)
-    step=saved['step'];del saved
+    step=saved['step'];fixed_mi_class=saved['config'].get('fixed_mi_class',False);del saved
     random_order=draw_permutations(data,data.records,np.random.default_rng(20261018))[ids]
+    matched_order=np.zeros_like(random_order) if fixed_mi_class else random_order
     signal=records[:,0];shuffled=shuffled_ids(signal,subjects)
-    cases={'matched':(signal,random_order),'swapped_options':(signal,1-random_order),'shuffled_within_subject':(shuffled,random_order)}
+    cases={'matched':(signal,matched_order),'swapped_options':(signal,1-matched_order),'shuffled_within_subject':(shuffled,matched_order)}
+    if fixed_mi_class:cases['randomized_options']=(signal,random_order)
     results={};all_predictions={}
     for name,(signal_ids,order) in cases.items():
         predictions=[];scores=[]
@@ -77,7 +79,7 @@ def main():
     (args.output/'results.json').write_text(json.dumps(results,indent=2))
     assert checkpoint_sha==digest(args.checkpoint),'Checkpoint changed during evaluation; use immutable copy'
     (args.output/'complete.json').write_text(json.dumps(dict(step=step,checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=checkpoint_sha,
-        data_sha256=data.root_hash,code_sha256=digest(__file__),results_sha256=digest(args.output/'results.json')),indent=2))
+        fixed_mi_class=fixed_mi_class,data_sha256=data.root_hash,code_sha256=digest(__file__),results_sha256=digest(args.output/'results.json')),indent=2))
 
 
 if __name__=='__main__':main()

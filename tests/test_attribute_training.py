@@ -11,6 +11,23 @@ class FakeTokenizer:
 
 
 class AttributeTrainingTest(unittest.TestCase):
+    def test_fixed_class_mapping_preserves_attribute_rng_and_labels(self):
+        from eeg_align.attribute_data import draw_permutations
+        specs=[dict(id='mi_class',question='Which hand?',options={'A':'Left','B':'Right'}),
+               dict(id='mi_attribute',question='Compare powers.')]
+        data=SimpleNamespace(specs=specs,choice_counts=np.array([2,3]))
+        records=np.array([[i,i%2,(i//2)%2,0] for i in range(100)])
+        a=np.random.default_rng(42);b=np.random.default_rng(42)
+        original=draw_permutations(data,records,a)
+        fixed=draw_permutations(data,records,b,fixed_mi_class=True)
+        np.testing.assert_array_equal(fixed[1::2],original[1::2])
+        np.testing.assert_array_equal(a.integers(100,size=20),b.integers(100,size=20))
+        self.assertTrue((fixed[::2]==0).all())
+        q=QuestionTokens(FakeTokenizer(),specs,device='cpu')
+        suffix,labels=q.batch(records[::2],fixed[::2])
+        np.testing.assert_array_equal(labels.numpy(),records[::2,2])
+        self.assertIn('A) Left\nB) Right',''.join(chr(c) for c in suffix[0].tolist()))
+
     def test_rejects_old_single_window_schema(self):
         import tempfile
         from pathlib import Path

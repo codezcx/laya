@@ -80,8 +80,12 @@ def option_permutations(n):
     return list(itertools.permutations(range(n)))
 
 
-def draw_permutations(data, records, rng):
-    return np.array([rng.integers(len(option_permutations(int(data.choice_counts[q])))) for q in records[:,1]])
+def draw_permutations(data, records, rng, fixed_mi_class=False):
+    # Consume identical RNG draws so the matched attribute control is unchanged.
+    orders=np.array([rng.integers(len(option_permutations(int(data.choice_counts[q])))) for q in records[:,1]])
+    if fixed_mi_class:
+        orders[[data.specs[q]['id']=='mi_class' for q in records[:,1]]]=0
+    return orders
 
 
 def semantic_predictions(letter_predictions, permutations, counts=None):

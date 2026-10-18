@@ -46,7 +46,7 @@ def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuf
     model.eval()
     ids = np.asarray(ids, dtype=np.int64)
     # A deterministic, target-independent choice order, unchanged across checkpoints.
-    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018))
+    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018),fixed_mi_class=True)
     signal_ids = data.records[:,0].copy()
     if shuffle:
         rng = np.random.default_rng(1701)
@@ -140,6 +140,7 @@ def main():
         selection='fixed source-subject validation panel; task/question/dataset macro semantic balanced accuracy',
         sampler='16 draws per MI classification answer, one per attribute answer/dataset; without replacement until group exhausted',
         classification_per_class=args.classification_per_class,
+        fixed_mi_class=True,
         max_repeats=4, task_loss_mass=dict(mi_attributes=.25,mi_classification=.25,emotion_attributes=.5),
         question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
         code_sha256={f:digest(f) for f in paths},
@@ -182,7 +183,7 @@ def main():
         global_ids = sampler.next_batch().reshape(-1)
         rng = np.random.default_rng(args.seed+step*1009)
         rng.shuffle(global_ids)
-        permutations = draw_permutations(train,train.records[global_ids],rng)
+        permutations = draw_permutations(train,train.records[global_ids],rng,fixed_mi_class=True)
         ids = global_ids[rank::world];perms = permutations[rank::world]
         loss_sum = 0.;correct_sum = 0.; semantic_correct = np.zeros(nq); semantic_count = np.zeros(nq)
         for start in range(0,len(ids),6):
