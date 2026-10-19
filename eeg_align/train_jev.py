@@ -114,9 +114,10 @@ def main():
     validate()
     for epoch in range(a.epochs):
         order=np.random.default_rng(a.seed+epoch).permutation(len(train))
-        for start in range(0,len(order),a.batch_records):
-            ids=order[start:start+a.batch_records];mine=ids[rank::world]
-            # The tail contains at least one record per rank in this audited dataset.
+        batches=np.array_split(order,math.ceil(len(order)/a.batch_records))
+        for batch_index,ids in enumerate(batches):
+            mine=ids[rank::world]
+            # Evenly sized epoch batches avoid tiny tails; every record is used once.
             assert len(mine)>0
             rows=[train[i] for i in mine]
             x=load_windows(rows,epoch,'cuda');labels=torch.tensor([r['label'] for r in rows],device='cuda')
@@ -138,7 +139,7 @@ def main():
                 log.write(json.dumps(item)+'\n');write_json(a.out/'progress.json',dict(step=step,steps=nsteps,epoch=epoch+1))
                 if step==1 or step%10==0 or a.smoke:print(json.dumps(item),flush=True)
             endpoint=step==nsteps
-            if step%50==0 or start+a.batch_records>=len(order) or endpoint:
+            if step%50==0 or batch_index==len(batches)-1 or endpoint:
                 validate()
                 if rank==0:atomic_save(dict(trainable=state(model),optimizer=opt.state_dict(),step=step,epoch=epoch,config=config),a.out/'last.pt')
                 dist.barrier()

@@ -22,7 +22,7 @@ Original local `laya/JEV-27B-VL` language adapter stays enabled and is trainable
 
 ## Optimization
 
-Five full epochs,16 records/global batch on4GPUs,8 windows/record,2windows/microbatch. Constant learning rates: connector1e-4,LoRA5e-6,head1e-5; AdamW weight_decay0.01,gradient clip1. Shuffle records without replacement each epoch; include final short batch with correct sample weighting. No class weighting since the source corpus is near balanced; actual split balance is reported.
+Five full epochs,at most16 records/global batch on4GPUs,8 windows/record,2windows/microbatch. Constant learning rates: connector1e-4,LoRA5e-6,head1e-5; AdamW weight_decay0.01,gradient clip1. Shuffle records without replacement each epoch; evenly partition the epoch into ceil(N/16) batches to avoid tiny tails, with correct sample weighting. No class weighting since the source corpus is near balanced; actual split balance is reported.
 
 Record aggregation uses a two-pass gradient cache: obtain window logits without retaining activations, differentiate record CE with respect to those logits, recompute window microbatches and backpropagate the corresponding gradients. No dropout is allowed, and recomputed logits are checked for equality. Unit test compares this gradient to ordinary whole-bag autograd. Four-card smoke checks trainable parameter hashes after each step and finite gradients.
 
