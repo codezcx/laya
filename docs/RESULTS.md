@@ -89,3 +89,17 @@ Same2,592trials, same frozen encoder, same epoch30held-out2a probe/scaler, same 
 Paired correctness:both correct769,only22correct934,only3correct561,both wrong328. Re-encoded22-channel decisions exactly matched all2,592original predictions; maximum probability drift0.000807 (the original cache was generated on the previous GPU architecture and stored asfp16). Preflight required <0.001probability drift and identical decisions; earlier overly strict numeric-check outputs are preserved under`artifacts/mi_reve_2a_channel_preflight/`.
 
 Reducing this input montage toC3/Cz/C4 harms the current fixed readout and produces near-chance performance. This isolates the effect of the chosen channel reduction/spatial coverage for this model; it does not establish an inherent3-channel information limit or that channel count alone explains all2b differences. Final paired outputs:`artifacts/mi_reve_2a_channel_comparison/comparison.json` and`predictions_22ch.json`/`predictions_3ch.json`.
+
+
+## Global mean REVE linear probe
+
+Completed normally on GPU4–7, early stopping at epoch32; selected epoch22 by source macro dataset BA. Same nine-source train/validation manifests and frozen cache as the spatial probe; only Linear(512,2) trained after global valid-token averaging and training-only standardization.
+
+| Readout | Source validation accuracy | Macro dataset accuracy | Held-out 2b accuracy |
+|---|---:|---:|---:|
+| Global mean, 512 features | 57.55% | 57.91% | 50.00% |
+| Left/mid/right, 1536 features | 68.16% | 70.91% | 50.15% |
+
+Global mean validation left/right recalls:54.41%/60.68%; validation loss0.6731. Dataset accuracies:2a58.16%, Chang54.79%, Cho64.15%, Dreyer55.12%, Kumar53.25%, Lee58.45%, Physionet58.91%, Weibo55.67%, Zhou62.70%. On all6,520held-out2b trials the global mean probe predicts left (left recall100%, right0%). These results show modest recoverable MI information without explicit spatial grouping on source held-out subjects, but no successful2b transfer. Spatial pooling improves overall source validation by10.62percentage points; grouping also changes feature dimension/readout capacity, so this is not an isolated causal test of spatial semantics.
+
+Artifacts:`artifacts/mi_reve_probe_mean/{metrics.jsonl,best.json,validation_best.json,test_2b.json,complete.json}`. Training-loop time about12seconds excludes feature extraction/startup; frozen tokens were reused, not re-encoded.
