@@ -24,7 +24,7 @@ def source_rows():
     for split in ['train','validation','heldout']:
         ds=MITrials(Path(c['index'])/f'{split}.jsonl',split=split)
         allowed=c['heldout_datasets'] if split=='heldout' else c['source_datasets']
-        rows.extend(dict(r,id=hashlib.sha256(r['path'].encode()).hexdigest()[:24]) for r in ds.rows if r['dataset'] in allowed)
+        rows.extend(dict(r,id=hashlib.sha256(r['path'].encode()).hexdigest()[:24]) for r in ds.rows if r['dataset'] in allowed and not any(r['dataset']==q['dataset'] and r['subject']==q['subject'] for q in c.get('quarantined_subjects',[])))
     assert len({r['id'] for r in rows})==len(rows)
     sets=[{(r['dataset'],r['subject']) for r in rows if r['split']==s} for s in ['train','validation','heldout']]
     assert all(not sets[i]&sets[j] for i in range(3) for j in range(i))

@@ -23,9 +23,9 @@ def test_unknown_position_not_silently_dropped(tmp_path):
     with pytest.raises(ValueError,match='Unknown electrode'):preprocess(row)
 
 def test_buckets_cover_all_trials_once_and_reshuffle():
-    rows=[dict(token_length=(i%7+1)*20) for i in range(49273)]
+    rows=[dict(token_length=(i%7+1)*20) for i in range(49193)]
     a=epoch_batches(rows,42,0,64);b=epoch_batches(rows,42,1,64)
-    assert len(a)==770 and min(map(len,a))>=4
+    assert len(a)==769 and min(map(len,a))>=4
     assert sorted(np.concatenate(a))==list(range(len(rows)))
     assert not np.array_equal(np.concatenate(a),np.concatenate(b))
     assert np.array_equal(np.concatenate(a),np.concatenate(epoch_batches(rows,42,0,64)))
