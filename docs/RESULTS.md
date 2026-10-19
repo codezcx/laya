@@ -8,3 +8,5 @@ Current approach: full-channel, full-exported-duration left/right MI classificat
 - Full-channel token preparation and four-GPU smoke must pass before training. This file does not claim completed training or improved accuracy.
 
 TUAB was stopped at user request at step265/725. Best source validation accuracy78.41% (step150). Its logs/checkpoints remain at`artifacts/tuab_jev`; stopped state and original implementation are archived in Git commit`7335cfd`. MI uses original JEV initialization, not TUAB trained weights.
+
+Full-channel cache audit passed:68,221trials,49,193train/12,508validation/6,520heldout. Four-GPU two-step smoke completed with finite gradients and identical synchronized trainable-weight hashes across all ranks. Formal four-GPU run launched; initial full source validation precedes optimizer updates. No final accuracy is available yet.
