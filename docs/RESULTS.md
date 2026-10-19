@@ -41,3 +41,13 @@
 ## 属性损失对照
 
 已获授权准备300步四卡对照，参考组 `jev_paired_qa/run`，对照组 `jev_no_attribute_loss/run`。只将属性损失乘零，分类权重、样本与初始化保持一致，MI和情绪均训练。新组结果尚未产生，不能提前判断属性损失有益或有害。运行状态见产物目录的 `status.json`，设计见 [协议](PROTOCOL.md)。
+
+参考组固定面板分类准确率（各分类子集类别平衡，等于其BA）：
+
+| checkpoint | MI | SEED | FACED |
+|---|---:|---:|---:|
+| 初始化 step 0 | 50.00% | 48.96% | 38.80% |
+| 参考组 best step 250 | 54.00% | 43.23% | 42.45% |
+| 参考组 step 300 | 50.40% | 42.19% | 40.63% |
+
+MI面板1000条、SEED/FACED各384个窗口。对照需比较相同步数及各自best；上表不代表独立trial准确率或外部数据集零样本成绩。来源：`artifacts/jev_paired_qa/run/validation_0000.json`、`validation_0250.json`、`validation_0300.json`。
