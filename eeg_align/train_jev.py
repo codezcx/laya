@@ -93,6 +93,7 @@ def main():
     p.add_argument('--classification-per-class',type=int,default=16)
     p.add_argument('--emotion-per-class',type=int,default=8)
     p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--attribute-loss-weight',type=float,choices=[0.,1.],default=1.)
     p.add_argument('--resume', action='store_true')
     p.add_argument('--smoke', action='store_true')
     p.add_argument('--stop-after', type=int)
@@ -113,7 +114,7 @@ def main():
     assert len(train.groups) == 62 and len(val.groups) == 62
     assert not set(train.subjects[int(i)] for i in train.records[:,0]) & set(val.subjects[int(i)] for i in val.records[:,0])
     draw_counts={k:args.classification_per_class if train.specs[k[0]]['id']=='mi_class' else args.emotion_per_class if train.specs[k[0]]['id']=='emotion_class' else 1 for k in train.groups}
-    batch_size=sum(draw_counts.values());nq=len(train.specs);question_weights=training_weights(train,draw_counts)
+    batch_size=sum(draw_counts.values());nq=len(train.specs);question_weights=training_weights(train,draw_counts,args.attribute_loss_weight)
     steps = 2 if args.smoke else args.steps
     # No example can recur more than four times in this bounded run.
     assert max(math.ceil(steps*draw_counts[k]/len(v)) for k,v in train.groups.items()) <= 4
@@ -149,7 +150,8 @@ def main():
         sampler='16 per MI class; 8 per emotion dataset/class; one per attribute dataset/answer; shuffled group queues',
         classification_per_class=args.classification_per_class,
         fixed_mi_class=True, fixed_emotion_class=True, emotion_per_class=args.emotion_per_class,
-        max_repeats=4, task_loss_mass=dict(mi_attributes=.1,mi_classification=.4,emotion_attributes=.1,emotion_classification=.4),
+        max_repeats=4, attribute_loss_weight=args.attribute_loss_weight,
+        task_loss_mass=dict(mi_attributes=.1*args.attribute_loss_weight,mi_classification=.4,emotion_attributes=.1*args.attribute_loss_weight,emotion_classification=.4),
         question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
         code_sha256={f:digest(f) for f in paths},
         git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())

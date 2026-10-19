@@ -26,6 +26,20 @@ class AttributeTrainingTest(unittest.TestCase):
         weights=training_weights(data,draws);batch=sum(draws.values())
         masses=[sum(n*weights[q]/batch for (q,_,_),n in draws.items() if q==i) for i in range(4)]
         np.testing.assert_allclose(masses,[.4,.4,.1,.1])
+        no_aux=training_weights(data,draws,attribute_loss_weight=0.)
+        np.testing.assert_array_equal(no_aux[:2],weights[:2])
+        np.testing.assert_array_equal(no_aux[2:],0.)
+        # Removing auxiliary gradients must not rescale classification gradients.
+        logits=torch.randn(batch,3,dtype=torch.float64,requires_grad=True)
+        qids=np.array([q for (q,_,_),n in draws.items() for _ in range(n)])
+        labels=torch.arange(batch)%3
+        ce=torch.nn.functional.cross_entropy(logits,labels,reduction='none')
+        (ce*torch.tensor(no_aux[qids])).mean().backward()
+        expected=logits.grad.clone();logits.grad=None
+        ce=torch.nn.functional.cross_entropy(logits,labels,reduction='none')
+        keep=qids<2
+        (ce[keep]*torch.tensor(weights[qids[keep]])).sum().div(batch).backward()
+        torch.testing.assert_close(logits.grad,expected)
         permutations=draw_permutations(data,data.records,np.random.default_rng(42),True,True)
         self.assertTrue((permutations[data.records[:,1]<2]==0).all())
         pred=data.records[:,2].copy()

@@ -114,10 +114,12 @@ def mask_choices(logits,counts):
     return logits.masked_fill(torch.arange(logits.shape[1],device=logits.device)[None]>=counts[:,None],float('-inf'))
 
 
-def training_weights(data,draw_counts=None):
+def training_weights(data,draw_counts=None,attribute_loss_weight=1.):
     category=lambda q: data.specs[q]['id'] if data.specs[q]['id'] in ['mi_class','emotion_class'] else data.specs[q].get('task','emotion')
     joint=any(s['id']=='emotion_class' for s in data.specs)
     masses={'mi_class':.4,'mi':.1,'emotion_class':.4,'emotion':.1} if joint else {'mi_class':.25,'mi':.25,'emotion':.5}
+    if attribute_loss_weight not in (0.,1.):raise ValueError("Expected attribute loss weight 0 or 1")
+    for c in ["mi","emotion"]:masses[c]*=attribute_loss_weight
     if draw_counts is None:draw_counts={k:1 for k in data.groups}
     groups={c:sum(n for (q,_,_),n in draw_counts.items() if category(q)==c) for c in masses}
     batch=sum(draw_counts.values())

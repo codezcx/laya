@@ -57,3 +57,24 @@ JEV-27B语言基座和REVE冻结，更新connector与已有语言LoRA；LoRA始�
 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_readout_evaluation.py`重新核对已保存逐trial预测、总体/被试分数、置换成员、源离线一致性及哈希，生成 `readout_evaluation/summary.json`、`REPORT.md`、`audit_complete.json`。未重新训练或按2b结果改头。
 
 仅代码进入Git，数据、模型、缓存、日志与checkpoint被忽略且保留。旧代码通过Git历史访问；保留当前方法必要控制，不累计独立版本目录。先前训练历史位于三个control目录，先前MI读出结果位于readout_evaluation；当前联合训练使用run目录。
+
+## 属性辅助损失匹配对照（2026-10-19）
+
+用户授权运行同一联合方法的必要对照。参考组为 `artifacts/jev_paired_qa/run`，无辅助损失组为 `artifacts/jev_no_attribute_loss/run`，均300步、seed42、四卡，每50步评估。
+
+唯一训练配方变化是 `--attribute-loss-weight 0`：损失从
+`0.4 MI分类 + 0.4 情绪分类 + 0.1 MI属性 + 0.1 情绪属性`
+变为 `0.4 MI分类 + 0.4 情绪分类`，不将分类权重重新归一化成0.5。
+
+保留全部134条batch的采样、排序、选项置换、分卡、microbatch和前后向计算；属性样本乘零，不贡献监督梯度。这样维持分类样本及dropout随机数消耗，避免过滤属性样本改变计算顺序。没有节省属性前后向成本，总loss数值不应直接与参考组比较。
+
+两组均从同一4380步初始化加载投影器和现有JEV LoRA，共享决策头均从JEV原始行初始化。REVE与Qwen基座冻结；投影器、LoRA、决策头学习率及优化器不变。MI和情绪任务都保留；SEED、FACED分类分别报告。
+
+验证仍使用同一2632题固定面板，包括未监督的属性题；选模仍只用MI分类BA与情绪数据集宏平均BA各50%。比较同一步数结果（特别是300步）及各自源验证选择的best，最终完整验证与打乱信号对照仍执行。只做单seed探索，不能当作显著性结论。
+
+```sh
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py \
+  --out artifacts/jev_no_attribute_loss --attribute-loss-weight 0
+```
+
+日志：`artifacts/jev_no_attribute_loss/run/metrics.jsonl`；stdout：`run.log`；状态：`status.json`。四卡两步smoke通过后才正式开始。所有旧checkpoint、日志和数据保留。

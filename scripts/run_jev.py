@@ -1,4 +1,5 @@
 """Verify current paired inputs, four-GPU smoke, then train the current approach."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -13,12 +14,20 @@ OUT=Path('artifacts/jev_paired_qa')
 
 
 def main():
+    global OUT
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out',type=Path,default=OUT)
+    parser.add_argument('--attribute-loss-weight',type=float,choices=[0.,1.],default=1.)
+    args=parser.parse_args()
+    OUT=args.out
+    OUT.mkdir(parents=True,exist_ok=True)
     assert not (OUT/'run').exists() and not (OUT/'smoke').exists()
     def status(phase,**kw):
         (OUT/'status.json').write_text(json.dumps(dict(phase=phase,timestamp=time.time(),**kw),indent=2))
     status('verifying_inputs')
-    init=json.loads((OUT/'initialization.json').read_text())
-    assert digest(OUT/'initialization.pt')==init['sha256']
+    init_root=Path('artifacts/jev_paired_qa')
+    init=json.loads((init_root/'initialization.json').read_text())
+    assert digest(init_root/'initialization.pt')==init['sha256']
     verify()
     for root in DATA:
         complete=json.loads((root/'complete.json').read_text())
@@ -33,7 +42,7 @@ def main():
         OMP_NUM_THREADS='4',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
     for name,extra in [('smoke',['--smoke']),('run',[])]:
         cmd=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=4',
-            '-m','eeg_align.train_jev','--out',str(OUT/name),*extra]
+            '-m','eeg_align.train_jev','--out',str(OUT/name),'--attribute-loss-weight',str(args.attribute_loss_weight),*extra]
         with (OUT/f'{name}.log').open('w') as log:
             process=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
             status(name,pid=process.pid,command=cmd)
