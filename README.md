@@ -17,3 +17,5 @@ PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
 TUAB已在第265步按用户要求停止，代码与停止状态归档于Git`7335cfd`，日志/权重保留在`artifacts/tuab_jev/`。不加载其训练权重。所有旧数据、日志、checkpoint保留，不作为代码清理对象。
 
 验证代码:`PYTHONPATH=. laya/.venv-eeg/bin/python -m pytest tests -q`。
+
+八卡节点对照：GPU0–3从第200步检查点续训JEV，新日志为`artifacts/mi_jev/resumed/metrics.jsonl`；GPU4–7完成冻结REVE的固定空间汇总＋线性层对照，结果在`artifacts/mi_reve_probe/`。验证整体准确率68.16%，2b准确率50.15%；详情见当前结果文档。
