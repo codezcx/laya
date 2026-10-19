@@ -1,8 +1,8 @@
 # Mounted left/right MI data adapter and audit
 
-This is preparatory data work; the active TUAB training is unchanged. Configuration: `configs/mi_data.json`; loader: `eeg_align/mi_data.py`; full index builder: `scripts/prepare_mi_index.py`; remaining-candidate audit: `scripts/audit_mi_candidates.py`.
+The current MI training uses all EEG channels and full exported epochs; see PROTOCOL.md. This document records the earlier three-channel integrity index and dataset audit. The index is reused for trial identities and subject splits, while the current cache validates full EEG arrays separately. TUAB has been stopped. Configuration: `configs/mi_data.json`; loader: `eeg_align/mi_data.py`; full index builder: `scripts/prepare_mi_index.py`; remaining-candidate audit: `scripts/audit_mi_candidates.py`.
 
-## Scope and loading
+## Integrity-index scope and loading (three-channel audit)
 
 Mounted processed root: `/inspire/dataset/moabb-processed/v1/EEG-processed`.
 Only exact `left_hand` / `right_hand` labels are mapped to 0 / 1. Select C3, Cz, C4 in that order, retain float32 microvolts at 200 Hz. No silent channel substitution, padding, amplitude correction, normalization, or additional filtering. Mounted exports have already been filtered/resampled. Exported epochs are task windows; an early segment is not a verified resting baseline.

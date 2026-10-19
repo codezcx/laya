@@ -13,8 +13,8 @@ from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5TextModel
 
 CHECKPOINT=Path('laya/JEV-27B-VL')
 PREFIX='[kind] choice\n[state] EEG recording begins:\n'
-SUFFIX=('\nEEG recording ends.\n[question] Is this EEG clinically normal or abnormal?\n[options]\n'
-        'A) Clinically normal EEG\nB) Clinically abnormal EEG\n[decision]:')
+SUFFIX=('\nEEG recording ends.\n[question] Which hand is the participant imagining moving?\n[options]\n'
+        'A) Left hand motor imagery\nB) Right hand motor imagery\n[decision]:')
 
 class LoadedLoRA(nn.Module):
     def __init__(self,base,a,b,scale):
