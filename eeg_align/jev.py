@@ -13,12 +13,8 @@ from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5TextModel
 
 CHECKPOINT=Path('laya/JEV-27B-VL')
 PREFIX='[kind] choice\n[state] EEG recording begins:\n'
-SUFFIX=('\nEEG recording ends.\n[question] Which task and class does this EEG recording represent?\n[options]\n'
-        'A) Emotion recognition: negative emotional valence\n'
-        'B) Emotion recognition: neutral emotional valence\n'
-        'C) Emotion recognition: positive emotional valence\n'
-        'D) Motor imagery recognition: imagined left-hand movement\n'
-        'E) Motor imagery recognition: imagined right-hand movement\n[decision]:')
+SUFFIX=('\nEEG recording ends.\n[question] Is this EEG clinically normal or abnormal?\n[options]\n'
+        'A) Clinically normal EEG\nB) Clinically abnormal EEG\n[decision]:')
 
 class LoadedLoRA(nn.Module):
     def __init__(self,base,a,b,scale):
@@ -89,6 +85,7 @@ def load_jev(device='cuda'):
 class JEVBridge(nn.Module):
     def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False):
         super().__init__();self.text=text;self.train_lora=train_lora
+        weight=weight[:2];bias=bias[:2]
         self.text.requires_grad_(False)
         for name,p in self.text.named_parameters():
             if name.endswith(('lora_A','lora_B')):p.requires_grad_(train_lora)
@@ -99,21 +96,18 @@ class JEVBridge(nn.Module):
             self.register_buffer('head_weight',weight);self.register_buffer('head_bias',bias)
         self.register_buffer('prefix_ids',torch.tensor(tokenizer.encode(PREFIX,add_special_tokens=False),device=weight.device))
         self.register_buffer('suffix_ids',torch.tensor(tokenizer.encode(SUFFIX,add_special_tokens=False),device=weight.device))
-        self.register_buffer('baseline_ids',torch.tensor(tokenizer.encode('\nPre-cue fixation baseline [-2.5,-0.5] s:\n',add_special_tokens=False),device=weight.device),persistent=False)
-        self.register_buffer('task_ids',torch.tensor(tokenizer.encode('\nMotor imagery task [0.5,2.5] s:\n',add_special_tokens=False),device=weight.device),persistent=False)
         self.text.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant':False})
     def train(self,mode=True):
         super().train(mode)
         # Train mode activates checkpointing even for a frozen decoder: gradients must reach connector.
         self.text.train(mode)
         return self
-    def forward(self,tokens,valid,labels=None,suffix_ids=None,num_choices=5,segment_splits=None):
+    def forward(self,tokens,valid,labels=None,suffix_ids=None,num_choices=2):
         if valid.dtype!=torch.bool or tokens.shape[:2]!=valid.shape or not valid.any(1).all():raise ValueError('Invalid EEG mask')
         z=self.connector(tokens.masked_fill(~valid[...,None],0).float())
         embed=self.text.get_input_embeddings();prefix=embed(self.prefix_ids)
         suffix=embed(self.suffix_ids) if suffix_ids is None else [embed(s) for s in suffix_ids]
-        x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid,segment_splits,
-            (embed(self.baseline_ids),embed(self.task_ids)))
+        x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid)
         hidden=self.text(inputs_embeds=x,attention_mask=mask,position_ids=positions,use_cache=False,return_dict=True).last_hidden_state
         state=hidden[torch.arange(len(hidden),device=hidden.device),last]
         if not 1 <= num_choices <= len(self.head_weight):raise ValueError('Invalid choice count')

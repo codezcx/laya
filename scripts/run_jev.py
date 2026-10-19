@@ -1,56 +1,49 @@
-"""Verify current paired inputs, four-GPU smoke, then train the current approach."""
-import argparse
+"""TUAB preparation, four-GPU REVE caching, smoke test and record classifier."""
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import time
-from eeg_align.cache import digest
-from eeg_align.paired_cache import verify, DATA
-from eeg_align.attribute_data import AttributeData
-
-OUT=Path('artifacts/jev_paired_qa')
+from eeg_align.tuab_data import ROOT,digest,readrows,write_json
+OUT=Path('artifacts/tuab_jev')
 
 
 def main():
-    global OUT
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--out',type=Path,default=OUT)
-    parser.add_argument('--attribute-loss-weight',type=float,choices=[0.,1.],default=1.)
-    args=parser.parse_args()
-    OUT=args.out
-    OUT.mkdir(parents=True,exist_ok=True)
-    assert not (OUT/'run').exists() and not (OUT/'smoke').exists()
-    def status(phase,**kw):
-        (OUT/'status.json').write_text(json.dumps(dict(phase=phase,timestamp=time.time(),**kw),indent=2))
-    status('verifying_inputs')
-    init_root=Path('artifacts/jev_paired_qa')
-    init=json.loads((init_root/'initialization.json').read_text())
-    assert digest(init_root/'initialization.pt')==init['sha256']
-    verify()
-    for root in DATA:
-        complete=json.loads((root/'complete.json').read_text())
-        audit=json.loads((root/'verification.json').read_text())
-        assert complete['schema_version']==2 and audit['status']=='passed'
-        assert audit['complete_sha256']==digest(root/'complete.json')
-        for name,sha in complete['files'].items():assert digest(root/name)==sha
-        data=AttributeData(root,complete['source_splits'][0],include_emotion_class=True)
-        assert {s['id'] for s in data.specs} >= {'mi_class','emotion_class'}
-        assert len(data.groups)==62
-    env=dict(os.environ,CUDA_VISIBLE_DEVICES='0,1,2,3',PYTHONPATH='.',
-        OMP_NUM_THREADS='4',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
-    for name,extra in [('smoke',['--smoke']),('run',[])]:
-        cmd=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=4',
-            '-m','eeg_align.train_jev','--out',str(OUT/name),'--attribute-loss-weight',str(args.attribute_loss_weight),*extra]
-        with (OUT/f'{name}.log').open('w') as log:
-            process=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
-            status(name,pid=process.pid,command=cmd)
-            code=process.wait()
+    OUT.mkdir(parents=True,exist_ok=False)
+    env=dict(os.environ,PYTHONPATH='.',OMP_NUM_THREADS='4',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false',CUDA_VISIBLE_DEVICES='0,1,2,3')
+    def status(phase,**kw):write_json(OUT/'status.json',dict(phase=phase,time=time.time(),**kw))
+    def run(name,command):
+        with (OUT/f'{name}.log').open('x') as log:
+            proc=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT,env=env)
+            status(name,pid=proc.pid,command=command);code=proc.wait()
         if code:
-            status('failed',stage=name,returncode=code)
-            raise RuntimeError(f'{name} failed: {code}')
+            status('failed',stage=name,returncode=code);raise RuntimeError(f'{name} failed: {code}')
+    run('prepare',[sys.executable,'-m','eeg_align.tuab_data','--prepare'])
+    procs=[];logs=[]
+    for shard in range(4):
+        log=(OUT/f'encode_{shard}.log').open('x');logs.append(log)
+        command=[sys.executable,'-m','eeg_align.tuab_data','--shard',str(shard)]
+        procs.append(subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT,env=dict(env,CUDA_VISIBLE_DEVICES=str(shard))))
+    status('encoding',pids=[p.pid for p in procs])
+    codes=[p.wait() for p in procs]
+    for f in logs:f.close()
+    if any(codes):status('failed',stage='encoding',codes=codes);raise RuntimeError(codes)
+    expected={r['id'] for s in ['train','validation','test'] for r in readrows(ROOT/f'records_{s}.jsonl')};seen=set()
+    for shard in range(4):
+        audit=json.loads((ROOT/'tokens'/f'shard_{shard}.json').read_text())
+        assert audit['manifest_sha256']==digest(ROOT/'complete.json')
+        for record,sha in audit['files'].items():
+            assert record not in seen and digest(ROOT/'tokens'/f'{record}.npy')==sha;seen.add(record)
+    assert seen==expected
+    write_json(OUT/'token_audit.json',dict(status='passed',records=len(seen)))
+    run('probe',[sys.executable,'scripts/tuab_probe.py'])
+    for name,args in [('smoke',['--smoke']),('run',[])]:
+        cmd=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=4',
+             '-m','eeg_align.train_jev','--out',str(OUT/name),*args]
+        run(name,cmd)
         assert (OUT/name/'complete.json').exists()
+    run('probe_test',[sys.executable,'scripts/tuab_probe.py','--test'])
     status('complete')
 
 

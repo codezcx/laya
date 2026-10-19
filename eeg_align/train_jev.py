@@ -1,261 +1,157 @@
-"""Four-rank EEG attribute QA; frozen REVE, active/updatable JEV LoRA."""
+"""TUAB-only record-level binary classification with frozen REVE and active JEV LoRA."""
 import argparse
 import hashlib
-import math
 import json
+import math
 import os
+from pathlib import Path
 import random
 import subprocess
 import time
 from datetime import timedelta
-from pathlib import Path
 import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn import functional as F
-from .cache import ROOT, digest
-from .paired_cache import PairedTokenCache, ROOT as TOKEN_ROOT
-from .jev import load_jev, JEVBridge, CHECKPOINT
-from .sampling import BalancedCoverageSampler
-from .distributed import average_gradients, atomic_save
-from .attribute_data import AttributeData, QuestionTokens, semantic_predictions, summarize, draw_permutations, mask_choices, training_weights
+from .jev import load_jev,JEVBridge
+from .distributed import average_gradients,atomic_save
+from .tuab_data import ROOT,digest,readrows,write_json,load_windows,metrics
 
 
-def cpu_trainable(model, names):
-    params = dict(model.named_parameters())
-    return {n:params[n].detach().cpu().clone() for n in names}
+def record_loss(window_logits,labels):
+    return F.cross_entropy(window_logits.reshape(len(labels),8,2).mean(1),labels)
 
 
-def restore_trainable(model, state, names):
-    if set(state) != set(names):raise ValueError('Trainable parameter set changed')
-    model.load_state_dict(state, strict=False)
+def backward_bags(model,tokens,labels,microbatch=2,scale=1.):
+    """Exact two-pass bag gradient, bounded activation memory; requires no dropout."""
+    def forward(x):
+        return model(x,torch.ones(x.shape[:2],device=x.device,dtype=torch.bool))['logits']
+    with torch.no_grad():
+        chunks=[forward(tokens[i:i+microbatch]) for i in range(0,len(tokens),microbatch)]
+    detached=torch.cat(chunks).detach().requires_grad_(True)
+    loss=record_loss(detached,labels)
+    if not torch.isfinite(loss):raise FloatingPointError('Nonfinite record loss')
+    grad,=torch.autograd.grad(loss*scale,detached)
+    for i in range(0,len(tokens),microbatch):
+        logits=forward(tokens[i:i+microbatch])
+        # Check forward determinism before using cached output gradients.
+        if not torch.allclose(logits.detach(),detached[i:i+microbatch],atol=1e-5,rtol=1e-5):
+            raise RuntimeError('Two-pass forward changed; gradient cache is invalid')
+        logits.backward(grad[i:i+microbatch])
+    return float(loss.detach()),detached.detach().reshape(len(labels),8,2).mean(1).softmax(-1)[:,1].cpu().tolist()
 
 
-def rng_state():
-    return dict(cpu=torch.get_rng_state(), cuda=torch.cuda.get_rng_state(),
-                python=random.getstate(), numpy=np.random.get_state())
-
-
-def restore_rng(state):
-    torch.set_rng_state(state['cpu']);torch.cuda.set_rng_state(state['cuda'])
-    random.setstate(state['python']);np.random.set_state(state['numpy'])
+def state(model):return {n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad}
 
 
 @torch.no_grad()
-def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuffle=False):
-    model.eval()
-    ids = np.asarray(ids, dtype=np.int64)
-    # A deterministic, target-independent choice order, unchanged across checkpoints.
-    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018),fixed_mi_class=True,fixed_emotion_class=True)
-    signal_ids = data.records[:,0].copy()
+def evaluate(model,rows,rank,world,microbatch=4,shuffle=False):
+    model.eval();mine=[];sources=rows
     if shuffle:
-        rng = np.random.default_rng(1701)
-        # Preserve dataset and question, scramble EEG identity within each stratum.
-        strata={}
-        for i in ids:
-            source,q,_,ds=data.records[i]
-            strata.setdefault((int(q),int(ds),data.subjects[int(source)][1]),[]).append(int(i))
-        for selected in strata.values():
-            signal_ids[selected] = rng.permutation(signal_ids[selected])
-    mine = ids[rank::world]; predictions = []; losses = []; letters_correct = []
-    started = time.monotonic()
-    for start in range(0, len(mine), microbatch):
-        ii = mine[start:start+microbatch]
-        z, mask, segments = cache.batch(signal_ids[ii], 'cuda')
-        suffix, labels = questions.batch(data.records[ii], permutations[ii])
-        logits = model(z, mask, suffix_ids=suffix, num_choices=3, segment_splits=segments)['logits']
-        logits = mask_choices(logits,data.choice_counts[data.records[ii,1]])
-        letter = logits.argmax(1).cpu().numpy()
-        predictions.extend(semantic_predictions(letter, permutations[ii],data.choice_counts[data.records[ii,1]]).tolist())
-        losses.extend(F.cross_entropy(logits, labels, reduction='none').cpu().tolist())
-        letters_correct.extend((letter == labels.cpu().numpy()).tolist())
-        if rank == 0 and start % 600 == 0:
-            print('QA validation', 'shuffled' if shuffle else 'matched', start, '/', len(mine), flush=True)
-    parts = [None]*world
-    dist.all_gather_object(parts, (mine.tolist(), predictions, losses, letters_correct))
-    combined = {i:(p,l,c) for ii,pp,ll,cc in parts for i,p,l,c in zip(ii,pp,ll,cc)}
-    if len(combined) != len(ids):raise ValueError('Distributed validation coverage error')
-    result = summarize(data, ids, np.array([combined[int(i)][0] for i in ids]))
-    result.update(loss=float(np.mean([v[1] for v in combined.values()])),
-                  letter_accuracy=float(np.mean([v[2] for v in combined.values()])),
-                  seconds=time.monotonic()-started, shuffled_signal=shuffle)
-    return result
+        sources=[rows[i] for i in np.random.default_rng(1701).permutation(len(rows))]
+    for i in range(rank,len(rows),world):
+        x=load_windows([sources[i]],0,'cuda');logits=[]
+        for j in range(0,len(x),microbatch):
+            z=x[j:j+microbatch]
+            logits.append(model(z,torch.ones(z.shape[:2],device=z.device,dtype=torch.bool))['logits'])
+        mean=torch.cat(logits).mean(0);p=float(mean.softmax(-1)[1]);loss=float(F.cross_entropy(mean[None],torch.tensor([rows[i]['label']],device='cuda')))
+        mine.append(dict(id=rows[i]['id'],label=rows[i]['label'],probability_abnormal=p,loss=loss))
+    parts=[None]*world;dist.all_gather_object(parts,mine)
+    predictions=sorted(sum(parts,[]),key=lambda r:r['id'])
+    assert len(predictions)==len(rows) and len({r['id'] for r in predictions})==len(rows)
+    result=metrics([r['label'] for r in predictions],[r['probability_abnormal'] for r in predictions])
+    result.update(loss=float(np.mean([r['loss'] for r in predictions])),shuffled_signal=shuffle)
+    return result,predictions
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--out', type=Path, required=True)
-    p.add_argument('--init', type=Path, default=Path('artifacts/jev_paired_qa/initialization.pt'))
-    p.add_argument('--train-data', type=Path, default=Path('datasets/eeg_attribute_qa'))
-    p.add_argument('--validation-data', type=Path, default=Path('datasets/eeg_attribute_qa_validation'))
-    p.add_argument('--steps', type=int, default=300)
-    p.add_argument('--eval-every', type=int, default=50)
-    p.add_argument('--classification-per-class',type=int,default=16)
-    p.add_argument('--emotion-per-class',type=int,default=8)
-    p.add_argument('--seed', type=int, default=42)
-    p.add_argument('--attribute-loss-weight',type=float,choices=[0.,1.],default=1.)
-    p.add_argument('--resume', action='store_true')
-    p.add_argument('--smoke', action='store_true')
-    p.add_argument('--stop-after', type=int)
-    args = p.parse_args()
-    rank, world, local = (int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK'])
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--epochs',type=int,default=5);p.add_argument('--batch-records',type=int,default=16)
+    p.add_argument('--seed',type=int,default=42);p.add_argument('--smoke',action='store_true');a=p.parse_args()
+    rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(4)
-    dist.init_process_group('nccl', timeout=timedelta(minutes=60))
-    if rank == 0:
-        if args.resume:
-            assert (args.out/'last.pt').exists() and not (args.out/'complete.json').exists()
-        else:args.out.mkdir(parents=True, exist_ok=False)
-    dist.barrier()
-    torch.manual_seed(args.seed);random.seed(args.seed);np.random.seed(args.seed)
-    train = AttributeData(args.train_data, 'train',include_emotion_class=True)
-    val = AttributeData(args.validation_data, 'validation',include_emotion_class=True)
-    assert train.specs == val.specs
-    assert not set(train.records[:,0]) & set(val.records[:,0])
-    assert len(train.groups) == 62 and len(val.groups) == 62
-    assert not set(train.subjects[int(i)] for i in train.records[:,0]) & set(val.subjects[int(i)] for i in val.records[:,0])
-    draw_counts={k:args.classification_per_class if train.specs[k[0]]['id']=='mi_class' else args.emotion_per_class if train.specs[k[0]]['id']=='emotion_class' else 1 for k in train.groups}
-    batch_size=sum(draw_counts.values());nq=len(train.specs);question_weights=training_weights(train,draw_counts,args.attribute_loss_weight)
-    steps = 2 if args.smoke else args.steps
-    # No example can recur more than four times in this bounded run.
-    assert max(math.ceil(steps*draw_counts[k]/len(v)) for k,v in train.groups.items()) <= 4
-    sampler = BalancedCoverageSampler(train.groups, per_group=draw_counts, seed=args.seed)
-    panel = val.panel(per_group=1 if args.smoke else 16)
-    cache = PairedTokenCache()
-    text, w, b, tok = load_jev()
-    model = JEVBridge(text, w, b, tok, train_lora=True,train_head=True)
-    names = [n for n,p in model.named_parameters() if p.requires_grad]
-    saved = torch.load(args.init, map_location='cpu', weights_only=False)
-    assert saved['config']['train_lora'] and not saved['config']['smoke']
-    assert saved['config']['manifest_sha256'] == digest(ROOT/'rows.jsonl')
-    initial_names=[n for n in names if n not in ['head_weight','head_bias']]
-    restore_trainable(model, saved['trainable'], initial_names)
-    init_step = saved['step'];del saved
-    questions = QuestionTokens(tok, train.specs)
-    opt = torch.optim.AdamW([
-        dict(params=list(model.connector.parameters()), lr=5e-5),
-        dict(params=[p for p in model.text.parameters() if p.requires_grad], lr=5e-6),
-        dict(params=[model.head_weight,model.head_bias],lr=1e-5)], weight_decay=.01)
-    paths = ['eeg_align/train_jev.py','eeg_align/jev.py','eeg_align/attribute_data.py',
-             'eeg_align/paired_cache.py','eeg_align/sampling.py','eeg_align/distributed.py','eeg_tasks/attribute_questions.py']
-    config = dict(stage='joint_mi_emotion_classification', seed=args.seed, steps=steps, world_size=world, batch_size=batch_size,
-        microbatch=6, learning_rates=dict(projector=5e-5,lora=5e-6,head=1e-5),
-        train_lora=True, train_head=True, train_encoder=False, jev_lora_always_active=True, smoke=args.smoke,
-        init=str(args.init.resolve()), init_step=init_step, init_sha256=digest(args.init),
-        checkpoint=str(CHECKPOINT.resolve()), trainable_names=names,
-        train_data_sha256=train.root_hash, validation_data_sha256=val.root_hash,
-        train_classification_sha256=train.classification_hash, validation_classification_sha256=val.classification_hash,
-        manifest_sha256=digest(ROOT/'rows.jsonl'), validation_ids=panel.tolist(),
-        validation_n=len(panel), eval_every=args.eval_every,
-        selection='50% MI classification BA + 50% emotion classification dataset-macro BA; attributes excluded',
-        sampler='16 per MI class; 8 per emotion dataset/class; one per attribute dataset/answer; shuffled group queues',
-        classification_per_class=args.classification_per_class,
-        fixed_mi_class=True, fixed_emotion_class=True, emotion_per_class=args.emotion_per_class,
-        max_repeats=4, attribute_loss_weight=args.attribute_loss_weight,
-        task_loss_mass=dict(mi_attributes=.1*args.attribute_loss_weight,mi_classification=.4,emotion_attributes=.1*args.attribute_loss_weight,emotion_classification=.4),
-        question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
-        code_sha256={f:digest(f) for f in paths},
-        git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
-    best = -1.;prior_seconds = 0.;start_step = 0
-    if args.resume:
-        saved = torch.load(args.out/'last.pt', map_location='cpu', weights_only=False)
-        for k,v in config.items():
-            if k != 'git_commit' and saved['config'][k] != v:raise ValueError(f'Resume mismatch: {k}')
-        config = saved['config']
-        restore_trainable(model, saved['trainable'], names);opt.load_state_dict(saved['optimizer'])
-        sampler.load_state_dict(saved['sampler']);restore_rng(saved['rng_states'][rank])
-        best = saved['best_score'];prior_seconds = saved['elapsed_seconds'];start_step = saved['step']
-        assert sampler.step == start_step
-        del saved
-    elif rank == 0:
-        (args.out/'config.json').write_text(json.dumps(config,indent=2))
-    dist.barrier();began = time.monotonic()
-    log = (args.out/'metrics.jsonl').open('a', buffering=1) if rank == 0 else None
-
-    def evaluate(step):
+    dist.init_process_group('nccl',timeout=timedelta(minutes=60))
+    if rank==0:a.out.mkdir(parents=True,exist_ok=False)
+    dist.barrier();torch.manual_seed(a.seed);np.random.seed(a.seed);random.seed(a.seed)
+    train=readrows(ROOT/'records_train.jsonl');val=readrows(ROOT/'records_validation.jsonl')
+    test=readrows(ROOT/'records_test.jsonl')
+    assert not {r['subject'] for r in train}&{r['subject'] for r in val+test}
+    assert not {r['subject'] for r in val}&{r['subject'] for r in test}
+    if a.smoke:val=val[:8]
+    assert a.batch_records%world==0
+    text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,train_lora=True,train_head=True)
+    # No prior MI/emotion connector or fine-tuning checkpoint is loaded.
+    assert not any(isinstance(m,torch.nn.Dropout) and m.p for m in model.modules())
+    assert getattr(text.config,'attention_dropout',0.)==0.
+    opt=torch.optim.AdamW([
+        dict(params=model.connector.parameters(),lr=1e-4),
+        dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=5e-6),
+        dict(params=[model.head_weight,model.head_bias],lr=1e-5)],weight_decay=.01)
+    nsteps=2 if a.smoke else a.epochs*math.ceil(len(train)/a.batch_records)
+    paths=['eeg_align/jev.py','eeg_align/tuab_data.py','eeg_align/train_jev.py','eeg_align/distributed.py','configs/encoder.json']
+    config=dict(task='TUAB normal vs abnormal only',epochs=a.epochs,steps=nsteps,seed=a.seed,world_size=world,
+        batch_records=a.batch_records,windows_per_record=8,microbatch_windows=2,smoke=a.smoke,
+        init='original local JEV adapter and decision rows; fresh random connector; no MI/emotion weights',
+        train_encoder=False,train_lora=True,train_head=True,aggregation='mean window logits; one record-level cross entropy',
+        learning_rates=[1e-4,5e-6,1e-5],schedule='constant',selection='validation record balanced accuracy; earliest on ties',
+        data_sha256=digest(ROOT/'complete.json'),token_shard_hashes={str(i):digest(ROOT/'tokens'/f'shard_{i}.json') for i in range(4)},
+        code_sha256={s:digest(s) for s in paths},git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
+    if rank==0:write_json(a.out/'config.json',config)
+    began=time.monotonic();best=-1.;step=0
+    log=(a.out/'metrics.jsonl').open('a',buffering=1) if rank==0 else None
+    def validate():
         nonlocal best
-        result = validate(model,cache,val,questions,panel,rank,world)
-        if rank == 0:
+        result,predictions=evaluate(model,val,rank,world)
+        if rank==0:
             log.write(json.dumps(dict(step=step,validation=result))+'\n')
-            (args.out/f'validation_{step:04d}.json').write_text(json.dumps(result,indent=2))
-            print('VALIDATION',step,'MI attributes',result['MI'],'MI classification',result['MI_classification'],'emotion classification',result['emotion_classification'],'emotion attributes',result['emotion'],'loss',result['loss'],flush=True)
-        if result['selection_score'] > best:
-            best = result['selection_score']
-            if rank == 0:
-                atomic_save(dict(trainable=cpu_trainable(model,names),encoder=None,config=config,
-                                 step=step,validation=result),args.out/'best.pt')
-                (args.out/'best.json').write_text(json.dumps(dict(step=step,validation=result),indent=2))
-        return result
-
-    if not args.resume:
-        evaluate(0)
-    for step in range(start_step+1, steps+1):
-        model.train();opt.zero_grad(set_to_none=True)
-        global_ids = sampler.next_batch().reshape(-1)
-        rng = np.random.default_rng(args.seed+step*1009)
-        rng.shuffle(global_ids)
-        permutations = draw_permutations(train,train.records[global_ids],rng,fixed_mi_class=True,fixed_emotion_class=True)
-        ids = global_ids[rank::world];perms = permutations[rank::world]
-        loss_sum = 0.;correct_sum = 0.; semantic_correct = np.zeros(nq); semantic_count = np.zeros(nq)
-        for start in range(0,len(ids),6):
-            ii = ids[start:start+6];records = train.records[ii]
-            z,mask,segments = cache.batch(records[:,0],'cuda')
-            suffix, labels = questions.batch(records,perms[start:start+6])
-            logits = model(z,mask,suffix_ids=suffix,num_choices=3,segment_splits=segments)['logits']
-            logits = mask_choices(logits,train.choice_counts[records[:,1]])
-            per_sample = F.cross_entropy(logits,labels,reduction='none')
-            weights = torch.tensor(question_weights[records[:,1]],device='cuda')
-            # Exact global weighted mean after cross-rank gradient averaging.
-            loss = (per_sample*weights).sum()*world/len(global_ids)
-            if not torch.isfinite(loss):raise FloatingPointError('Nonfinite loss')
-            loss.backward();loss_sum += loss.item()
-            correct = (logits.argmax(1)==labels).detach().cpu().numpy()
-            correct_sum += correct.sum()
-            np.add.at(semantic_correct,records[:,1],correct)
-            np.add.at(semantic_count,records[:,1],1)
-        active = [p for group in opt.param_groups for p in group['params']]
-        average_gradients(active,world)
-        grad = torch.nn.utils.clip_grad_norm_(active,1.)
-        if not torch.isfinite(grad):raise FloatingPointError('Nonfinite gradient')
-        opt.step()
-        stats = torch.tensor([loss_sum/world,correct_sum,*semantic_correct,*semantic_count],device='cuda')
-        dist.all_reduce(stats)
-        if args.smoke:
-            h = hashlib.sha256()
-            for v in cpu_trainable(model,names).values():h.update(v.numpy().tobytes())
-            hashes = [None]*world;dist.all_gather_object(hashes,h.hexdigest())
-            assert len(set(hashes)) == 1, 'Rank parameters diverged'
-            if rank == 0:print('Four-rank parameter synchronization verified',step,flush=True)
-        if rank == 0 and (step == 1 or step%10 == 0 or args.smoke):
-            item = dict(step=step,loss=float(stats[0]),accuracy=float(stats[1])/batch_size,
-                question_accuracy={s['id']:float(stats[2+q]/stats[2+nq+q]) for q,s in enumerate(train.specs)},
-                gradient_norm=float(grad),elapsed_seconds=prior_seconds+time.monotonic()-began,
-                draws=step*batch_size,peak_gpu_gb=torch.cuda.max_memory_allocated()/1e9)
-            log.write(json.dumps(item)+'\n');print(json.dumps(item),flush=True)
-        endpoint = step == steps
-        if step%args.eval_every == 0 or endpoint:evaluate(step)
-        if step%args.eval_every == 0 or endpoint or step == args.stop_after or args.smoke:
-            states = [None]*world;dist.all_gather_object(states,rng_state())
-            if rank == 0:
-                atomic_save(dict(trainable=cpu_trainable(model,names),optimizer=opt.state_dict(),
-                    sampler=sampler.state_dict(),config=config,step=step,best_score=best,
-                    rng_states=states,elapsed_seconds=prior_seconds+time.monotonic()-began),args.out/'last.pt')
-                (args.out/'progress.json').write_text(json.dumps(dict(step=step,steps=steps),indent=2))
-            dist.barrier()
-        if step == args.stop_after and not endpoint:
-            dist.destroy_process_group();return
-    # Final source held-out classification and attributes; no external target evaluation.
-    if not args.smoke:
-        saved = torch.load(args.out/'best.pt',map_location='cpu',weights_only=False)
-        restore_trainable(model,saved['trainable'],names);selected_step=saved['step'];del saved
-        full = validate(model,cache,val,questions,np.arange(len(val.records)),rank,world)
-        shuffled = validate(model,cache,val,questions,panel,rank,world,shuffle=True)
-        if rank == 0:
-            (args.out/'full_validation.json').write_text(json.dumps(dict(step=selected_step,validation=full),indent=2))
-            (args.out/'shuffled_validation.json').write_text(json.dumps(dict(step=selected_step,validation=shuffled),indent=2))
-    if rank == 0:
-        (args.out/'complete.json').write_text(json.dumps(dict(steps=steps,smoke=args.smoke,
-            best_sha256=digest(args.out/'best.pt'),elapsed_seconds=prior_seconds+time.monotonic()-began),indent=2))
+            write_json(a.out/f'validation_{step:04d}.json',dict(step=step,metrics=result,predictions=predictions))
+            print('VALIDATION',step,json.dumps(result),flush=True)
+        if result['balanced_accuracy']>best:
+            best=result['balanced_accuracy']
+            if rank==0:
+                atomic_save(dict(trainable=state(model),step=step,config=config),a.out/'best.pt')
+                write_json(a.out/'best.json',dict(step=step,metrics=result))
+    validate()
+    for epoch in range(a.epochs):
+        order=np.random.default_rng(a.seed+epoch).permutation(len(train))
+        for start in range(0,len(order),a.batch_records):
+            ids=order[start:start+a.batch_records];mine=ids[rank::world]
+            # The tail contains at least one record per rank in this audited dataset.
+            assert len(mine)>0
+            rows=[train[i] for i in mine]
+            x=load_windows(rows,epoch,'cuda');labels=torch.tensor([r['label'] for r in rows],device='cuda')
+            model.train();opt.zero_grad(set_to_none=True)
+            loss,prob=backward_bags(model,x,labels,scale=world*len(rows)/len(ids))
+            active=[p for group in opt.param_groups for p in group['params']]
+            average_gradients(active,world);grad=torch.nn.utils.clip_grad_norm_(active,1.)
+            if not torch.isfinite(grad):raise FloatingPointError('Nonfinite gradient')
+            opt.step();step+=1
+            stats=torch.tensor([loss*len(rows),sum((p>.5)==r['label'] for p,r in zip(prob,rows))],device='cuda');dist.all_reduce(stats)
+            if a.smoke:
+                h=hashlib.sha256()
+                for value in state(model).values():h.update(value.numpy().tobytes())
+                hashes=[None]*world;dist.all_gather_object(hashes,h.hexdigest());assert len(set(hashes))==1
+                if rank==0:print('Four-rank parameter synchronization verified',step,flush=True)
+            if rank==0:
+                item=dict(step=step,epoch=epoch+1,loss=float(stats[0])/len(ids),accuracy=float(stats[1])/len(ids),
+                          gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began)
+                log.write(json.dumps(item)+'\n');write_json(a.out/'progress.json',dict(step=step,steps=nsteps,epoch=epoch+1))
+                if step==1 or step%10==0 or a.smoke:print(json.dumps(item),flush=True)
+            endpoint=step==nsteps
+            if step%50==0 or start+a.batch_records>=len(order) or endpoint:
+                validate()
+                if rank==0:atomic_save(dict(trainable=state(model),optimizer=opt.state_dict(),step=step,epoch=epoch,config=config),a.out/'last.pt')
+                dist.barrier()
+            if endpoint:break
+        if step==nsteps:break
+    if not a.smoke:
+        saved=torch.load(a.out/'best.pt',map_location='cpu',weights_only=False)
+        model.load_state_dict(saved['trainable'],strict=False);selected=saved['step'];del saved
+        for name,rows,shuffle in [('test',test,False),('validation_shuffled',val,True)]:
+            result,predictions=evaluate(model,rows,rank,world,shuffle=shuffle)
+            if rank==0:write_json(a.out/f'{name}.json',dict(step=selected,metrics=result,predictions=predictions))
+    if rank==0:write_json(a.out/'complete.json',dict(steps=step,smoke=a.smoke,best_sha256=digest(a.out/'best.pt'),seconds=time.monotonic()-began))
     dist.barrier();dist.destroy_process_group()
 
 
-if __name__ == '__main__':main()
+if __name__=='__main__':main()

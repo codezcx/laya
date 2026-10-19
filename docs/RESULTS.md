@@ -1,55 +1,7 @@
-# 联合任务状态与先前MI控制结果
+# TUAB-only results
 
-先前MI读出评估已完成；新一轮MI与情绪共同分类训练尚无结果。下表仅为先前MI控制，不能作为新联合训练成绩。联合读出改善了原JEV固定头，但没有超过REVE单独读出；不能将该提升解释为语言理解能力的收益。
+The user replaced the MI/emotion experiment with TUAB normal/abnormal classification. Implementation is prepared; no TUAB training result is claimed yet.
 
-## 同一checkpoint的完整比较
+Run status: `artifacts/tuab_jev/status.json`. Record counts/exclusions: `datasets/tuab/audit.json`. Validation and final test probabilities: `artifacts/tuab_jev/run/validation_*.json` and `test.json`. The frozen REVE logistic control is under `artifacts/tuab_jev/probe/`.
 
-全部是普通准确率。源验证为OpenBMI的5名独立被试、1000 trials；外部2b为9名被试、2840 trials。类别均衡，总体平衡准确率与普通准确率相同。打乱条件在同一被试内置换完整参考段/任务段信号对。
-
-| 读出方式 | 分类训练标签数 | 源验证 | 外部2b | 2b被试内信号打乱 |
-|---|---:|---:|---:|---:|
-| 原JEV固定头，第100步 | 3200 | 50.20% | 50.60% | 50.32% |
-| 联合决策表示+REVE | 3200 | 55.00% | 63.20% | 50.53% |
-| 联合决策表示+REVE | 8800 | 58.70% | 63.84% | 51.13% |
-| REVE单独 | 3200 | 55.90% | 63.59% | 50.07% |
-| REVE单独 | 8800 | 58.50% | 64.96% | 50.39% |
-
-联合8800标签相比原头提高13.24个百分点，但包含更多分类标签；相同3200标签预算也提高12.61个百分点。联合8800标签低于REVE对照1.13个百分点。信号打乱后接近随机水平，支持读出在利用与标签相关的信号，不能证明其利用的是特定神经生理机制。
-
-## 证据与验证
-
-产物根目录 `artifacts/jev_paired_qa/readout_evaluation/`：`manifest.json`固定8个联合/REVE评估；`baseline_control_manifest.json`记录同checkpoint原头外部对照；每个子目录包含结果、逐trial分数及完成哈希。`summary.json`保存逐被试结果、比较和证据哈希，`REPORT.md`为自动汇总，`audit_complete.json`绑定报告和审计代码。
-
-4个源读出各1000条预测全部精确复现离线结果，合计4000条无差异。评估器核对checkpoint、源缓存、数据和头权重绑定；报告审计重新计算总体/被试准确率，核对argmax、样本顺序及被试内置换成员。48项测试通过，包含读出缩放/偏置与常量特征、外部输入和报告统计测试。
-
-以9名目标被试为单位做20000次配对bootstrap，联合8800减原头的差值为13.24个百分点，探索性95%区间[6.65,20.35]；联合8800减REVE为−1.13个百分点，区间[−2.33,0.00]。仅作小样本描述，不作确认性显著性结论。
-
-## 失败分析与适用范围
-
-提高分类采样覆盖、固定选项映射仍未让原头产生有效分类；第200步固定映射对照全部输出右手，源准确率50%。REVE线性读出包含可用信息，语言末状态单独读出仅52.2%/52.3%（3200/8800标签），因此当前语言接口没有保留同等的线性可读性。不能据此证明所有非线性信息都丢失，也不能单独定位到某一层。
-
-联合旁路是已验证的修复，但没有证明LLM是必要组件。当前根据用户要求补齐情绪真实类别，与MI一起做受限300步联合训练；是否成功仍需分别看分类结果，而不是只看loss下降。
-
-此次没有使用2b标签训练或选alpha；参数在外部评估前固定，未根据目标分数修改头。源验证已多次查看；训练内探针的9名选参被试也曾参与冻结JEV checkpoint的训练，因此不属于完整端到端嵌套验证。[REVE论文附录B](https://arxiv.org/html/2510.21585v1#A2)明确列出BNCI2014004（2b）和Lee2019MI，不能宣称基础编码器未见过源/目标数据，也未逐record证明预训练重叠范围。
-
-固定任务提示显式说明运动想象，A=左手/B=右手。输出为Ridge判别分数，不是校准概率。此结果不代表情绪分类改善、任意选项理解或通用EEG问答已成功。
-
-## 当前联合训练：情绪属性诊断
-
-已对不可变第200步快照完成标签、输入、采样及四种推理条件审计，详见[情绪属性排查](EMOTION_DIAGNOSTICS.md)。全部196962条属性答案独立重算一致；六题平均从初始化32.12%到37.33%，打乱31.94%、零信号33.33%。同标签预算REVE专门读出在相同panel上平均53.47%。属性问答的语义选项换序一致率43.40%，且偏向字母B。结论是信号利用弱、选项判断不稳定，未证明某个单独模块为因果根源；也不能将全部属性题称为训练后崩溃。诊断未改变活跃联合训练。
-
-## 属性损失对照
-
-已启动300步四卡对照，参考组 `jev_paired_qa/run`，对照组 `jev_no_attribute_loss/run`。只将属性损失乘零，分类权重、样本与初始化保持一致，MI和情绪均训练。新组结果尚未产生，不能提前判断属性损失有益或有害。运行状态见产物目录的 `status.json`，设计见 [协议](PROTOCOL.md)。
-
-参考组固定面板分类准确率（各分类子集类别平衡，等于其BA）：
-
-| checkpoint | MI | SEED | FACED |
-|---|---:|---:|---:|
-| 初始化 step 0 | 50.00% | 48.96% | 38.80% |
-| 参考组 best step 250 | 54.00% | 43.23% | 42.45% |
-| 参考组 step 300 | 50.40% | 42.19% | 40.63% |
-
-MI面板1000条、SEED/FACED各384个窗口。对照需比较相同步数及各自best；上表不代表独立trial准确率或外部数据集零样本成绩。来源：`artifacts/jev_paired_qa/run/validation_0000.json`、`validation_0250.json`、`validation_0300.json`。
-
-启动检查：49项测试通过；四卡两步smoke通过，每步参数哈希一致、梯度有限。正式run已由控制器启动，从相同初始化重新加载，不继承smoke权重。采样审计见 `artifacts/jev_no_attribute_loss/matching_audit.json`。
+Report ordinary record accuracy first, then BA and normal/abnormal recall. Model selection uses validation BA; do not select checkpoints using test scores. The old MI/emotion results are archived in Git at `f83edcb`, and their ignored experiment outputs remain on disk.
