@@ -19,7 +19,7 @@ def main():
     config=json.loads((root/'config.json').read_text())
     masses=config['task_loss_mass']
     uniform_ce=(masses['mi_classification']*math.log(2)+
-                (masses['mi_attributes']+masses['emotion_attributes'])*math.log(3))
+                (masses['mi_attributes']+masses['emotion_attributes']+masses.get('emotion_classification',0))*math.log(3))
     fig,ax=plt.subplots(1,2,figsize=(11,4))
     ax[0].plot([r['step'] for r in loss],[r['loss'] for r in loss],label='Weighted training CE')
     ax[0].plot([r['step'] for r in val],[r['validation']['loss'] for r in val],marker='o',label='Unweighted panel CE')
@@ -30,11 +30,11 @@ def main():
                           for name,q in panel.items())/sum(q['n'] for q in panel.values())
         ax[0].axhline(panel_uniform,color='gray',ls=':',label=f'Uniform panel CE ({panel_uniform:.4f})')
     ax[0].set(title='Training and validation use different loss weights',ylabel='Cross-entropy')
-    for key in ['MI','MI_classification','emotion']:
+    for key in ['MI_classification','emotion_classification','MI','emotion']:
         ax[1].plot([r['step'] for r in val],[100*r['validation'][key] for r in val],marker='o',label=key)
     ax[1].axhline(100/3,color='gray',ls=':',label='3-choice chance')
     ax[1].axhline(50,color='gray',ls='--',label='MI classification chance')
-    ax[1].set(title='MI attributes / MI classification / emotion attributes',ylabel='Macro balanced accuracy (%)',ylim=(0,100))
+    ax[1].set(title='Separate classification and attribute metrics',ylabel='Macro balanced accuracy (%)',ylim=(0,100))
     for a in ax:a.set_xlabel('Optimizer step');a.grid(alpha=.2);a.legend()
     fig.tight_layout();fig.savefig(out/'training_curves.png',dpi=160);plt.close(fig)
     (out/'snapshot.json').write_text(json.dumps(dict(last_training=loss[-1] if loss else None,

@@ -1,8 +1,8 @@
 # EEG → JEV-27B：配对信号与冻结联合读出
 
-当前实现使用冻结 REVE 编码提示前参考段和运动想象段，经 MLP 接入 JEV-27B 的语言主干；已有 JEV LoRA 始终启用。固定决策头训练出现单类输出，已停止。改进方案冻结第100步模型，将最后决策位置的5120维表示与3072维REVE池化特征拼接，拟合二分类Ridge读出。
+当前训练是 **MI左右手分类 + SEED/FACED负性/中性/正性分类共同监督**，六道MI属性题和六道情绪属性题作为辅助目标。冻结REVE和Qwen基座，更新投影器、JEV语言LoRA及共享决策行；LoRA始终启用。每个全局batch包含32条MI分类、48条情绪分类、54条属性题。loss分别占40%、40%、10%、10%。
 
-已完成端到端源验证和外部2b评估：联合读出58.70% / 63.84%，同checkpoint原头50.20% / 50.60%；REVE单独读出58.50% / 64.96%。联合方案恢复信号相关分类，但未证明语言分支优于REVE。当前无活跃训练或评估，不建议继续原600步配方。
+当前300步四卡试验，每50步分别评估MI、SEED、FACED分类；选模只用两类最终分类的平衡准确率各50%，属性分数不能替代分类表现。数据和运行细节见协议。新联合训练结果尚未产生；先前63.84%是仅MI冻结联合读出控制，不是本次联合训练结果。
 
 - [最终结果与限制](docs/RESULTS.md)
 - [协议、标签预算与复现](docs/PROTOCOL.md)
@@ -10,9 +10,17 @@
 - [失败分析与匹配对照](docs/PAIRED_DIAGNOSTICS.md)
 - [早期task-only特征诊断](docs/FEATURE_PROBES.md)
 
-当前结论仅适用于固定问题、固定A=左手/B=右手的二分类MI。没有证明情绪分类改善、任意问题理解或自动识别任务。REVE预训练清单包含2b，不能称为全链路未见目标数据的零样本结果。
+先前读出控制仅适用于固定问题的二分类MI。新训练显式提供任务类型，尚未证明情绪分类改善、任意问题理解或自动识别任务。REVE预训练清单包含2b，不能称为全链路未见目标数据的零样本结果。
 
-## 复现冻结联合读出
+## 启动当前联合训练
+
+```sh
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
+```
+
+入口先验证数据和标签补充文件，完成四卡两步smoke后启动300步训练；已有run/smoke时拒绝覆盖。当前日志为 `artifacts/jev_paired_qa/run/metrics.jsonl`，stdout为 `run.log`，运行状态为 `status.json`。曲线入口 `scripts/plot_jev_training.py`。首次构建分类补充文件用 `scripts/build_emotion_classification.py`，目录已有文件则拒绝覆盖。
+
+## 复现先前冻结联合读出控制
 
 从仓库根目录运行，需本机已保存的模型和忽略的实验产物。输出目录必须不存在；以下是复现入口，不会自动启动训练。
 
@@ -34,4 +42,4 @@ PYTHONPATH=. OPENBLAS_NUM_THREADS=4 OMP_NUM_THREADS=4 laya/.venv-eeg/bin/python 
 
 逐trial预测、逐被试成绩、固定评估清单及哈希集中在 `artifacts/jev_paired_qa/readout_evaluation/`。数据位于 `datasets/eeg_attribute_qa/` 和 `datasets/eeg_attribute_qa_validation/`，均被Git忽略；每题独立JSONL，共享信号数组。只能向模型提供input字段，不能加入evidence/provenance/target。
 
-代码只保留当前方法及必要匹配对照。`scripts/run_jev.py` 是已失败训练对照的复现入口，不是当前推荐训练方案；日志和checkpoint保留在 `control_sparse_labels/`、`control_random_options/`、`control_fixed_mapping/`。Git保存代码历史，忽略的数据和权重不能从Git恢复，不作为代码清理对象。
+代码只保留当前方法及必要匹配对照。之前三个训练对照的日志和checkpoint保留在 `control_sparse_labels/`、`control_random_options/`、`control_fixed_mapping/`。Git保存代码历史，忽略的数据和权重不能从Git恢复，不作为代码清理对象。

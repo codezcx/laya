@@ -1,6 +1,22 @@
-# 当前协议：配对MI与冻结联合读出
+# 当前协议：MI与情绪共同分类监督
 
-当前方案及必要匹配对照均已完成，结果见[RESULTS.md](RESULTS.md)。本协议区分已停止的接口训练与最终冻结读出，避免将二者的可训练参数混淆。
+当前联合训练同时学习MI左右手分类和SEED/FACED三类情绪。先前完成的MI读出实验仅作为控制，不代表情绪任务完成。
+
+## 当前联合训练配置
+
+在原独立属性文件旁新增 `questions/emotion_class.jsonl`，由 `classification_complete.json`独立绑定原数据/manifest/原始标签哈希；不改旧信号、属性文件或REVE缓存。新增24477条训练、8350条验证情绪分类问答，总训练232939条、验证65450条。标签逐条核对SEED label.mat及FACED events.tsv的binary_label；FACED是刺激赋予标签，不是自评。两个split的被试隔离。
+
+每步MI左右手各16条；SEED与FACED各类别各8条；54个属性组各1条。全局134条，四卡34/34/33/33，microbatch6。分组shuffle，类别均衡采样，但不改变验证集自然分布。MI分类40%、情绪分类40%、MI属性10%、情绪属性10%总loss。300步试验，每50步验证并保存last，最多4次/问答抽样；并非遍历全部问答一轮。
+
+冻结REVE/Qwen基座，已有JEV LoRA始终启用；更新connector（5e-5）、LoRA（5e-6）、共享JEV决策行/偏置（1e-5），其余AdamW配置同下文。头由JEV原决策行初始化，未用REVE旁路。共同从独立initialization.pt恢复connector/LoRA，不沿用仅MI读出头。MI固定A左/B右，情绪固定A负/B中/C正，属性随机选项。不能因此声称任意选项理解。
+
+验证panel：1000条MI分类、SEED/FACED每类各128条（共768情绪窗口）、864条属性，共2632题；smoke每组1条。分别汇报三数据集分类accuracy、BA、混淆矩阵；emotion_classification专指情绪类别，emotion仅指属性。选择分数=0.5×MI分类BA+0.5×情绪两个数据集分类BA的平均，属性不参与选模。结束后用同一best模型做完整65450题源验证及panel被试内信号打乱对照。情绪是3秒窗口级分数，不是独立trial级指标；此次SEED和FACED都是源训练数据，不宣称相互zero-shot。
+
+启动器 `scripts/run_jev.py` 验证输入与初始化，四卡两步smoke检验有限梯度及rank参数一致后才进入正式训练。两阶段均由原初始化启动。日志位于 `artifacts/jev_paired_qa/run/metrics.jsonl`；当前代码提交记录在config，恢复时检查数据、标签补充、缓存、代码和初始化哈希。旧产物保留，不删除忽略的权重/日志。
+
+## 下列为先前MI匹配控制的固定协议
+
+这些控制已完成，结果见[RESULTS.md](RESULTS.md)。下文的冻结头、旧batch和旧选模规则仅描述控制，不是当前联合训练配置。
 
 ## 数据和输入
 
@@ -40,4 +56,4 @@ JEV-27B语言基座和REVE冻结，更新connector与已有语言LoRA；LoRA始�
 
 `PYTHONPATH=. laya/.venv-eeg/bin/python scripts/report_readout_evaluation.py`重新核对已保存逐trial预测、总体/被试分数、置换成员、源离线一致性及哈希，生成 `readout_evaluation/summary.json`、`REPORT.md`、`audit_complete.json`。未重新训练或按2b结果改头。
 
-仅代码进入Git，数据、模型、缓存、日志与checkpoint被忽略且保留。旧代码通过Git历史访问；保留当前方法必要控制，不累计独立版本目录。当前没有 `run/` 活跃训练；训练历史位于三个control目录，最终结果统一位于readout_evaluation。
+仅代码进入Git，数据、模型、缓存、日志与checkpoint被忽略且保留。旧代码通过Git历史访问；保留当前方法必要控制，不累计独立版本目录。先前训练历史位于三个control目录，先前MI读出结果位于readout_evaluation；当前联合训练使用run目录。

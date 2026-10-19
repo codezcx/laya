@@ -11,7 +11,7 @@ PERMUTATIONS = list(itertools.permutations(range(3)))
 
 
 class AttributeData:
-    def __init__(self, root, split):
+    def __init__(self, root, split, include_emotion_class=False):
         self.root = Path(root)
         complete = json.loads((self.root/'complete.json').read_text())
         if complete.get('schema_version') != 2:
@@ -24,6 +24,18 @@ class AttributeData:
             raise ValueError('Token/attribute manifest mismatch')
         source = [json.loads(s) for s in (ROOT/'rows.jsonl').read_text().splitlines()]
         self.specs = json.loads((self.root/'question_catalog.json').read_text())
+        self.subjects = {i:(r['dataset'],r['subject']) for i,r in enumerate(source)}
+        extra = None
+        self.classification_hash = None
+        if include_emotion_class:
+            extra_path=self.root/'classification_complete.json'
+            extra=json.loads(extra_path.read_text())
+            if extra['base_sha256'] != digest(self.root/'complete.json') or extra['split'] != split:
+                raise ValueError('Classification supplement provenance mismatch')
+            if extra['source_manifest_sha256'] != digest(ROOT/'rows.jsonl'):
+                raise ValueError('Classification source manifest mismatch')
+            self.classification_hash=digest(extra_path)
+            self.specs.append(extra['specification'])
         self.datasets = sorted({r['dataset'] for r in source})
         self.choice_counts = np.array([len(s.get('options', OPTIONS)) for s in self.specs])
         self.records = []
@@ -31,7 +43,7 @@ class AttributeData:
         self.root_hash = digest(self.root/'complete.json')
         for q, spec in enumerate(self.specs):
             name = f'questions/{spec["id"]}.jsonl'
-            if digest(self.root/name) != complete['files'][name]:raise ValueError('Question checksum mismatch')
+            if digest(self.root/name) != (extra['question_sha256'] if spec['id']=='emotion_class' else complete['files'][name]):raise ValueError('Question checksum mismatch')
             with (self.root/name).open() as f:
                 for line in f:
                     r = json.loads(line)
@@ -43,18 +55,20 @@ class AttributeData:
                     if sr['dataset'] != r['provenance']['dataset'] or sr['subject'] != r['provenance']['subject']:
                         raise ValueError('Provenance mismatch')
                     a = 'ABC'.index(r['target']['answer'])
+                    if spec['id']=='emotion_class' and (sr['dataset'] not in ['SEED','FACED-NEMAR'] or a!=sr['class_id']):
+                        raise ValueError('Emotion label mismatch')
                     ds = self.datasets.index(sr['dataset'])
                     k = len(self.records)
                     self.records.append((i, q, a, ds))
                     self.groups.setdefault((q, ds, a), []).append(k)
         self.records = np.asarray(self.records, dtype=np.int64)
-        if len(self.records) != complete['question_records']:raise ValueError('QA count mismatch')
+        if len(self.records) != complete['question_records']+(extra['n'] if extra else 0):raise ValueError('QA count mismatch')
 
-    def panel(self, per_group=32):
+    def panel(self, per_group=32, classification_per_group=128):
         rng = np.random.default_rng(20261018)
         return np.array(sorted(i for (q,_,_),values in self.groups.items()
                                for i in (values if per_group>1 and self.specs[q]['id']=='mi_class' else
-                                         rng.choice(values,min(per_group,len(values)),replace=False))),dtype=np.int64)
+                                         rng.choice(values,min(classification_per_group if per_group>1 and self.specs[q]['id']=='emotion_class' else per_group,len(values)),replace=False))),dtype=np.int64)
 
 
 class QuestionTokens:
@@ -80,11 +94,13 @@ def option_permutations(n):
     return list(itertools.permutations(range(n)))
 
 
-def draw_permutations(data, records, rng, fixed_mi_class=False):
+def draw_permutations(data, records, rng, fixed_mi_class=False, fixed_emotion_class=False):
     # Consume identical RNG draws so the matched attribute control is unchanged.
     orders=np.array([rng.integers(len(option_permutations(int(data.choice_counts[q])))) for q in records[:,1]])
     if fixed_mi_class:
         orders[[data.specs[q]['id']=='mi_class' for q in records[:,1]]]=0
+    if fixed_emotion_class:
+        orders[[data.specs[q]['id']=='emotion_class' for q in records[:,1]]]=0
     return orders
 
 
@@ -99,9 +115,9 @@ def mask_choices(logits,counts):
 
 
 def training_weights(data,draw_counts=None):
-    # Half of MI loss targets actual left/right classification; half targets six attributes.
-    category=lambda q: 'mi_class' if data.specs[q]['id']=='mi_class' else data.specs[q].get('task', 'emotion')
-    masses={'mi_class':.25,'mi':.25,'emotion':.5}
+    category=lambda q: data.specs[q]['id'] if data.specs[q]['id'] in ['mi_class','emotion_class'] else data.specs[q].get('task','emotion')
+    joint=any(s['id']=='emotion_class' for s in data.specs)
+    masses={'mi_class':.4,'mi':.1,'emotion_class':.4,'emotion':.1} if joint else {'mi_class':.25,'mi':.25,'emotion':.5}
     if draw_counts is None:draw_counts={k:1 for k in data.groups}
     groups={c:sum(n for (q,_,_),n in draw_counts.items() if category(q)==c) for c in masses}
     batch=sum(draw_counts.values())
@@ -130,9 +146,13 @@ def summarize(data, ids, predictions):
         result[spec['id']] = dict(n=int(sel.sum()), accuracy=float(correct[sel].mean()),
             balanced_accuracy=float(np.mean([v['balanced_accuracy'] for v in datasets.values()])),
             datasets=datasets)
-    task = {name:float(np.mean([v['balanced_accuracy'] for key, v in result.items() if key.startswith(name+'_') and key!='mi_class']))
+    task = {name:float(np.mean([v['balanced_accuracy'] for key, v in result.items() if key.startswith(name+'_') and key not in ['mi_class','emotion_class']]))
             for name in ['mi','emotion']}
     classification=result.get('mi_class',{}).get('balanced_accuracy')
     score=.25*task['mi']+.25*classification+.5*task['emotion'] if classification is not None else float(np.mean(list(task.values())))
-    return dict(n=len(ids), questions=result, MI=task['mi'], MI_classification=classification, emotion=task['emotion'],
+    emotion_classification=result.get('emotion_class',{}).get('balanced_accuracy')
+    if emotion_classification is not None and classification is not None:
+        score=.5*classification+.5*emotion_classification
+    return dict(n=len(ids), questions=result, MI=task['mi'], MI_classification=classification,
+                emotion_classification=emotion_classification, emotion=task['emotion'],
                 selection_score=score, accuracy=float(correct.mean()))

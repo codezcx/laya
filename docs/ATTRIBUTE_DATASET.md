@@ -25,6 +25,10 @@ input 只有分段信号引用、时间关系、采样率、通道、问题和�
 
 六个 emotion_*.jsonl、emotion_sources.jsonl、signals/emotion.npy 与此前逐字节一致。仍使用 30 通道 3 秒窗的相对频带功率比较；其中前后半段只表示窗内变化，不解释为静息与任务差异。
 
+情绪最终分类另存 `questions/emotion_class.jsonl`：A负性/B中性/C正性。训练24477个窗口（SEED4050、FACED20427），验证8350个窗口（SEED1350、FACED7000）。数据原始不均衡，训练按数据集×类别均衡采样，完整验证保留自然分布。
+
+补充入口 `scripts/build_emotion_classification.py`，原始标签核对SEED label.mat与FACED events.tsv；独立 `classification_complete.json`记录hash、题目、类别分布，不改旧complete.json或信号缓存。训练加载器显式include_emotion_class=True才读入该文件。完整训练14题型、232939条问答，验证65450条。属性标签仍来自功率，分类标签来自数据集，二者不能互相替代。
+
 ## 重建与验证
 
 `scripts/build_attribute_dataset.py --install` 会先在 artifacts 暂存、校验新数据，之后仅移除旧 MI 问答/MI 信号，替换索引与元数据；不会删除原始数据、检查点、日志或缓存。此次删除得到用户明确授权。安装日志保存在 `artifacts/mi_paired_rebuild/*_installation.json`。情绪 payload 通过 SHA256 确认未改动。所有 MI 答案由独立 FFT 实现重算；源 train/validation 按被试隔离。

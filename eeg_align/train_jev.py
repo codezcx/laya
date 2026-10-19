@@ -46,13 +46,16 @@ def validate(model, cache, data, questions, ids, rank, world, microbatch=6, shuf
     model.eval()
     ids = np.asarray(ids, dtype=np.int64)
     # A deterministic, target-independent choice order, unchanged across checkpoints.
-    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018),fixed_mi_class=True)
+    permutations = draw_permutations(data,data.records,np.random.default_rng(20261018),fixed_mi_class=True,fixed_emotion_class=True)
     signal_ids = data.records[:,0].copy()
     if shuffle:
         rng = np.random.default_rng(1701)
         # Preserve dataset and question, scramble EEG identity within each stratum.
-        for q, ds in sorted(set(map(tuple, data.records[ids][:,[1,3]]))):
-            selected = ids[(data.records[ids,1] == q) & (data.records[ids,3] == ds)]
+        strata={}
+        for i in ids:
+            source,q,_,ds=data.records[i]
+            strata.setdefault((int(q),int(ds),data.subjects[int(source)][1]),[]).append(int(i))
+        for selected in strata.values():
             signal_ids[selected] = rng.permutation(signal_ids[selected])
     mine = ids[rank::world]; predictions = []; losses = []; letters_correct = []
     started = time.monotonic()
@@ -85,9 +88,10 @@ def main():
     p.add_argument('--init', type=Path, default=Path('artifacts/jev_paired_qa/initialization.pt'))
     p.add_argument('--train-data', type=Path, default=Path('datasets/eeg_attribute_qa'))
     p.add_argument('--validation-data', type=Path, default=Path('datasets/eeg_attribute_qa_validation'))
-    p.add_argument('--steps', type=int, default=600)
-    p.add_argument('--eval-every', type=int, default=100)
+    p.add_argument('--steps', type=int, default=300)
+    p.add_argument('--eval-every', type=int, default=50)
     p.add_argument('--classification-per-class',type=int,default=16)
+    p.add_argument('--emotion-per-class',type=int,default=8)
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--resume', action='store_true')
     p.add_argument('--smoke', action='store_true')
@@ -102,12 +106,13 @@ def main():
         else:args.out.mkdir(parents=True, exist_ok=False)
     dist.barrier()
     torch.manual_seed(args.seed);random.seed(args.seed);np.random.seed(args.seed)
-    train = AttributeData(args.train_data, 'train')
-    val = AttributeData(args.validation_data, 'validation')
+    train = AttributeData(args.train_data, 'train',include_emotion_class=True)
+    val = AttributeData(args.validation_data, 'validation',include_emotion_class=True)
     assert train.specs == val.specs
     assert not set(train.records[:,0]) & set(val.records[:,0])
-    assert len(train.groups) == 56 and len(val.groups) == 56
-    draw_counts={k:args.classification_per_class if train.specs[k[0]]['id']=='mi_class' else 1 for k in train.groups}
+    assert len(train.groups) == 62 and len(val.groups) == 62
+    assert not set(train.subjects[int(i)] for i in train.records[:,0]) & set(val.subjects[int(i)] for i in val.records[:,0])
+    draw_counts={k:args.classification_per_class if train.specs[k[0]]['id']=='mi_class' else args.emotion_per_class if train.specs[k[0]]['id']=='emotion_class' else 1 for k in train.groups}
     batch_size=sum(draw_counts.values());nq=len(train.specs);question_weights=training_weights(train,draw_counts)
     steps = 2 if args.smoke else args.steps
     # No example can recur more than four times in this bounded run.
@@ -116,32 +121,35 @@ def main():
     panel = val.panel(per_group=1 if args.smoke else 16)
     cache = PairedTokenCache()
     text, w, b, tok = load_jev()
-    model = JEVBridge(text, w, b, tok, train_lora=True)
+    model = JEVBridge(text, w, b, tok, train_lora=True,train_head=True)
     names = [n for n,p in model.named_parameters() if p.requires_grad]
     saved = torch.load(args.init, map_location='cpu', weights_only=False)
     assert saved['config']['train_lora'] and not saved['config']['smoke']
     assert saved['config']['manifest_sha256'] == digest(ROOT/'rows.jsonl')
-    restore_trainable(model, saved['trainable'], names)
+    initial_names=[n for n in names if n not in ['head_weight','head_bias']]
+    restore_trainable(model, saved['trainable'], initial_names)
     init_step = saved['step'];del saved
     questions = QuestionTokens(tok, train.specs)
     opt = torch.optim.AdamW([
         dict(params=list(model.connector.parameters()), lr=5e-5),
-        dict(params=[p for p in model.text.parameters() if p.requires_grad], lr=5e-6)], weight_decay=.01)
+        dict(params=[p for p in model.text.parameters() if p.requires_grad], lr=5e-6),
+        dict(params=[model.head_weight,model.head_bias],lr=1e-5)], weight_decay=.01)
     paths = ['eeg_align/train_jev.py','eeg_align/jev.py','eeg_align/attribute_data.py',
              'eeg_align/paired_cache.py','eeg_align/sampling.py','eeg_align/distributed.py','eeg_tasks/attribute_questions.py']
-    config = dict(stage='paired_attribute_qa', seed=args.seed, steps=steps, world_size=world, batch_size=batch_size,
-        microbatch=6, learning_rates=dict(projector=5e-5,lora=5e-6),
-        train_lora=True, train_encoder=False, jev_lora_always_active=True, smoke=args.smoke,
+    config = dict(stage='joint_mi_emotion_classification', seed=args.seed, steps=steps, world_size=world, batch_size=batch_size,
+        microbatch=6, learning_rates=dict(projector=5e-5,lora=5e-6,head=1e-5),
+        train_lora=True, train_head=True, train_encoder=False, jev_lora_always_active=True, smoke=args.smoke,
         init=str(args.init.resolve()), init_step=init_step, init_sha256=digest(args.init),
         checkpoint=str(CHECKPOINT.resolve()), trainable_names=names,
         train_data_sha256=train.root_hash, validation_data_sha256=val.root_hash,
+        train_classification_sha256=train.classification_hash, validation_classification_sha256=val.classification_hash,
         manifest_sha256=digest(ROOT/'rows.jsonl'), validation_ids=panel.tolist(),
         validation_n=len(panel), eval_every=args.eval_every,
-        selection='fixed source-subject validation panel; task/question/dataset macro semantic balanced accuracy',
-        sampler='16 draws per MI classification answer, one per attribute answer/dataset; without replacement until group exhausted',
+        selection='50% MI classification BA + 50% emotion classification dataset-macro BA; attributes excluded',
+        sampler='16 per MI class; 8 per emotion dataset/class; one per attribute dataset/answer; shuffled group queues',
         classification_per_class=args.classification_per_class,
-        fixed_mi_class=True,
-        max_repeats=4, task_loss_mass=dict(mi_attributes=.25,mi_classification=.25,emotion_attributes=.5),
+        fixed_mi_class=True, fixed_emotion_class=True, emotion_per_class=args.emotion_per_class,
+        max_repeats=4, task_loss_mass=dict(mi_attributes=.1,mi_classification=.4,emotion_attributes=.1,emotion_classification=.4),
         question_weights=question_weights.tolist(),token_audit_sha256=digest(TOKEN_ROOT/'verified.json'),
         code_sha256={f:digest(f) for f in paths},
         git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
@@ -167,7 +175,7 @@ def main():
         if rank == 0:
             log.write(json.dumps(dict(step=step,validation=result))+'\n')
             (args.out/f'validation_{step:04d}.json').write_text(json.dumps(result,indent=2))
-            print('VALIDATION',step,'MI attributes',result['MI'],'MI classification',result['MI_classification'],'emotion',result['emotion'],'loss',result['loss'],flush=True)
+            print('VALIDATION',step,'MI attributes',result['MI'],'MI classification',result['MI_classification'],'emotion classification',result['emotion_classification'],'emotion attributes',result['emotion'],'loss',result['loss'],flush=True)
         if result['selection_score'] > best:
             best = result['selection_score']
             if rank == 0:
@@ -183,7 +191,7 @@ def main():
         global_ids = sampler.next_batch().reshape(-1)
         rng = np.random.default_rng(args.seed+step*1009)
         rng.shuffle(global_ids)
-        permutations = draw_permutations(train,train.records[global_ids],rng,fixed_mi_class=True)
+        permutations = draw_permutations(train,train.records[global_ids],rng,fixed_mi_class=True,fixed_emotion_class=True)
         ids = global_ids[rank::world];perms = permutations[rank::world]
         loss_sum = 0.;correct_sum = 0.; semantic_correct = np.zeros(nq); semantic_count = np.zeros(nq)
         for start in range(0,len(ids),6):
@@ -223,7 +231,7 @@ def main():
             log.write(json.dumps(item)+'\n');print(json.dumps(item),flush=True)
         endpoint = step == steps
         if step%args.eval_every == 0 or endpoint:evaluate(step)
-        if step%100 == 0 or endpoint or step == args.stop_after or args.smoke:
+        if step%args.eval_every == 0 or endpoint or step == args.stop_after or args.smoke:
             states = [None]*world;dist.all_gather_object(states,rng_state())
             if rank == 0:
                 atomic_save(dict(trainable=cpu_trainable(model,names),optimizer=opt.state_dict(),
@@ -233,7 +241,7 @@ def main():
             dist.barrier()
         if step == args.stop_after and not endpoint:
             dist.destroy_process_group();return
-    # Final held-out attributes, never external MI/emotion task labels.
+    # Final source held-out classification and attributes; no external target evaluation.
     if not args.smoke:
         saved = torch.load(args.out/'best.pt',map_location='cpu',weights_only=False)
         restore_trainable(model,saved['trainable'],names);selected_step=saved['step'];del saved

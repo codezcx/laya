@@ -87,13 +87,16 @@ def load_jev(device='cuda'):
     return text,weight.to(device),torch.tensor(head['bias'][8:13],device=device),tokenizer
 
 class JEVBridge(nn.Module):
-    def __init__(self,text,weight,bias,tokenizer,train_lora=False):
+    def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False):
         super().__init__();self.text=text;self.train_lora=train_lora
         self.text.requires_grad_(False)
         for name,p in self.text.named_parameters():
             if name.endswith(('lora_A','lora_B')):p.requires_grad_(train_lora)
         self.connector=nn.Sequential(nn.LayerNorm(512),nn.Linear(512,5120),nn.GELU(),nn.Linear(5120,5120)).to(weight.device)
-        self.register_buffer('head_weight',weight);self.register_buffer('head_bias',bias)
+        if train_head:
+            self.head_weight=nn.Parameter(weight.clone());self.head_bias=nn.Parameter(bias.clone())
+        else:
+            self.register_buffer('head_weight',weight);self.register_buffer('head_bias',bias)
         self.register_buffer('prefix_ids',torch.tensor(tokenizer.encode(PREFIX,add_special_tokens=False),device=weight.device))
         self.register_buffer('suffix_ids',torch.tensor(tokenizer.encode(SUFFIX,add_special_tokens=False),device=weight.device))
         self.register_buffer('baseline_ids',torch.tensor(tokenizer.encode('\nPre-cue fixation baseline [-2.5,-0.5] s:\n',add_special_tokens=False),device=weight.device),persistent=False)

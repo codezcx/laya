@@ -11,6 +11,31 @@ class FakeTokenizer:
 
 
 class AttributeTrainingTest(unittest.TestCase):
+    def test_joint_classification_loss_and_selection_exclude_attribute_inflation(self):
+        from eeg_align.attribute_data import training_weights, draw_permutations
+        specs=[dict(id='mi_class',task='mi',options={'A':'Left','B':'Right'}),
+               dict(id='emotion_class',task='emotion',options={'A':'Negative','B':'Neutral','C':'Positive'}),
+               dict(id='mi_attribute',task='mi'),dict(id='emotion_attribute',task='emotion')]
+        rows=[];groups={}
+        for q,n in enumerate([2,3,3,3]):
+            for ds in ([1,2] if q in [1,3] else [0]):
+                for a in range(n):
+                    i=len(rows);rows.append([i,q,a,ds]);groups[q,ds,a]=[i]
+        data=SimpleNamespace(specs=specs,groups=groups,records=np.array(rows),datasets=['MI','SEED','FACED'],choice_counts=np.array([2,3,3,3]))
+        draws={k:16 if k[0]==0 else 8 if k[0]==1 else 1 for k in groups}
+        weights=training_weights(data,draws);batch=sum(draws.values())
+        masses=[sum(n*weights[q]/batch for (q,_,_),n in draws.items() if q==i) for i in range(4)]
+        np.testing.assert_allclose(masses,[.4,.4,.1,.1])
+        permutations=draw_permutations(data,data.records,np.random.default_rng(42),True,True)
+        self.assertTrue((permutations[data.records[:,1]<2]==0).all())
+        pred=data.records[:,2].copy()
+        # Perfect classification and completely incorrect attributes must select as perfect classification.
+        ii=data.records[:,1]>=2;pred[ii]=(pred[ii]+1)%3
+        r=summarize(data,np.arange(len(rows)),pred)
+        self.assertEqual(r['selection_score'],1.)
+        self.assertEqual(r['emotion_classification'],1.)
+        self.assertEqual(r['emotion'],0.)
+
     def test_fixed_class_mapping_preserves_attribute_rng_and_labels(self):
         from eeg_align.attribute_data import draw_permutations
         specs=[dict(id='mi_class',question='Which hand?',options={'A':'Left','B':'Right'}),

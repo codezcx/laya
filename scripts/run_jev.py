@@ -7,6 +7,7 @@ import sys
 import time
 from eeg_align.cache import digest
 from eeg_align.paired_cache import verify, DATA
+from eeg_align.attribute_data import AttributeData
 
 OUT=Path('artifacts/jev_paired_qa')
 
@@ -25,6 +26,9 @@ def main():
         assert complete['schema_version']==2 and audit['status']=='passed'
         assert audit['complete_sha256']==digest(root/'complete.json')
         for name,sha in complete['files'].items():assert digest(root/name)==sha
+        data=AttributeData(root,complete['source_splits'][0],include_emotion_class=True)
+        assert {s['id'] for s in data.specs} >= {'mi_class','emotion_class'}
+        assert len(data.groups)==62
     env=dict(os.environ,CUDA_VISIBLE_DEVICES='0,1,2,3',PYTHONPATH='.',
         OMP_NUM_THREADS='4',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
     for name,extra in [('smoke',['--smoke']),('run',[])]:
@@ -38,9 +42,6 @@ def main():
             status('failed',stage=name,returncode=code)
             raise RuntimeError(f'{name} failed: {code}')
         assert (OUT/name/'complete.json').exists()
-        if name=='smoke':
-            # Smoke weights are not initialization; keep only its metrics and audit.
-            for file in ['best.pt','last.pt']:(OUT/name/file).unlink()
     status('complete')
 
 
