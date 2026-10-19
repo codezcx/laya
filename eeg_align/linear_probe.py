@@ -1,4 +1,4 @@
-"""Matched frozen-REVE linear probe; all-channel MI cache, fixed spatial pooling."""
+"""Matched frozen-REVE linear probe; all-channel MI cache, spatial or global mean pooling."""
 import argparse
 import json
 import os
@@ -45,16 +45,16 @@ def probe_data(split,target=None):
     return data
 
 
-def features(split,rank,world,out,bank,target=None):
+def features(split,rank,world,out,bank,target=None,pooling="spatial"):
     data=probe_data(split,target);rows=data.rows[rank::world];values=[];positions={}
     with torch.no_grad():
         for i,r in enumerate(rows):
             names=tuple(r['position_names'])
-            if names not in positions:
+            if pooling=="spatial" and names not in positions:
                 p=bank(list(names)).cuda();assert p.shape==(len(names),3);positions[names]=p
             start=r['cache_offset'];n=r['token_length']
             z=torch.from_numpy(np.array(data.arrays[r['cache_shard']][start:start+n*512]).reshape(n,512)).cuda().float()
-            values.append(spatial_pool(z,positions[names],names).cpu())
+            values.append((z.mean(0) if pooling=="mean" else spatial_pool(z,positions[names],names)).cpu())
             if i%2000==0:print('FEATURES',split,rank,i,len(rows),flush=True)
     x=torch.stack(values);assert torch.isfinite(x).all()
     # Reproducible snapshots avoid re-pooling for later inspection.
@@ -72,7 +72,7 @@ def evaluate(head,rows,x,y,rank,world):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path,required=True);parser.add_argument('--heldout-dataset',choices=config()['source_datasets']);a=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path,required=True);parser.add_argument('--heldout-dataset',choices=config()['source_datasets']);parser.add_argument("--pooling",choices=["spatial","mean"],default="spatial");a=parser.parse_args()
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(2);dist.init_process_group('nccl',timeout=timedelta(minutes=30))
     if rank==0:a.out.mkdir(parents=True,exist_ok=False)
@@ -88,14 +88,15 @@ def main():
     dist.barrier()
     from transformers import AutoModel
     ec=json.loads(Path('configs/encoder.json').read_text())
-    bank=AutoModel.from_pretrained(ec['positions_checkpoint'],trust_remote_code=True,local_files_only=True).eval().requires_grad_(False)
-    tr,x,y=features('train',rank,world,a.out,bank,a.heldout_dataset);vr,vx,vy=features('validation',rank,world,a.out,bank,a.heldout_dataset)
+    bank=None if a.pooling=='mean' else AutoModel.from_pretrained(ec['positions_checkpoint'],trust_remote_code=True,local_files_only=True).eval().requires_grad_(False)
+    tr,x,y=features('train',rank,world,a.out,bank,a.heldout_dataset,a.pooling);vr,vx,vy=features('validation',rank,world,a.out,bank,a.heldout_dataset,a.pooling)
     # Train-only standardization across all four disjoint shards.
     count=torch.tensor(len(x),device='cuda',dtype=torch.float64);s=x.double().sum(0);ss=x.double().square().sum(0)
     for value in [count,s,ss]:dist.all_reduce(value)
     mean=(s/count).float();std=((ss/count-(s/count).square()).clamp_min(0).sqrt()).float().clamp_min(1e-6)
     x=(x-mean)/std;vx=(vx-mean)/std
-    head=torch.nn.Linear(1536,2).cuda();opt=torch.optim.AdamW(head.parameters(),lr=c['learning_rate'],weight_decay=c['weight_decay'])
+    head=torch.nn.Linear(x.shape[1],2).cuda();opt=torch.optim.AdamW(head.parameters(),lr=c['learning_rate'],weight_decay=c['weight_decay'])
+    c.update(readout="global mean of all valid frozen REVE tokens" if a.pooling=="mean" else c["readout"],trainable=f"Linear({x.shape[1]},2) only",pooling=a.pooling)
     provenance=dict(c,heldout_dataset=a.heldout_dataset or 'BNCI2014_004',split_audit_sha256=digest(a.out/'split_audit.json'),cache_sha256=digest(Path(config()['cache'])/'complete.json'),source_manifest_sha256={name:digest(Path(config()['cache'])/f'{name}.jsonl') for name in ['train','validation','heldout']},code_sha256=digest(__file__),trainable_parameters=sum(p.numel() for p in head.parameters()),encoder_frozen=True)
     if rank==0:write_json(a.out/'config.json',provenance)
     best=-1.;bad=0;step=0;began=time.monotonic();log=(a.out/'metrics.jsonl').open('x',buffering=1) if rank==0 else None
@@ -126,7 +127,7 @@ def main():
         if bad>=c['patience']:break
     dist.barrier();best_state=torch.load(a.out/'best.pt',map_location='cpu',weights_only=False);head.load_state_dict(best_state['head'])
     # No test evaluation or model selection before source-only early stopping.
-    te,tx,ty=features('heldout',rank,world,a.out,bank,a.heldout_dataset);tx=(tx-mean)/std
+    te,tx,ty=features('heldout',rank,world,a.out,bank,a.heldout_dataset,a.pooling);tx=(tx-mean)/std
     result,pred=evaluate(head,te,tx,ty,rank,world)
     if rank==0:
         test_name='test_2a.json' if a.heldout_dataset=='BNCI2014_001' else 'test_2b.json' if a.heldout_dataset is None else 'test_heldout.json'

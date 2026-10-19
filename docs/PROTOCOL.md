@@ -65,3 +65,8 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 PYTHONPATH=. laya/.venv-eeg/bin/python -m torch.dis
 ## Paired channel-reduction diagnostic
 
 `scripts/compare_mi_channels.py` fixes the source8-trained epoch30linear probe and training-only scaler, then re-encodes every2a target trial under22channels andC3/Cz/C4 only. Same per-channel centering, clipping/scaling and full temporal extent/edge extension; same electrode reference, labels, spatial pooling, normalization, head and0.5threshold. Both arms re-run REVE in eval mode, then quantize tokens throughfp16 to match training-cache precision. The3-channel arm never reads22-channel contextualized tokens. Verify22-channel predictions reproduce all original decisions with maximum probability drift below0.001; save paired predictions, per-subject results and correct/error transitions. No extra training or target calibration. Run onGPU4 while JEV continuesGPU0–3.
+
+
+## Global mean matched control
+
+Run `eeg_align.linear_probe --pooling mean --out artifacts/mi_reve_probe_mean` on GPU4–7. Reuse exactly the original nine-source split (49,193 train, 12,508 validation; 6,520 held-out 2b trials) and frozen REVE cache. Average all valid tokens into one 512-dimensional feature, without anatomical grouping or padding; retain training-only feature standardization. Train only Linear(512,2), 1,026 parameters. Same AdamW, batch512, seed42, 50-epoch cap, patience10 and macro dataset validation BA selection as the spatial probe. Evaluate 2b once after selection. This is a matched control of the current approach; JEV GPU0–3 code and training remain unchanged.
