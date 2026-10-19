@@ -19,3 +19,6 @@ All2993records retained; zero exclusions. Subjects disjoint across splits. Five 
 ## Frozen REVE simple-head validation control
 
 The train-only fitted StandardScaler+logistic regression selected C=0.01 using the403-record source validation set: accuracy83.13%, BA82.99%, normal recall89.32%, abnormal recall76.65%, AUROC0.9064. Confusion matrix (true rows normal/abnormal): `[[184,22],[46,151]]`. This is not a JEV result and not the held-out test result. Test is deferred until after formal JEV training. Evidence: `artifacts/tuab_jev/probe/validation.json`.
+
+
+TUAB stopped at user request before switching to MI. Last progress: {"step": 265, "steps": 725, "epoch": 2}. Best source validation: {"step": 150, "metrics": {"n": 403, "accuracy": 0.7841191066997518, "balanced_accuracy": 0.78351239465773, "normal_recall": 0.8106796116504854, "abnormal_recall": 0.7563451776649747, "confusion": [[167, 39], [48, 149]], "auroc": 0.836824207776847, "loss": 0.5112941763167346, "shuffled_signal": false}}. Logs/checkpoints retained under artifacts/tuab_jev; final test not run by this stopped pipeline.
