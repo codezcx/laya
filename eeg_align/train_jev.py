@@ -34,7 +34,8 @@ def evaluate(model,data,rank,world,microbatch=2,limit=None):
     result=metrics(pred);result['loss']=float(np.mean([r['loss'] for r in pred]));return result,pred
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');a=p.parse_args();c=config()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');p.add_argument('--resume',type=Path);a=p.parse_args();c=config()
+    if a.resume and a.smoke:raise ValueError('Smoke and resume are mutually exclusive')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(4);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     if rank==0:a.out.mkdir(parents=True,exist_ok=False)
@@ -52,8 +53,29 @@ def main():
         loss='one cross entropy per trial, ordinary sample mean',schedule='linear warmup then cosine decay',
         data_sha256=digest(Path(c['cache'])/'complete.json'),code_sha256={p:digest(p) for p in paths},
         git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
+    resume_step=0
+    resume_best=-1.
+    if a.resume:
+        saved=torch.load(a.resume,map_location='cpu',weights_only=False)
+        prior=saved['config']
+        assert prior['data_sha256']==provenance['data_sha256']
+        for key in c:assert prior[key]==c[key],f'Resume config mismatch: {key}'
+        for path,h in prior['code_sha256'].items():
+            if path!='eeg_align/train_jev.py':assert digest(path)==h,f'Resume code mismatch: {path}'
+        assert set(saved['trainable'])=={n for n,p in model.named_parameters() if p.requires_grad}
+        model.load_state_dict(saved['trainable'],strict=False);opt.load_state_dict(saved['optimizer'])
+        resume_step=int(saved['step']);assert 0<resume_step<steps
+        best_path=a.resume.parent/'best.pt';best_info=json.loads((a.resume.parent/'best.json').read_text())
+        assert best_info['step']<=resume_step
+        resume_best=best_info['metrics']['macro_dataset_balanced_accuracy']
+        if rank==0:
+            import shutil
+            shutil.copy2(best_path,a.out/'best.pt');shutil.copy2(a.resume.parent/'best.json',a.out/'best.json')
+        provenance.update(resume_checkpoint=str(a.resume),resume_sha256=digest(a.resume),resume_step=resume_step,prior_run_config=prior)
+        del saved
+        print('RESUMED',rank,resume_step,flush=True)
     if rank==0:write_json(a.out/'config.json',provenance)
-    began=time.monotonic();best=-1.;step=0;log=(a.out/'metrics.jsonl').open('a',buffering=1) if rank==0 else None
+    began=time.monotonic();best=resume_best;step=resume_step;log=(a.out/'metrics.jsonl').open('a',buffering=1) if rank==0 else None
     def validate():
         nonlocal best
         result,pred=evaluate(model,val,rank,world,c['microbatch_trials'],limit=16 if a.smoke else None)
@@ -64,13 +86,14 @@ def main():
             best=result['macro_dataset_balanced_accuracy']
             if rank==0:
                 atomic_save(dict(trainable=state(model),step=step,config=provenance),a.out/'best.pt');write_json(a.out/'best.json',dict(step=step,metrics=result))
-    validate()
+    if not a.resume:validate()
     for epoch in range(c['epochs']):
         batches=epoch_batches(train.rows,c['seed'],epoch,c['batch_trials'])
         if a.smoke:
             # Include variable lengths and the longest available trial.
             order=np.argsort([r['token_length'] for r in train.rows]);batches=[np.r_[order[:8],order[-8:]],np.r_[order[8:16],order[-16:-8]]]
         for batch_index,ids in enumerate(batches):
+            if epoch*len(batches0)+batch_index<resume_step:continue
             assert len(ids)>=world
             ratio=(step+1)/warmup if step<warmup else c['minimum_lr_ratio']+(1-c['minimum_lr_ratio'])*.5*(1+math.cos(math.pi*(step-warmup)/max(1,steps-warmup)))
             for g,lr in zip(opt.param_groups,c['learning_rates']):g['lr']=lr*ratio

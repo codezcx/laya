@@ -1,0 +1,11 @@
+{
+  "epochs": 50,
+  "patience": 10,
+  "batch_size": 512,
+  "learning_rate": 0.001,
+  "weight_decay": 0.001,
+  "seed": 42,
+  "readout": "fixed left/midline/right mean of frozen REVE tokens; concatenate 1536 features",
+  "trainable": "Linear(1536,2) only",
+  "selection": "macro dataset validation balanced accuracy"
+}
