@@ -8,6 +8,7 @@
 - [协议、标签预算与复现](docs/PROTOCOL.md)
 - [数据格式和问题清单](docs/ATTRIBUTE_DATASET.md)
 - [失败分析与匹配对照](docs/PAIRED_DIAGNOSTICS.md)
+- [当前情绪属性排查](docs/EMOTION_DIAGNOSTICS.md)
 - [早期task-only特征诊断](docs/FEATURE_PROBES.md)
 
 先前读出控制仅适用于固定问题的二分类MI。新训练显式提供任务类型，尚未证明情绪分类改善、任意问题理解或自动识别任务。REVE预训练清单包含2b，不能称为全链路未见目标数据的零样本结果。
