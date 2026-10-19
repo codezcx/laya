@@ -18,3 +18,13 @@ def test_resume_step_skips_only_checkpointed_batches():
     steps_per_epoch=769;resume=200
     executed=[epoch*steps_per_epoch+b+1 for epoch in range(3) for b in range(steps_per_epoch) if epoch*steps_per_epoch+b>=resume]
     assert executed==list(range(201,2308))
+
+
+def test_whole_dataset_holdout_preserves_source_subject_splits():
+    from eeg_align.linear_probe import partition_source_rows
+    train=[dict(id='a',dataset='2a',subject='1'),dict(id='b',dataset='other',subject='2')]
+    val=[dict(id='c',dataset='2a',subject='3'),dict(id='d',dataset='other',subject='4')]
+    p=partition_source_rows(train,val,'2a')
+    assert [r['id'] for r in p['train']]==['b']
+    assert [r['id'] for r in p['validation']]==['d']
+    assert [r['id'] for r in p['heldout']]==['a','c']

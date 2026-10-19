@@ -26,8 +26,27 @@ def spatial_pool(tokens,channel_positions,channel_names):
     return torch.cat([channels[g].mean(0) if g.any() else channels.new_zeros(512) for g in groups])
 
 
-def features(split,rank,world,out,bank):
-    data=Tokens(split);rows=data.rows[rank::world];values=[];positions={}
+def partition_source_rows(train,validation,target):
+    """Move a whole source dataset to test, keeping other subject splits intact."""
+    test=sorted([r for r in train+validation if r['dataset']==target],key=lambda r:r['id'])
+    if not test:raise ValueError(f'Unknown or empty target dataset: {target}')
+    parts={'train':[r for r in train if r['dataset']!=target],
+           'validation':[r for r in validation if r['dataset']!=target],'heldout':test}
+    ids=[{r['id'] for r in rows} for rows in parts.values()]
+    subjects=[{(r['dataset'],r['subject']) for r in rows} for rows in parts.values()]
+    assert all(not ids[i]&ids[j] and not subjects[i]&subjects[j] for i in range(3) for j in range(i))
+    return parts
+
+
+def probe_data(split,target=None):
+    if target is None:return Tokens(split)
+    data=Tokens('train');validation=Tokens('validation')
+    data.rows=partition_source_rows(data.rows,validation.rows,target)[split]
+    return data
+
+
+def features(split,rank,world,out,bank,target=None):
+    data=probe_data(split,target);rows=data.rows[rank::world];values=[];positions={}
     with torch.no_grad():
         for i,r in enumerate(rows):
             names=tuple(r['position_names'])
@@ -53,22 +72,31 @@ def evaluate(head,rows,x,y,rank,world):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path,required=True);a=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path,required=True);parser.add_argument('--heldout-dataset',choices=config()['source_datasets']);a=parser.parse_args()
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(2);dist.init_process_group('nccl',timeout=timedelta(minutes=30))
     if rank==0:a.out.mkdir(parents=True,exist_ok=False)
     dist.barrier();c=json.loads(Path('configs/mi_probe.json').read_text());torch.manual_seed(c['seed'])
+    if rank==0:
+        parts={s:probe_data(s,a.heldout_dataset).rows for s in ['train','validation','heldout']}
+        audit={}
+        for split,rows in parts.items():
+            path=a.out/f'manifest_{split}.jsonl'
+            path.write_text(''.join(json.dumps({k:r[k] for k in ['id','dataset','subject','label','path']})+'\n' for r in rows))
+            audit[split]=dict(n=len(rows),datasets=sorted({r['dataset'] for r in rows}),sha256=digest(path))
+        write_json(a.out/'split_audit.json',audit)
+    dist.barrier()
     from transformers import AutoModel
     ec=json.loads(Path('configs/encoder.json').read_text())
     bank=AutoModel.from_pretrained(ec['positions_checkpoint'],trust_remote_code=True,local_files_only=True).eval().requires_grad_(False)
-    tr,x,y=features('train',rank,world,a.out,bank);vr,vx,vy=features('validation',rank,world,a.out,bank)
+    tr,x,y=features('train',rank,world,a.out,bank,a.heldout_dataset);vr,vx,vy=features('validation',rank,world,a.out,bank,a.heldout_dataset)
     # Train-only standardization across all four disjoint shards.
     count=torch.tensor(len(x),device='cuda',dtype=torch.float64);s=x.double().sum(0);ss=x.double().square().sum(0)
     for value in [count,s,ss]:dist.all_reduce(value)
     mean=(s/count).float();std=((ss/count-(s/count).square()).clamp_min(0).sqrt()).float().clamp_min(1e-6)
     x=(x-mean)/std;vx=(vx-mean)/std
     head=torch.nn.Linear(1536,2).cuda();opt=torch.optim.AdamW(head.parameters(),lr=c['learning_rate'],weight_decay=c['weight_decay'])
-    provenance=dict(c,cache_sha256=digest(Path(config()['cache'])/'complete.json'),source_manifest_sha256={name:digest(Path(config()['cache'])/f'{name}.jsonl') for name in ['train','validation','heldout']},code_sha256=digest(__file__),trainable_parameters=sum(p.numel() for p in head.parameters()),encoder_frozen=True)
+    provenance=dict(c,heldout_dataset=a.heldout_dataset or 'BNCI2014_004',split_audit_sha256=digest(a.out/'split_audit.json'),cache_sha256=digest(Path(config()['cache'])/'complete.json'),source_manifest_sha256={name:digest(Path(config()['cache'])/f'{name}.jsonl') for name in ['train','validation','heldout']},code_sha256=digest(__file__),trainable_parameters=sum(p.numel() for p in head.parameters()),encoder_frozen=True)
     if rank==0:write_json(a.out/'config.json',provenance)
     best=-1.;bad=0;step=0;began=time.monotonic();log=(a.out/'metrics.jsonl').open('x',buffering=1) if rank==0 else None
     # All ranks hold equal-sized or nearly equal-sized shards. Construct global
@@ -98,10 +126,11 @@ def main():
         if bad>=c['patience']:break
     dist.barrier();best_state=torch.load(a.out/'best.pt',map_location='cpu',weights_only=False);head.load_state_dict(best_state['head'])
     # No test evaluation or model selection before source-only early stopping.
-    te,tx,ty=features('heldout',rank,world,a.out,bank);tx=(tx-mean)/std
+    te,tx,ty=features('heldout',rank,world,a.out,bank,a.heldout_dataset);tx=(tx-mean)/std
     result,pred=evaluate(head,te,tx,ty,rank,world)
     if rank==0:
-        write_json(a.out/'test_2b.json',dict(epoch=best_state['epoch'],metrics=result,predictions=pred))
+        test_name='test_2a.json' if a.heldout_dataset=='BNCI2014_001' else 'test_2b.json' if a.heldout_dataset is None else 'test_heldout.json'
+        write_json(a.out/test_name,dict(epoch=best_state['epoch'],metrics=result,predictions=pred))
         write_json(a.out/'complete.json',dict(epochs=epoch+1,best_epoch=best_state['epoch'],seconds=time.monotonic()-began,best_sha256=digest(a.out/'best.pt')))
     dist.barrier();dist.destroy_process_group()
 
