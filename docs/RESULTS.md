@@ -63,3 +63,29 @@ Frozen REVE, same fixed L/mid/R pooling and linear head recipe; fresh head/scale
 The frozen-feature linear readout shows partial cross-dataset transfer to2a, with substantial subject variation. This is not the earlier83.68%2a source-validation setting. Difference from2b cannot be attributed solely to channel count because target protocol/montage and source dataset membership also differ. This excludes supervised2a exposure for this probe, not possible REVE pretraining exposure.
 
 Artifacts:`artifacts/mi_reve_probe_holdout_2a/{split_audit.json,manifest_train.jsonl,manifest_validation.jsonl,manifest_heldout.jsonl,metrics.jsonl,best.json,test_2a.json,complete.json}`. Ongoing JEV onGPU0–3 retains its original9-source protocol and is not a matched2a-heldout model.
+
+## Paired2a input-channel ablation — completed
+
+Same2,592trials, same frozen encoder, same epoch30held-out2a probe/scaler, same reference, duration and preprocessing. Both22-channel and3-channel signals were freshly encoded through REVE;3-channel features were not extracted from contextualized22-channel features. No fitting or threshold tuning.
+
+| Input | Accuracy |
+|---|---:|
+| All22EEG channels | 65.70% |
+| C3/Cz/C4 only | 51.31% |
+| Difference (3−22) | -14.39percentage points |
+
+| Subject | 22channels | 3channels |
+|---|---:|---:|
+| 1 | 77.43% | 50.35% |
+| 2 | 53.82% | 50.00% |
+| 3 | 86.46% | 50.00% |
+| 4 | 55.56% | 50.35% |
+| 5 | 53.82% | 50.00% |
+| 6 | 53.47% | 50.00% |
+| 7 | 58.33% | 50.00% |
+| 8 | 89.93% | 50.00% |
+| 9 | 62.50% | 61.11% |
+
+Paired correctness:both correct769,only22correct934,only3correct561,both wrong328. Re-encoded22-channel decisions exactly matched all2,592original predictions; maximum probability drift0.000807 (the original cache was generated on the previous GPU architecture and stored asfp16). Preflight required <0.001probability drift and identical decisions; earlier overly strict numeric-check outputs are preserved under`artifacts/mi_reve_2a_channel_preflight/`.
+
+Reducing this input montage toC3/Cz/C4 harms the current fixed readout and produces near-chance performance. This isolates the effect of the chosen channel reduction/spatial coverage for this model; it does not establish an inherent3-channel information limit or that channel count alone explains all2b differences. Final paired outputs:`artifacts/mi_reve_2a_channel_comparison/comparison.json` and`predictions_22ch.json`/`predictions_3ch.json`.

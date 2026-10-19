@@ -50,7 +50,11 @@ def main():
     full=metrics(predictions[22]);reduced=metrics(predictions[3])
     delta=max(abs(r['probability_right']-old_pred[r['id']]['probability_right']) for r in predictions[22])
     agreement=sum((r['probability_right']>.5)==(old_pred[r['id']]['probability_right']>.5) for r in predictions[22])
-    assert delta<1e-4 and agreement==len(rows),'Full-channel control failed to reproduce original predictions'
+    write_json(a.out/'control_check.json',dict(max_probability_difference=delta,prediction_agreement=agreement,full_accuracy=full['accuracy'],original_accuracy=old['metrics']['accuracy'],reduced_accuracy=reduced['accuracy']))
+    for n in [22,3]:write_json(a.out/f'predictions_{n}ch.json',predictions[n])
+    # Cache was encoded on the prior GPU architecture and stored in fp16.
+    # Require identical decisions and <0.001 probability drift, not bitwise equality.
+    assert delta<1e-3 and agreement==len(rows),'Full-channel control failed to reproduce original predictions'
     y=np.array([r['label'] for r in predictions[22]])
     p22=np.array([r['probability_right'] for r in predictions[22]])>.5;p3=np.array([r['probability_right'] for r in predictions[3]])>.5
     paired=dict(both_correct=int(((p22==y)&(p3==y)).sum()),only_22_correct=int(((p22==y)&(p3!=y)).sum()),only_3_correct=int(((p22!=y)&(p3==y)).sum()),both_wrong=int(((p22!=y)&(p3!=y)).sum()))

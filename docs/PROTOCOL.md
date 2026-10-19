@@ -61,3 +61,7 @@ Keep pooling, optimizer, seed, batch size,50epoch cap,patience10 and source-macr
 ```sh
 CUDA_VISIBLE_DEVICES=4,5,6,7 PYTHONPATH=. laya/.venv-eeg/bin/python -m torch.distributed.run --standalone --nproc-per-node=4 -m eeg_align.linear_probe --out artifacts/mi_reve_probe_holdout_2a --heldout-dataset BNCI2014_001
 ```
+
+## Paired channel-reduction diagnostic
+
+`scripts/compare_mi_channels.py` fixes the source8-trained epoch30linear probe and training-only scaler, then re-encodes every2a target trial under22channels andC3/Cz/C4 only. Same per-channel centering, clipping/scaling and full temporal extent/edge extension; same electrode reference, labels, spatial pooling, normalization, head and0.5threshold. Both arms re-run REVE in eval mode, then quantize tokens throughfp16 to match training-cache precision. The3-channel arm never reads22-channel contextualized tokens. Verify22-channel predictions reproduce all original decisions with maximum probability drift below0.001; save paired predictions, per-subject results and correct/error transitions. No extra training or target calibration. Run onGPU4 while JEV continuesGPU0–3.
