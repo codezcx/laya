@@ -120,3 +120,17 @@ This supports a contribution from the learning-rate/schedule recipe to early fit
 Completed all880trials with no target training/calibration. Overall accuracy34.09% (300/880), left recall17.50%, right50.68%; confusion [[77,363],[217,223]], AUROC0.2470. By original collection split/date: September17 (400trials)35.50%; September18 (400)34.25%; September20 (80)26.25%. All three splits were evaluation-only. This is unsuccessful transfer to one external subject; below-chance direction warrants future label/acquisition provenance checking but labels or thresholds were not flipped after seeing results. Original labels left=0/right=1 match source mapping.
 
 Input14electrodes AF3,F7,F3,FC5,T7,P7,O1,O2,P8,T8,FC6,F4,F8,AF4; none of C3/Cz/C4. 636samples at128Hz resampled to994samples at200Hz, edge-padded to1100 yielding84REVE tokens. Clipped sample fraction0.00010665. Cortex uV interpretation is documented but acquisition export conversion remains independently unverified. No added filter/reference/EA. Artifacts:`artifacts/emotiv_jev_zero_shot/{config.json,metrics.json,predictions.json,complete.json}`. Do not attribute failure solely to missing central channels: device, reference, processing, cue/label semantics and subject differences are also unisolated.
+
+## BEETL / Shin external zero-shot — completed
+
+Fixed source-selected JEV step2307 (`mi_jev_tuab_lr_continued/best.pt`), all channels/full epochs, unchanged A=left/B=right prompt and threshold0.5; no target adaptation. Four GPUs evaluated all2,020trials in285.25seconds (evaluation-script timer including audit/model loading). All four independently generated input manifests matched. Full-channel finite/nonflat/coordinate checks passed. BEETL C3/Cz/C4 hashes did not overlap source train/validation; this hash comparison was not applicable to Shin's different montage. Absence from REVE pretraining is not established.
+
+| Dataset | Trials / subjects | Channels | Accuracy / BA | Left recall | Right recall | AUROC |
+|---|---:|---:|---:|---:|---:|---:|
+| Beetl2021_A | 100 / 2 | 63 | 51.00% | 2.00% | 100.00% | 0.3992 |
+| Beetl2021_B | 180 / 3 | 32 | 48.33% | 1.11% | 95.56% | 0.4467 |
+| Shin2017A | 1740 / 29 | 30 | 51.26% | 15.29% | 87.24% | 0.5158 |
+
+All datasets are class-balanced. Confusion matrices (rows true left/right, columns predicted left/right): A `[[1,49],[0,50]]`; B `[[1,89],[4,86]]`; Shin `[[133,737],[111,759]]`. Predicted-right fractions are99.00%,97.22%,85.98%. BEETL-A subject accuracies52%,50%; BEETL-B50%,50%,45%; Shin range36.67–73.33% (60trials/subject). Aggregate performance is near chance with strong right-answer bias. These results do not support reliable cross-dataset transfer, and AUROC near/below0.5 means a threshold issue alone is not established. Do not flip labels or tune thresholds on these targets.
+
+Metrics including every subject: `artifacts/external_mi_jev_zero_shot/metrics.json`; individual predictions: `predictions.json`; exact input provenance: `manifest_rank0.jsonl`; checkpoint/preprocessing hashes: `config.json`; completion: `complete.json`. Runner: `scripts/evaluate_external_mi.py`; log: `artifacts/external_mi_jev_zero_shot.log`.
