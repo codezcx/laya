@@ -1,6 +1,6 @@
 # Current joint MI/emotion run
 
-Implementation and protocol: [PROTOCOL.md](PROTOCOL.md). GPU2–3 only. Preparation completed: MI49,193 trials, SEED22,734 windows/405 parent trials, SEED-VII41,844 windows/960 parent trials in training. Validation is fixed and subject-disjoint within each dataset. No production validation result yet at launch preparation.
+Implementation and protocol: [PROTOCOL.md](PROTOCOL.md). GPU2–3 only. Preparation completed: MI49,193 trials, SEED22,734 windows/405 parent trials, SEED-VII41,844 windows/960 parent trials in training. Validation is fixed and subject-disjoint within each dataset. Both two-GPU smoke checks passed (contrast backward/validation and JEV mixed-choice backward/paired validation); 12 unit/distributed tests passed. Production training is being launched on GPUs2–3. Smoke metrics are execution checks, not model-quality results.
 
 - Pipeline: `artifacts/mi_emotion/pipeline.json`
 - Contrast: `artifacts/mi_emotion/contrast/metrics.jsonl`

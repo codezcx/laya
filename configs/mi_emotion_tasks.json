@@ -1,5 +1,5 @@
 {
-  "status": "design_only_not_connected_to_trainer",
+  "status": "active_joint_training",
   "tasks": [
     {
       "task_id": "motor_imagery",
