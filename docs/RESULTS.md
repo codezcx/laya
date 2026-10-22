@@ -9,3 +9,5 @@ Implementation and protocol: [PROTOCOL.md](PROTOCOL.md). GPU2–3 only. Preparat
 - Data inventory/splits: `datasets/mi_emotion/complete.json`
 
 Previous MI-only experiments and results remain in Git and their original ignored artifact directories. They are not joint-task results. The prior two arms stopped at logged step1200; saved validation ended at1000. At step600, normal-option source validation accuracy was74.55% for CE preconditioning and77.19% for text contrast preconditioning. These are subject-disjoint source-validation accuracies, not training or unseen-dataset test results.
+
+Node-restart checks passed: nine related tests; two-rank longest-input forward/backward with training microbatch4 and paired validation microbatch8. Rank0 peak allocated52.85GiB/reserved56.96GiB across the complete check. Recovery checkpoint saved before validation. Production restart uses GPUs2–3, output `artifacts/mi_emotion/jev_restart/`.
