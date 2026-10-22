@@ -61,7 +61,8 @@ def load_jev(device='cuda'):
     adapter=CHECKPOINT/'adapter_vllm';ac=json.loads((adapter/'adapter_config.json').read_text())
     assert not ac['use_dora'] and not ac['use_rslora'] and not ac['rank_pattern'] and not ac['alpha_pattern']
     scale=ac['lora_alpha']/ac['r'];head=json.loads((adapter/'decision_head.json').read_text())
-    ids=head['verbalizer_ids'][8:13];assert ids==[32,33,34,35,36]
+    start,end=head['slots']['ranges']['choice']
+    ids=head['verbalizer_ids'][start:end];assert ids==list(range(32,48))
     with safe_open(CHECKPOINT/mapping['lm_head.weight'],framework='pt',device='cpu') as f:
         view=f.get_slice('lm_head.weight');weight=torch.cat([view[i:i+1] for i in ids]).float()
     with safe_open(adapter/'adapter_model.safetensors',framework='pt',device='cpu') as f:
@@ -80,12 +81,13 @@ def load_jev(device='cuda'):
         assert used==keys,keys-used
     assert not any(p.is_meta for p in text.parameters())
     tokenizer=AutoTokenizer.from_pretrained(CHECKPOINT,local_files_only=True)
-    return text,weight.to(device),torch.tensor(head['bias'][8:13],device=device),tokenizer
+    return text,weight.to(device),torch.tensor(head['bias'][start:end],device=device),tokenizer
 
 class JEVBridge(nn.Module):
-    def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False):
+    def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False,head_choices=2):
         super().__init__();self.text=text;self.train_lora=train_lora
-        weight=weight[:2];bias=bias[:2]
+        if not 2 <= head_choices <= len(weight):raise ValueError('Invalid head choice count')
+        weight=weight[:head_choices];bias=bias[:head_choices]
         self.text.requires_grad_(False)
         for name,p in self.text.named_parameters():
             if name.endswith(('lora_A','lora_B')):p.requires_grad_(train_lora)
@@ -110,6 +112,22 @@ class JEVBridge(nn.Module):
         x,mask,positions,last=assemble_embeddings(prefix,z.to(prefix.dtype),suffix,valid)
         hidden=self.text(inputs_embeds=x,attention_mask=mask,position_ids=positions,use_cache=False,return_dict=True).last_hidden_state
         state=hidden[torch.arange(len(hidden),device=hidden.device),last]
-        if not 1 <= num_choices <= len(self.head_weight):raise ValueError('Invalid choice count')
-        logits=F.linear(state.float(),self.head_weight[:num_choices],self.head_bias[:num_choices])
+        logits=choice_logits(state.float(),self.head_weight,self.head_bias,num_choices)
+        if labels is not None:
+            counts=torch.as_tensor(num_choices,device=labels.device)
+            if ((labels<0)|(labels>=counts)).any():raise ValueError('Label outside active choices')
         return dict(logits=logits,loss=None if labels is None else F.cross_entropy(logits,labels))
+
+
+def choice_logits(state,weight,bias,num_choices):
+    """Keep native answer-position rows; mask invalid positions for mixed tasks."""
+    counts=torch.as_tensor(num_choices,device=state.device)
+    if counts.dtype not in (torch.int32,torch.int64):raise ValueError('Choice counts must be integers')
+    if counts.ndim > 1 or (counts.ndim == 1 and len(counts)!=len(state)):
+        raise ValueError('One choice count required per sample')
+    if ((counts<2)|(counts>len(weight))).any():raise ValueError('Invalid choice count')
+    width=int(counts.max())
+    logits=F.linear(state,weight[:width],bias[:width])
+    if counts.ndim:
+        logits=logits.masked_fill(torch.arange(width,device=state.device)[None]>=counts[:,None],float('-inf'))
+    return logits

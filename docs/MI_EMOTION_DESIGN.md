@@ -1,6 +1,6 @@
 # MI + SEED joint training design
 
-Status: design only, not yet implemented or running. On 2026-10-22 the two MI JEV arms were stopped at logged step 1200 at the user's request. Saved checkpoints/logs remain intact; validation files currently end at step 1000. Previous runnable implementation is preserved in Git at 0f686ad. Task definitions: [mi_emotion_tasks.json](../configs/mi_emotion_tasks.json).
+Status: implementation in progress, not running. Variable-choice JEV logits, deterministic task prompts and task-local contrast loss are implemented; joint data preparation and training orchestration remain unfinished. On 2026-10-22 the two MI JEV arms were stopped at logged step 1200 at the user's request. Saved checkpoints/logs remain intact; validation files currently end at step 1000. Previous runnable implementation is preserved in Git at 0f686ad. Task definitions: [mi_emotion_tasks.json](../configs/mi_emotion_tasks.json).
 
 ## Data and task boundaries
 
@@ -24,9 +24,9 @@ For global batch 64, sample 32 MI, 16 SEED, 16 SEED-VII. Within each task balanc
 
 ## Stage 2: shuffled-option JEV
 
-Freeze the selected REVE, use all its valid tokens through the trainable connector, and train the enabled JEV LoRA and decision head with option-position cross entropy. Qwen base stays frozen. Initialize from original JEV weights rather than a head permanently associated with left/right hand. Support seven output positions A–G, initialized from the matching original JEV choice rows. The existing implementation is only binary and must be generalized before running this plan.
+Freeze the selected REVE, use all its valid tokens through the trainable connector, and train the enabled JEV LoRA and decision head with option-position cross entropy. Qwen base stays frozen. Initialize from original JEV weights rather than a head permanently associated with left/right hand. The loader now restores all 16 native choice rows A–P. The bridge supports configurable head width (legacy MI defaults to two for checkpoint compatibility); joint training will request all 16 rows and mask unused positions.
 
-Use a shared seven-slot head, masking unused slots before softmax: MI activates two slots, SEED three, SEED-VII seven. Randomly permute all options for every sampled example and regenerate the target index. Permutations must be independent of class, subject, dataset and signal, reproducible from recorded seeds. Text tells the model the task and lists candidates, but never supplies the correct class. Classification targets are stimulus/task annotations, not claims of directly observed subjective emotion.
+Use the shared native 16-choice head, masking unused slots before softmax: MI activates two slots, SEED three, SEED-VII seven. Randomly permute all options for every sampled example and regenerate the target index. Permutations must be independent of class, subject, dataset and signal, reproducible from recorded seeds. Text tells the model the task and lists candidates, but never supplies the correct class. Classification targets are stimulus/task annotations, not claims of directly observed subjective emotion.
 
 Example for a negative SEED window:
 
@@ -56,3 +56,7 @@ Report a task-macro selection score separately from per-task results. Use within
 1. Audit SEED metadata, coordinates and raw signals; create reproducible subject/trial/window manifests in ignored datasets storage.
 2. Generalize text prototypes, task-specific loss, task-balanced sampler, variable-choice prompts and head masking. Add tests for permutation/target consistency and masked-slot exclusion.
 3. Run small forward/backward and per-task overfit checks, then the joint contrast stage followed by JEV. Keep checkpoints, metrics and dataset manifests outside tracked code.
+
+## Local audit findings
+
+The supplied SEED-VII channel_62_pos.locs contains 62 electrodes. CB1 and CB2 are absent from the local REVE position bank. The provided .locs file contains polar coordinates, while the bank stores 3D positions. A verified coordinate conversion/registration is required before preserving all 62 channels in the new cache; no CB channels have been dropped or assigned guessed bank aliases. Training remains stopped while this and raw-signal metadata are audited.
