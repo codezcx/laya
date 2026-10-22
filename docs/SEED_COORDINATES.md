@@ -37,7 +37,7 @@ Affine estimates in the bank coordinate frame (metres):
 
 These are template-based estimates, not measured CB locations. LOO performance on the other electrodes does not establish the true error at CB1/CB2; similarity/affine disagreement also indicates model dependence. No alias such as CB1=O1 or CB1=PO7 is justified.
 
-Proposed all-channel input policy: preserve the 60 original bank entries and supply the two explicitly tagged affine estimates directly to REVE's positions tensor. Freeze this geometry before training; record provenance and check sensitivity against the similarity fit without choosing geometry on test labels. This removes the technical name-lookup obstacle while retaining the approximation as an experimental limitation.
+Selected all-channel input policy: preserve the 60 original bank entries and supply the two SEED-template affine coordinates directly to REVE's positions tensor. The geometry is fixed in `configs/seed_positions.json` and resolved by `eeg_align/seed_positions.py`. No extra sample-level coordinate flags are added; the similarity fit remains an audit comparison, not a planned training arm. This removes the technical name-lookup obstacle while retaining the approximation as an experimental limitation.
 
 ## Official versus local implementation audit
 

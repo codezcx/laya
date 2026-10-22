@@ -1,0 +1,27 @@
+{
+  "datasets": [
+    "SEED",
+    "SEED-VII"
+  ],
+  "positions_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/BSR-VideoMAE/reve-positions",
+  "template_files": {
+    "SEED": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data/SEED/SEED/channel_62_pos.locs",
+    "SEED-VII": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data/SEED-VII/channel_62_pos.locs"
+  },
+  "template_sha256": {
+    "SEED": "c79c149c3c36812856f3991d821b0fd3465ead0734319e5b1b47dae979e7b727",
+    "SEED-VII": "c79c149c3c36812856f3991d821b0fd3465ead0734319e5b1b47dae979e7b727"
+  },
+  "coordinate_overrides": {
+    "CB1": [
+      -0.044180158451299974,
+      -0.10409981975315016,
+      0.004573647932296132
+    ],
+    "CB2": [
+      0.04529739887038362,
+      -0.10358042966945163,
+      0.004430905490221705
+    ]
+  }
+}
