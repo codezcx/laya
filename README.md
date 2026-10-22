@@ -1,21 +1,21 @@
-# 运动想象 → REVE → JEV：左右手分类
+# 运动想象 → REVE → JEV：语义预训练与选项绑定
 
-当前使用9个源运动想象数据集的全部EEG通道和完整导出trial时长。冻结REVE与Qwen基座，训练新投影器、原有JEV LoRA和A/B决策头，每个trial计算一次左右手分类交叉熵。不同通道数与时长形成可变长度token，以mask和按长度分组处理。
+当前进行两个匹配对照，每组两张 GPU。GPU0–1 用左右手交叉熵短训 REVE，GPU2–3 用冻结 Qwen3-Embedding-0.6B 的任务＋类别文本进行双向多正样本对比预训练。两组从同一 REVE-base 初始化，各训练一轮、使用相同训练顺序和优化器配置；源验证集选择最佳 encoder。随后分别冻结 encoder，接入同样初始化的 JEV，随机交换 A/B 左右手选项并同步交换监督标签。
 
-训练49,193条；按被试隔离的验证12,508条；2b的6,520条仅作跨数据集最终测试。未知电极位置不猜测、不静默删除EEG通道；本轮暂缓Brandl2020和GuttmannFlury2025_MI。
+训练49,193条；被试隔离验证12,508条；2b的6,520条只在最终 JEV 训练结束后测试。使用全部已认证 EEG 通道与完整 trial。原始数据与现有 checkpoint/log 不删除；Git 历史保留旧代码。
 
 - [当前协议](docs/PROTOCOL.md)
-- [当前结果与运行位置](docs/RESULTS.md)
-- [数据审计与排除原因](docs/MI_DATASETS.md)
+- [结果与运行位置](docs/RESULTS.md)
+- [数据审计](docs/MI_DATASETS.md)
 
 ```sh
-PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_jev.py
+PYTHONPATH=. laya/.venv-eeg/bin/python scripts/run_mi_preconditioning.py
 ```
 
-入口依次完成四卡冻结REVE缓存、数据哈希核验、四卡两步检查、3个epoch训练及验证集最佳checkpoint的2b测试。拒绝覆盖已有输出。数据缓存:`datasets/mi_tokens/`；输出:`artifacts/mi_jev/`；阶段:`status.json`；逐步loss和固定验证指标:`run/metrics.jsonl`。每200步及每轮末验证，按各源数据集验证BA的平均值选模型，同时报告准确率。
+入口拒绝覆盖既有输出。每组自动依次执行短预训练和 JEV 训练，两组使用独立 GPU/端口。启动前已检查两阶段梯度、选项映射和最长输入 microbatch。JEV 全局 batch64，每卡 microbatch4，训练三轮，每200步和每轮结束做双顺序验证，按两种顺序的源数据集宏平均 BA 选模型。
 
-TUAB已在第265步按用户要求停止，代码与停止状态归档于Git`7335cfd`，日志/权重保留在`artifacts/tuab_jev/`。不加载其训练权重。所有旧数据、日志、checkpoint保留，不作为代码清理对象。
+- 管理状态：`artifacts/mi_preconditioning_pipeline.json`
+- REVE：`artifacts/mi_precondition_{ce,contrast}/metrics.jsonl`
+- JEV：`artifacts/mi_jev_precondition_{ce,contrast}/metrics.jsonl`
 
-验证代码:`PYTHONPATH=. laya/.venv-eeg/bin/python -m pytest tests -q`。
-
-八卡节点对照：GPU0–3从第200步检查点续训JEV，新日志为`artifacts/mi_jev/resumed/metrics.jsonl`；GPU4–7完成冻结REVE的固定空间汇总＋线性层对照，结果在`artifacts/mi_reve_probe/`。验证整体准确率68.16%，2b准确率50.15%；详情见当前结果文档。
+适配后的 REVE 特征首次读取时在线计算，随后缓存到主机内存；不会误用原始冻结 REVE 的 token 数值。独立旧实验与原始 token 缓存仍保留，用于匹配对照和数据清单校验。

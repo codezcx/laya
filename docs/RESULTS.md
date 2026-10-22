@@ -142,3 +142,12 @@ Started four-GPU joint encoder/head training with `eeg_align.train_reve`, implem
 ## MI JEV option-order binding — launched
 
 Implementation `14be151`; four-GPU smoke completed two updates, finite losses/gradients and identical trainable-state hashes across ranks. Label/slot and slot/semantic-probability inversion checks passed. Full run launched with fresh original JEV initialization, nine-source manifests, TUAB-rate recipe and deterministic per-trial/per-epoch option randomization. No accuracy improvement is claimed from the smoke test. Source validation evaluates identical trials under both A=left/B=right and A=right/B=left; checkpoint selection averages their macro dataset BA. Metrics: `artifacts/mi_jev_option_shuffle/metrics.jsonl`, detailed `validation_*.json`; log: `artifacts/mi_jev_option_shuffle.log`. Initial full paired validation precedes training updates.
+
+
+## Matched CE/text preconditioning — launch checks passed
+
+Previous raw-REVE shuffled-option run is no longer running on the current node; last logged step1957, latest validation1800 at50% for both orders. No completion or final test is claimed. Preserve all artifacts; exit cause is unestablished.
+
+The earlier three-epoch unfrozen-REVE mean-pooling control completed2307steps, selected1800: source validation80.72%, held-out2b50.03%. The new matched comparison starts both encoder arms afresh for one epoch; it does not give CE three epochs versus contrast one epoch.
+
+Both new two-GPU encoder smoke runs passed finite-gradient checks. Semantic-loss invariants and existing JEV/MI batching tests:10passed. Both two-rank JEV smoke runs completed two updates with finite gradients and synchronized parameters at microbatch4, including longest and shortest inputs. Distributed contrast-gradient equivalence test also passed (11 tests total). Exact short-run metadata: `artifacts/mi_precondition_{ce,contrast}_smoke/`; JEV smoke: `artifacts/mi_jev_precondition_{ce,contrast}_smoke/`. No meaningful accuracy result is claimed from these smoke runs.

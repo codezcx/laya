@@ -48,14 +48,22 @@ def evaluate(model,data,rank,world,microbatch=2,limit=None):
     return result,pred
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');p.add_argument('--resume',type=Path);p.add_argument('--recipe',choices=['mi','tuab-lr'],default='mi');p.add_argument('--shuffle-options',action='store_true');a=p.parse_args();c=config()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');p.add_argument('--resume',type=Path);p.add_argument('--recipe',choices=['mi','tuab-lr'],default='mi');p.add_argument('--shuffle-options',action='store_true');p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--microbatch',type=int);a=p.parse_args();c=config()
     if a.recipe=='tuab-lr':c.update(learning_rates=[1e-4,5e-6,1e-5],warmup_fraction=0.,minimum_lr_ratio=1.)
+    if a.microbatch is not None:c['microbatch_trials']=a.microbatch
     if a.resume and a.smoke:raise ValueError('Smoke and resume are mutually exclusive')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(4);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     if rank==0:a.out.mkdir(parents=True,exist_ok=False)
     dist.barrier();torch.manual_seed(c['seed']);np.random.seed(c['seed']);random.seed(c['seed'])
-    train=Tokens('train');val=Tokens('validation')
+    encoder=None
+    if a.encoder_checkpoint:
+        from .adapted_tokens import AdaptedEncoder,AdaptedTokens
+        encoder=AdaptedEncoder(a.encoder_checkpoint)
+    def data(split):return AdaptedTokens(split,encoder) if encoder is not None else Tokens(split)
+    train=data('train');val=data('validation')
+    # Encoder/text initialization must not change the matched connector seed.
+    torch.manual_seed(c['seed'])
     assert not {(r['dataset'],r['subject']) for r in train.rows}&{(r['dataset'],r['subject']) for r in val.rows}
     text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,train_lora=True,train_head=True)
     if a.shuffle_options:
@@ -63,8 +71,8 @@ def main():
     opt=torch.optim.AdamW([dict(params=model.connector.parameters(),lr=c['learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=c['learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=c['learning_rates'][2])],weight_decay=.01)
     batches0=epoch_batches(train.rows,c['seed'],0,c['batch_trials']);steps=2 if a.smoke else c['epochs']*len(batches0)
     warmup=max(1,round(steps*c['warmup_fraction']))
-    paths=['eeg_align/jev.py','eeg_align/mi_training_data.py','eeg_align/train_jev.py','eeg_align/distributed.py','configs/encoder.json','configs/mi_train.json','eeg_align/mi_options.py']
-    provenance=dict(c,shuffle_options=a.shuffle_options,steps=steps,world_size=world,smoke=a.smoke,train_trials=len(train.rows),validation_trials=len(val.rows),
+    paths=['eeg_align/jev.py','eeg_align/mi_training_data.py','eeg_align/train_jev.py','eeg_align/distributed.py','configs/encoder.json','configs/mi_train.json','eeg_align/mi_options.py','eeg_align/adapted_tokens.py']
+    provenance=dict(c,encoder_checkpoint=str(a.encoder_checkpoint) if encoder else None,encoder_sha256=encoder.sha256 if encoder else None,shuffle_options=a.shuffle_options,steps=steps,world_size=world,smoke=a.smoke,train_trials=len(train.rows),validation_trials=len(val.rows),
         init='original JEV adapter and A/B rows; fresh connector; no TUAB/previous MI weights',
         train_encoder=False,train_qwen_base=False,train_lora=True,train_head=True,
         loss='one cross entropy per trial, ordinary sample mean',schedule='constant' if a.recipe=='tuab-lr' else 'linear warmup then cosine decay',recipe=a.recipe,
@@ -75,6 +83,7 @@ def main():
     if a.resume:
         saved=torch.load(a.resume,map_location='cpu',weights_only=False)
         prior=saved['config']
+        assert prior.get('encoder_sha256')==provenance['encoder_sha256']
         assert prior.get('shuffle_options',False)==a.shuffle_options
         assert prior['data_sha256']==provenance['data_sha256']
         for key in c:assert prior[key]==c[key],f'Resume config mismatch: {key}'
@@ -151,7 +160,7 @@ def main():
     if not a.smoke:
         saved=torch.load(a.out/'best.pt',map_location='cpu',weights_only=False);model.load_state_dict(saved['trainable'],strict=False);selected=saved['step'];del saved
         # Test objects are instantiated only after validation-based model selection.
-        result,pred=evaluate(model,Tokens('heldout'),rank,world,c['microbatch_trials'])
+        result,pred=evaluate(model,data('heldout'),rank,world,c['microbatch_trials'])
         if rank==0:write_json(a.out/'test_2b.json',dict(step=selected,metrics=result,predictions=pred))
     if rank==0:write_json(a.out/'complete.json',dict(steps=step,smoke=a.smoke,best_sha256=digest(a.out/'best.pt'),seconds=time.monotonic()-began))
     dist.barrier();dist.destroy_process_group()
