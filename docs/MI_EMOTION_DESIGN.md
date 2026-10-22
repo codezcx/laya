@@ -60,3 +60,5 @@ Report a task-macro selection score separately from per-task results. Use within
 ## Local audit findings
 
 The supplied SEED-VII channel_62_pos.locs contains 62 electrodes. CB1 and CB2 are absent from the local REVE position bank. The provided .locs file contains polar coordinates, while the bank stores 3D positions. A verified coordinate conversion/registration is required before preserving all 62 channels in the new cache; no CB channels have been dropped or assigned guessed bank aliases. Training remains stopped while this and raw-signal metadata are audited.
+
+Coordinate audit completed: see [SEED_COORDINATES.md](SEED_COORDINATES.md). Polar conversion matches MNE exactly; registration is approximate (affine leave-one-out RMS 6.58 mm). The two missing positions can be supplied as tagged template estimates, preserving the 60 existing bank entries; this has not yet been wired into data preparation.
