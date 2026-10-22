@@ -1,0 +1,105 @@
+{
+  "status": "design_only_not_connected_to_trainer",
+  "tasks": [
+    {
+      "task_id": "motor_imagery",
+      "datasets": [
+        "BNCI2014_001",
+        "Chang2025",
+        "Cho2017",
+        "Dreyer2023",
+        "Kumar2024",
+        "Lee2019_MI",
+        "PhysionetMI",
+        "Weibo2014",
+        "Zhou2016"
+      ],
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "left_hand",
+          "option": "Left hand motor imagery",
+          "contrast_text": "Task: motor imagery recognition. Class: Left hand motor imagery."
+        },
+        {
+          "class_id": "right_hand",
+          "option": "Right hand motor imagery",
+          "contrast_text": "Task: motor imagery recognition. Class: Right hand motor imagery."
+        }
+      ]
+    },
+    {
+      "task_id": "emotional_valence",
+      "datasets": [
+        "SEED"
+      ],
+      "question": "What is the emotional valence associated with this EEG recording?",
+      "classes": [
+        {
+          "class_id": "negative",
+          "option": "Negative emotion",
+          "contrast_text": "Task: emotional valence recognition. Class: Negative emotion."
+        },
+        {
+          "class_id": "neutral",
+          "option": "Neutral emotion",
+          "contrast_text": "Task: emotional valence recognition. Class: Neutral emotion."
+        },
+        {
+          "class_id": "positive",
+          "option": "Positive emotion",
+          "contrast_text": "Task: emotional valence recognition. Class: Positive emotion."
+        }
+      ]
+    },
+    {
+      "task_id": "discrete_emotion",
+      "datasets": [
+        "SEED-VII"
+      ],
+      "question": "Which discrete emotion is associated with this EEG recording?",
+      "classes": [
+        {
+          "class_id": "happy",
+          "option": "Happiness",
+          "contrast_text": "Task: discrete emotion recognition. Class: Happiness."
+        },
+        {
+          "class_id": "neutral",
+          "option": "Neutral emotion",
+          "contrast_text": "Task: discrete emotion recognition. Class: Neutral emotion."
+        },
+        {
+          "class_id": "disgust",
+          "option": "Disgust",
+          "contrast_text": "Task: discrete emotion recognition. Class: Disgust."
+        },
+        {
+          "class_id": "sad",
+          "option": "Sadness",
+          "contrast_text": "Task: discrete emotion recognition. Class: Sadness."
+        },
+        {
+          "class_id": "anger",
+          "option": "Anger",
+          "contrast_text": "Task: discrete emotion recognition. Class: Anger."
+        },
+        {
+          "class_id": "fear",
+          "option": "Fear",
+          "contrast_text": "Task: discrete emotion recognition. Class: Fear."
+        },
+        {
+          "class_id": "surprise",
+          "option": "Surprise",
+          "contrast_text": "Task: discrete emotion recognition. Class: Surprise."
+        }
+      ]
+    }
+  ],
+  "positive_identity": [
+    "task_id",
+    "class_id"
+  ],
+  "option_permutation": "deterministic hash of seed, epoch, sample_id; target is position of semantic class after permutation"
+}

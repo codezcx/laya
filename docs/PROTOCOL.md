@@ -1,4 +1,4 @@
-> Current active experiment: two matched short REVE-pretraining arms (CE versus text contrast), followed by identical shuffled-option JEV training. See the final section. Earlier sections describe preserved controls, not concurrent jobs.
+> Status (2026-10-22): both matched MI JEV arms stopped at the user’s request, logged step 1200. No training is running. The next MI + SEED contrast → shuffled-option JEV design is in [MI_EMOTION_DESIGN.md](MI_EMOTION_DESIGN.md); it is not implemented yet. The protocol below describes the preserved MI implementation.
 
 # Full-channel motor imagery → REVE → JEV
 
