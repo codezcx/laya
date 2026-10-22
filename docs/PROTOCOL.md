@@ -30,10 +30,16 @@ Original REVE-base with all active encoder parameters trained; unused attention-
 
 Freeze the stage1 validation-selected REVE. Feed all real encoder tokens through the connector to the original JEV language backbone. Enable and train original JEV LoRA, connector and native A–P decision rows; Qwen base frozen. Mask output slots beyond each sample's2/3/7 valid options. Every sampled occurrence permutes options independently of the label and updates target position. Loss is ordinary option-position cross entropy, with task weights induced by batch quotas. No attribute questions.
 
-1,600steps, global64, microbatch2, constant learning rates connector1e-4/LoRA5e-6/head1e-5. Fixed validation every200steps; evaluate original and reversed option ordering on exactly the same signals. Report semantic accuracy and permutation consistency per dataset. Frozen encoder tokens are computed from raw signals and cached in CPU memory; no old frozen-REVE features are reused.
+1,600steps, global64, training microbatch4 per GPU, validation microbatch8 per GPU with token-length sorting, constant learning rates connector1e-4/LoRA5e-6/head1e-5. Fixed validation every200steps; evaluate original and reversed option ordering on exactly the same signals. Report semantic accuracy and permutation consistency per dataset. Frozen encoder tokens are computed from raw signals and cached in CPU memory; no old frozen-REVE features are reused.
 
 All testing remains untouched during training; this launch does not automatically tune on or repeatedly score 2b/emotion test sets. Current experiment establishes supervised multitask learning and option binding, not unseen-class recognition.
 
 ## Version history
 
 Previous MI-only CE/contrast controls were stopped by the user. Their implementation is archived in Git (0f686ad); ignored checkpoints/logs are retained. Superseded training entry points are removed from the working tree. Current measurements and paths: [RESULTS.md](RESULTS.md).
+
+## Node restart and checkpoint cadence
+
+The first JEV run stopped at logged step173 when the node was lost; it had no saved production JEV checkpoint. Preserve that run under `artifacts/mi_emotion/jev`. The replacement run is `artifacts/mi_emotion/jev_restart`, initialized from the completed contrast best encoder and original JEV weights, starting at step1. Training global batch64 and task quotas are unchanged. Save `last.pt` (weights plus optimizer) after step1 and every50steps, before scheduled validation. Full validation remains every200steps; `best.pt` updates after validation improvement. Two-GPU maximum-length checks test training microbatch4 and validation microbatch8 before launch.
+
+Restart command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --jev-only --jev-output jev_restart --jev-smoke-output jev_batch_check`. This skips the already completed contrast stage and refuses to overwrite outputs.

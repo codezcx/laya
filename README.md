@@ -11,6 +11,6 @@
 laya/.venv-eeg/bin/python scripts/run_joint_training.py
 ```
 
-状态：`artifacts/mi_emotion/pipeline.json`。两阶段日志分别在 `artifacts/mi_emotion/contrast/metrics.jsonl` 和 `artifacts/mi_emotion/jev/metrics.jsonl`。入口先检查双卡训练与验证，再运行正式训练；输出目录已存在时拒绝覆盖。
+状态：`artifacts/mi_emotion/pipeline.json`。两阶段日志分别在 `artifacts/mi_emotion/contrast/metrics.jsonl` 和 `artifacts/mi_emotion/jev_restart/metrics.jsonl`。入口先检查双卡训练与验证，再运行正式训练；输出目录已存在时拒绝覆盖。
 
 数据缓存和被试划分保存在忽略目录 `datasets/mi_emotion/`；历史 checkpoint、日志不删除，旧实验实现由 Git 保存。

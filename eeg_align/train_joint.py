@@ -107,7 +107,8 @@ def main():
         if contrast:head.eval()
         else:model.eval()
         selected=val
-        if a.smoke:selected=sum([[r for r in val if r['task']==t][:4] for t in range(3)],[])
+        if a.smoke:selected=sum([sorted([r for r in val if r['task']==t],key=lambda r:r['token_length'],reverse=True)[:16] for t in range(3)],[])
+        selected=sorted(selected,key=lambda r:r['token_length'])
         mine=[];rr=selected[rank::world]
         if contrast:
             for start in range(0,len(rr),64):
@@ -117,8 +118,8 @@ def main():
                         t=r['task'];lo=OFFSETS[t];k=len(TASKS[t]['classes']);prob=(F.normalize(h.float(),dim=-1)@prototypes[lo:lo+k].T/c['temperature']).softmax(-1).tolist()
                         mine.append({**{key:r[key] for key in ['id','parent_id','task','dataset','subject','label']},'probabilities':prob})
         else:
-            for start in range(0,len(rr),c['jev_microbatch']):
-                records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step,0);prob=semantic_probs(z,qq,records);z,y,qq=jev_logits(records,step,1);alt=semantic_probs(z,qq,records)
+            for start in range(0,len(rr),c['jev_eval_microbatch']):
+                records=rr[start:start+c['jev_eval_microbatch']];z,y,qq=jev_logits(records,step,0);prob=semantic_probs(z,qq,records);z,y,qq=jev_logits(records,step,1);alt=semantic_probs(z,qq,records)
                 for r,v,w in zip(records,prob,alt):mine.append({**{key:r[key] for key in ['id','parent_id','task','dataset','subject','label']},'probabilities':v,'alternate_probabilities':w})
         parts=[None]*world;dist.all_gather_object(parts,mine);pred=sum(parts,[]);assert len(pred)==len(selected) and len({r['id'] for r in pred})==len(pred)
         return summarise(pred),pred
@@ -135,7 +136,10 @@ def main():
         else:model.train()
         opt.zero_grad(set_to_none=True)
         for g,lr in zip(opt.param_groups,base_lr):g['lr']=lr*(min(1.,step/c['warmup_steps']) if contrast else 1.)
-        indices=sampler.batch(step);rr=[train[i] for i in indices[rank::world]];stats=torch.zeros(3,device='cuda');taskloss={}
+        indices=sampler.batch(step)
+        if a.smoke:
+            indices=sum([sorted([i for i,r in enumerate(train) if r['task']==t],key=lambda i:train[i]['token_length'],reverse=True)[:n] for t,n in enumerate([32,16,16])],[])
+        rr=[train[i] for i in indices[rank::world]];stats=torch.zeros(3,device='cuda');taskloss={}
         if contrast:
             representations=[];labels=[];tasks=[]
             for x,p,records in batches(rr,c['contrast_microbatch']):
@@ -149,9 +153,12 @@ def main():
                 records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step);loss=F.cross_entropy(z,y,reduction='sum');(loss*world/64).backward();stats[0]+=loss.detach();stats[1]+=(z.argmax(-1)==y).sum();stats[2]+=len(records)
         average_gradients(active,world);grad=torch.nn.utils.clip_grad_norm_(active,1.);assert torch.isfinite(grad);opt.step();dist.all_reduce(stats)
         if rank==0:
-            item=dict(step=step,steps=total,loss=float(stats[0]/stats[2]),train_accuracy=float(stats[1]/stats[2]),task_contrast_losses=taskloss,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began)
+            item=dict(step=step,steps=total,loss=float(stats[0]/stats[2]),train_accuracy=float(stats[1]/stats[2]),task_contrast_losses=taskloss,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)
             log.write(json.dumps(item)+'\n');write_json(a.out/'progress.json',item)
             if step==1 or step%10==0:print('TRAIN',item,flush=True)
+        if step==1 or step%c['checkpoint_every']==0 or step==total:
+            if rank==0:save(step,False)
+            dist.barrier()
         if step%c['validation_every']==0 or step==total:
             result,pred=evaluate(step);improved=result['selection_score']>best;best=max(best,result['selection_score'])
             if rank==0:
@@ -159,7 +166,7 @@ def main():
                 if improved:write_json(a.out/'best.json',dict(step=step,metrics=result))
                 print('VALIDATION',step,result['task_balanced_accuracy'],flush=True)
             dist.barrier()
-    if rank==0:write_json(a.out/'complete.json',dict(steps=total,smoke=a.smoke,seconds=time.monotonic()-began))
+    if rank==0:write_json(a.out/'complete.json',dict(steps=total,smoke=a.smoke,seconds=time.monotonic()-began,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30))
     pool.shutdown();dist.barrier();dist.destroy_process_group()
 
 if __name__=='__main__':main()

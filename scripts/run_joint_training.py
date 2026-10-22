@@ -1,11 +1,16 @@
 """Run the MI/emotion pipeline exclusively on physical GPUs 2 and 3."""
-import json,os,subprocess,sys,time
+import argparse,json,os,subprocess,sys,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 PYTHON=str(ROOT/'laya/.venv-eeg/bin/python')
 OUT=ROOT/'artifacts/mi_emotion'
 OUT.mkdir(exist_ok=True,parents=True)
+parser=argparse.ArgumentParser()
+parser.add_argument('--jev-only',action='store_true')
+parser.add_argument('--jev-output',default='jev')
+parser.add_argument('--jev-smoke-output',default='jev_smoke')
+args=parser.parse_args()
 status={}
 def write(**values):
     status.update(values);temp=OUT/'pipeline.tmp';temp.write_text(json.dumps(status,indent=2));temp.replace(OUT/'pipeline.json')
@@ -28,14 +33,21 @@ try:
     while not (ROOT/'datasets/mi_emotion/complete.json').exists():
         if time.monotonic()>deadline:raise TimeoutError('Dataset preparation did not finish')
         time.sleep(5)
-    for name,stage,checkpoint in [('contrast_smoke','contrast',None),('jev_smoke','jev',OUT/'contrast_smoke/best.pt')]:
+    checks=[('contrast_smoke','contrast',None),(args.jev_smoke_output,'jev',OUT/'contrast_smoke/best.pt')]
+    if args.jev_only:
+        assert (OUT/'contrast/complete.json').exists() and (OUT/'contrast/best.pt').exists()
+        checks=[(args.jev_smoke_output,'jev',OUT/'contrast/best.pt')]
+    for name,stage,checkpoint in checks:
         if (OUT/name/'complete.json').exists():
             assert json.loads((OUT/name/'complete.json').read_text())['smoke']
             cfg=json.loads((OUT/name/'config.json').read_text())
             assert cfg['stage']==stage and cfg['smoke']
+            if stage=='jev':
+                current=json.loads((ROOT/'configs/mi_emotion_train.json').read_text())
+                for key in ['jev_microbatch','jev_eval_microbatch']:assert cfg[key]==current[key]
         else:run(stage,name,checkpoint,smoke=True)
-    run('contrast','contrast')
-    run('jev','jev',OUT/'contrast/best.pt')
+    if not args.jev_only:run('contrast','contrast')
+    run('jev',args.jev_output,OUT/'contrast/best.pt')
     write(status='complete',finished=time.time())
 except Exception as exc:
     write(status='failed',error=repr(exc),finished=time.time());raise
