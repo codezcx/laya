@@ -1,6 +1,6 @@
 # Current experiment: separate MI/SEED contrast heads
 
-Prepared matched control, original REVE initialization; production metrics: `artifacts/mi_emotion/contrast_mi_seed_split/metrics.jsonl`. Shared-head reference: final MI BA55.87%, SEED trial accuracy55.56%. No new quality result yet. See [PROTOCOL.md](PROTOCOL.md) for routing and controlled settings.
+Launched on GPUs2–3 after six unit/distributed tests and the two-rank final-batch/validation smoke passed. Production step1 completed; original REVE initialization. Production metrics: `artifacts/mi_emotion/contrast_mi_seed_split/metrics.jsonl`. Shared-head reference: final MI BA55.87%, SEED trial accuracy55.56%. No new quality result yet. See [PROTOCOL.md](PROTOCOL.md) for routing and controlled settings.
 
 # Frozen MI+SEED encoder probe diagnostic
 
