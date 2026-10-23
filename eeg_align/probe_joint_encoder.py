@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score,balanced_accuracy_score,confusion_matrix
 from sklearn.exceptions import ConvergenceWarning
 from threadpoolctl import threadpool_limits
-from .joint_data import read_rows,raw,ROOT
+from .joint_data import read_rows,raw,ROOT,TASKS
 from .mi_training_data import digest,write_json
 
 
@@ -39,7 +39,7 @@ def fit_cached(out,world,rows,started):
         assert sorted(seen)==list(range(len(rr)));arrays[split]=x
     results={}
     with threadpool_limits(limits=1):
-        for task,name,k in [(0,'MI',2),(1,'SEED',3)]:
+        for task,name,k in [(t,task['task_id'],len(task['classes'])) for t,task in enumerate(TASKS)]:
             ix={s:[i for i,r in enumerate(rr) if r['task']==task] for s,rr in rows.items()}
             rr={s:[rows[s][i] for i in ii] for s,ii in ix.items()}
             x={s:arrays[s][ii] for s,ii in ix.items()};y=np.array([r['label'] for r in rr['train']])

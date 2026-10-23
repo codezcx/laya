@@ -22,3 +22,6 @@ datasets/mi_index/
 datasets/mi_tokens/
 
 datasets/mi_emotion/
+
+# Current MI/MAT prepared signals and manifests
+/datasets/mi_mat/

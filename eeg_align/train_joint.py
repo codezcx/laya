@@ -9,7 +9,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 from transformers import AutoModel
-from .joint_data import TASKS,OFFSETS,ROOT,read_rows,raw,Sampler
+from .joint_data import TASKS,OFFSETS,ROOT,read_rows,raw,Sampler,BATCH_SIZES
 from .semantic_alignment import text_prototypes,task_contrastive_loss,TEXT_MODEL
 from .distributed import average_gradients,atomic_save
 from .mi_training_data import digest,write_json
@@ -34,17 +34,17 @@ def summarise(pred):
             result[ds]['alternate_window']=metric(alt)
             result[ds]['permutation_consistency']=float(np.mean([np.argmax(r['probabilities'])==np.argmax(r['alternate_probabilities']) for r in rr]))
     task_scores=[]
-    for t in range(3):
+    for t in range(len(TASKS)):
         ds=sorted({r['dataset'] for r in pred if r['task']==t})
         task_scores.append(float(np.mean([result[d]['trial']['balanced_accuracy'] for d in ds])))
     return dict(datasets=result,task_balanced_accuracy=dict(zip([t['task_id'] for t in TASKS],task_scores)),selection_score=float(np.mean(task_scores)))
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');p.add_argument('--mi-loss-only',action='store_true');p.add_argument('--mi-seed-loss-only',action='store_true');p.add_argument('--split-contrast-heads',action='store_true');a=p.parse_args()
-    if a.mi_loss_only and a.mi_seed_loss_only:raise ValueError('Choose one loss control')
-    if (a.mi_loss_only or a.mi_seed_loss_only) and a.stage!='contrast':raise ValueError('Loss controls are contrast-only')
-    if a.split_contrast_heads and not (a.stage=='contrast' and a.mi_seed_loss_only):raise ValueError('Split heads require MI+SEED contrast control')
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');p.add_argument('--mi-loss-only',action='store_true');p.add_argument('--mat-loss-only',action='store_true');p.add_argument('--split-contrast-heads',action='store_true');a=p.parse_args()
+    if a.mi_loss_only and a.mat_loss_only:raise ValueError('Choose one loss control')
+    if (a.mi_loss_only or a.mat_loss_only) and a.stage!='contrast':raise ValueError('Loss controls are contrast-only')
+    if a.split_contrast_heads and a.stage!='contrast':raise ValueError('Split heads are contrast-only')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==2
     torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     c=json.loads(Path('configs/mi_emotion_train.json').read_text());torch.manual_seed(c['seed']);np.random.seed(c['seed'])
@@ -67,7 +67,7 @@ def main():
         assert a.encoder_checkpoint;enc.eval();torch.manual_seed(c['seed']);text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16)
         groups=[dict(params=model.connector.parameters(),lr=c['jev_learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=c['jev_learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=c['jev_learning_rates'][2])]
     opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']];base_lr=[g['lr'] for g in opt.param_groups]
-    config=dict(c,split_contrast_heads=a.split_contrast_heads,mi_loss_only=a.mi_loss_only,mi_seed_loss_only=a.mi_seed_loss_only,effective_task_weights=([c['task_weights'][0],0.,0.] if a.mi_loss_only else [c['task_weights'][0],c['task_weights'][1],0.] if a.mi_seed_loss_only else c['task_weights']),mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
+    config=dict(c,split_contrast_heads=a.split_contrast_heads,mi_loss_only=a.mi_loss_only,mat_loss_only=a.mat_loss_only,effective_task_weights=([c['task_weights'][0],0.] if a.mi_loss_only else [0.,c['task_weights'][1]] if a.mat_loss_only else c['task_weights']),mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
     if rank==0:
         write_json(a.out/'config.json',config)
         if contrast:atomic_save(dict(texts=texts,vectors=prototypes.cpu()),a.out/'text_prototypes.pt')
@@ -114,7 +114,7 @@ def main():
         if contrast:head.eval()
         else:model.eval()
         selected=val
-        if a.smoke:selected=sum([sorted([r for r in val if r['task']==t],key=lambda r:r['token_length'],reverse=True)[:16] for t in range(3)],[])
+        if a.smoke:selected=sum([sorted([r for r in val if r['task']==t],key=lambda r:r['token_length'],reverse=True)[:16] for t in range(len(TASKS))],[])
         selected=sorted(selected,key=lambda r:r['token_length'])
         mine=[];rr=selected[rank::world]
         if contrast:
@@ -147,7 +147,7 @@ def main():
         if a.smoke and contrast:
             indices=sampler.full_mi_batch(sampler.mi_steps_per_epoch)
         elif a.smoke:
-            indices=sum([sorted([i for i,r in enumerate(train) if r['task']==t],key=lambda i:train[i]['token_length'],reverse=True)[:n] for t,n in enumerate([32,16,16])],[])
+            indices=sum([sorted([i for i,r in enumerate(train) if r['task']==t],key=lambda i:train[i]['token_length'],reverse=True)[:n] for t,n in enumerate(BATCH_SIZES)],[])
         rr=[train[i] for i in indices[rank::world]];stats=torch.zeros(3,device='cuda');taskloss={}
         if contrast:
             representations=[];labels=[];tasks=[]
@@ -157,12 +157,11 @@ def main():
                 for h,r in zip(z.detach(),records):
                     t=r['task'];lo=OFFSETS[t];k=len(TASKS[t]['classes']);pred=(F.normalize(h,dim=-1)@prototypes[lo:lo+k].T).argmax();stats[1]+=int(pred)==r['label']
             loss,parts=task_contrastive_loss(torch.cat(representations),torch.tensor(labels,device='cuda'),torch.tensor(tasks,device='cuda'),prototypes,dict(enumerate(c['task_weights'])),c['temperature'])
-            if a.mi_loss_only:loss=c['task_weights'][0]*parts[0]
-            elif a.mi_seed_loss_only:loss=c['task_weights'][0]*parts[0]+c['task_weights'][1]*parts[1]
+            loss=sum(config['effective_task_weights'][t]*v for t,v in parts.items())
             loss.backward();stats[0]=loss.detach()*len(rr);stats[2]=len(rr);taskloss={TASKS[t]['task_id']:float(v.detach()) for t,v in parts.items()};del representations,parts,loss
         else:
             for start in range(0,len(rr),c['jev_microbatch']):
-                records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step);loss=F.cross_entropy(z,y,reduction='sum');(loss*world/64).backward();stats[0]+=loss.detach();stats[1]+=(z.argmax(-1)==y).sum();stats[2]+=len(records)
+                records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step);loss=F.cross_entropy(z,y,reduction='sum');(loss*world/c['global_batch']).backward();stats[0]+=loss.detach();stats[1]+=(z.argmax(-1)==y).sum();stats[2]+=len(records)
         average_gradients(active,world);grad=torch.nn.utils.clip_grad_norm_(active,1.);assert torch.isfinite(grad);opt.step();dist.all_reduce(stats)
         if rank==0:
             item=dict(step=step,steps=total,loss=float(stats[0]/stats[2]),train_accuracy=float(stats[1]/stats[2]),task_contrast_losses=taskloss,mi_epoch=(step-1)//sampler.mi_steps_per_epoch+1 if contrast else None,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)

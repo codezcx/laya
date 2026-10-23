@@ -29,70 +29,21 @@
       ]
     },
     {
-      "task_id": "emotional_valence",
+      "task_id": "mental_arithmetic",
       "datasets": [
-        "SEED"
+        "MAT"
       ],
-      "question": "What is the emotional valence associated with this EEG recording?",
+      "question": "Is the participant resting or performing mental arithmetic?",
       "classes": [
         {
-          "class_id": "negative",
-          "option": "Negative emotion",
-          "contrast_text": "Task: emotional valence recognition. Class: Negative emotion."
+          "class_id": "rest",
+          "option": "Resting without mental arithmetic",
+          "contrast_text": "Task: mental arithmetic recognition. Class: resting without performing mental arithmetic."
         },
         {
-          "class_id": "neutral",
-          "option": "Neutral emotion",
-          "contrast_text": "Task: emotional valence recognition. Class: Neutral emotion."
-        },
-        {
-          "class_id": "positive",
-          "option": "Positive emotion",
-          "contrast_text": "Task: emotional valence recognition. Class: Positive emotion."
-        }
-      ]
-    },
-    {
-      "task_id": "discrete_emotion",
-      "datasets": [
-        "SEED-VII"
-      ],
-      "question": "Which discrete emotion is associated with this EEG recording?",
-      "classes": [
-        {
-          "class_id": "happy",
-          "option": "Happiness",
-          "contrast_text": "Task: discrete emotion recognition. Class: Happiness."
-        },
-        {
-          "class_id": "neutral",
-          "option": "Neutral emotion",
-          "contrast_text": "Task: discrete emotion recognition. Class: Neutral emotion."
-        },
-        {
-          "class_id": "disgust",
-          "option": "Disgust",
-          "contrast_text": "Task: discrete emotion recognition. Class: Disgust."
-        },
-        {
-          "class_id": "sad",
-          "option": "Sadness",
-          "contrast_text": "Task: discrete emotion recognition. Class: Sadness."
-        },
-        {
-          "class_id": "anger",
-          "option": "Anger",
-          "contrast_text": "Task: discrete emotion recognition. Class: Anger."
-        },
-        {
-          "class_id": "fear",
-          "option": "Fear",
-          "contrast_text": "Task: discrete emotion recognition. Class: Fear."
-        },
-        {
-          "class_id": "surprise",
-          "option": "Surprise",
-          "contrast_text": "Task: discrete emotion recognition. Class: Surprise."
+          "class_id": "arithmetic",
+          "option": "Performing mental arithmetic",
+          "contrast_text": "Task: mental arithmetic recognition. Class: performing mental arithmetic."
         }
       ]
     }

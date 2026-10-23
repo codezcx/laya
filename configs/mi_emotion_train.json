@@ -2,7 +2,7 @@
   "seed": 42,
   "jev_steps": 1600,
   "validation_every": 200,
-  "global_batch": 64,
+  "global_batch": 48,
   "contrast_microbatch": 4,
   "jev_microbatch": 4,
   "encoder_lr": 1e-05,
@@ -16,10 +16,13 @@
   "temperature": 0.07,
   "task_weights": [
     0.5,
-    0.25,
     0.25
   ],
   "jev_eval_microbatch": 8,
   "checkpoint_every": 50,
-  "contrast_epochs": 1
+  "contrast_epochs": 1,
+  "task_batch_sizes": [
+    32,
+    16
+  ]
 }
