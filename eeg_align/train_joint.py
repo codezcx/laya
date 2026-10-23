@@ -62,7 +62,7 @@ def main():
         assert a.encoder_checkpoint;enc.eval();torch.manual_seed(c['seed']);text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16)
         groups=[dict(params=model.connector.parameters(),lr=c['jev_learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=c['jev_learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=c['jev_learning_rates'][2])]
     opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']];base_lr=[g['lr'] for g in opt.param_groups]
-    config=dict(c,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
+    config=dict(c,mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
     if rank==0:
         write_json(a.out/'config.json',config)
         if contrast:atomic_save(dict(texts=texts,vectors=prototypes.cpu()),a.out/'text_prototypes.pt')
@@ -129,15 +129,17 @@ def main():
         else:saved['trainable']={n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad}
         atomic_save(saved,a.out/'last.pt')
         if improved:atomic_save(saved,a.out/'best.pt')
-    total=1 if a.smoke else c[a.stage+'_steps']
+    total=1 if a.smoke else (c['contrast_epochs']*sampler.mi_steps_per_epoch if contrast else c['jev_steps'])
     for step in range(1,total+1):
         enc.train(contrast)
         if contrast:head.train()
         else:model.train()
         opt.zero_grad(set_to_none=True)
         for g,lr in zip(opt.param_groups,base_lr):g['lr']=lr*(min(1.,step/c['warmup_steps']) if contrast else 1.)
-        indices=sampler.batch(step)
-        if a.smoke:
+        indices=sampler.full_mi_batch(step) if contrast else sampler.batch(step)
+        if a.smoke and contrast:
+            indices=sampler.full_mi_batch(sampler.mi_steps_per_epoch)
+        elif a.smoke:
             indices=sum([sorted([i for i,r in enumerate(train) if r['task']==t],key=lambda i:train[i]['token_length'],reverse=True)[:n] for t,n in enumerate([32,16,16])],[])
         rr=[train[i] for i in indices[rank::world]];stats=torch.zeros(3,device='cuda');taskloss={}
         if contrast:
@@ -153,7 +155,7 @@ def main():
                 records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step);loss=F.cross_entropy(z,y,reduction='sum');(loss*world/64).backward();stats[0]+=loss.detach();stats[1]+=(z.argmax(-1)==y).sum();stats[2]+=len(records)
         average_gradients(active,world);grad=torch.nn.utils.clip_grad_norm_(active,1.);assert torch.isfinite(grad);opt.step();dist.all_reduce(stats)
         if rank==0:
-            item=dict(step=step,steps=total,loss=float(stats[0]/stats[2]),train_accuracy=float(stats[1]/stats[2]),task_contrast_losses=taskloss,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)
+            item=dict(step=step,steps=total,loss=float(stats[0]/stats[2]),train_accuracy=float(stats[1]/stats[2]),task_contrast_losses=taskloss,mi_epoch=(step-1)//sampler.mi_steps_per_epoch+1 if contrast else None,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-began,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)
             log.write(json.dumps(item)+'\n');write_json(a.out/'progress.json',item)
             if step==1 or step%10==0:print('TRAIN',item,flush=True)
         if step==1 or step%c['checkpoint_every']==0 or step==total:

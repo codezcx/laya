@@ -31,3 +31,24 @@ def test_metrics_keep_task_and_trial_denominators():
     m=summarise(rows);assert m['selection_score']==1.
     assert m['datasets']['d2']['window']['n']==28
     assert m['datasets']['d2']['trial']['n']==7
+
+def test_full_mi_epoch_never_drops_or_duplicates_trials():
+    rows=[]
+    for t,task in enumerate(TASKS):
+        for i in range(73 if t==0 else 28):
+            rows.append(dict(task=t,label=i%len(task['classes']),dataset=f'd{t}',parent_id=f'{t}-{i}'))
+    s=Sampler(rows);assert s.mi_steps_per_epoch==3
+    epochs=[]
+    for epoch in range(2):
+        seen=[]
+        for offset in range(3):
+            batch=s.full_mi_batch(epoch*3+offset+1)
+            mi=[i for i in batch if rows[i]['task']==0];seen+=mi
+            assert len(mi)==(9 if offset==2 else 32)
+            for rank in range(2):assert {rows[i]['task'] for i in batch[rank::2]}=={0,1,2}
+            assert sum(rows[i]['task']==1 for i in batch)==16
+            assert sum(rows[i]['task']==2 for i in batch)==16
+        assert sorted(seen)==list(range(73))
+        epochs.append(seen)
+    assert epochs[0]!=epochs[1]
+    assert Sampler(rows).full_mi_batch(1)==s.full_mi_batch(1)

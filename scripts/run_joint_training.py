@@ -8,9 +8,13 @@ OUT=ROOT/'artifacts/mi_emotion'
 OUT.mkdir(exist_ok=True,parents=True)
 parser=argparse.ArgumentParser()
 parser.add_argument('--jev-only',action='store_true')
+parser.add_argument('--contrast-only',action='store_true')
+parser.add_argument('--contrast-output',default='contrast')
+parser.add_argument('--contrast-smoke-output',default='contrast_smoke')
 parser.add_argument('--jev-output',default='jev')
 parser.add_argument('--jev-smoke-output',default='jev_smoke')
 args=parser.parse_args()
+assert not (args.jev_only and args.contrast_only)
 status={}
 def write(**values):
     status.update(values);temp=OUT/'pipeline.tmp';temp.write_text(json.dumps(status,indent=2));temp.replace(OUT/'pipeline.json')
@@ -34,6 +38,7 @@ try:
         if time.monotonic()>deadline:raise TimeoutError('Dataset preparation did not finish')
         time.sleep(5)
     checks=[('contrast_smoke','contrast',None),(args.jev_smoke_output,'jev',OUT/'contrast_smoke/best.pt')]
+    if args.contrast_only:checks=[(args.contrast_smoke_output,'contrast',None)]
     if args.jev_only:
         assert (OUT/'contrast/complete.json').exists() and (OUT/'contrast/best.pt').exists()
         checks=[(args.jev_smoke_output,'jev',OUT/'contrast/best.pt')]
@@ -46,8 +51,8 @@ try:
                 current=json.loads((ROOT/'configs/mi_emotion_train.json').read_text())
                 for key in ['jev_microbatch','jev_eval_microbatch']:assert cfg[key]==current[key]
         else:run(stage,name,checkpoint,smoke=True)
-    if not args.jev_only:run('contrast','contrast')
-    run('jev',args.jev_output,OUT/'contrast/best.pt')
+    if not args.jev_only:run('contrast',args.contrast_output)
+    if not args.contrast_only:run('jev',args.jev_output,OUT/args.contrast_output/'best.pt')
     write(status='complete',finished=time.time())
 except Exception as exc:
     write(status='failed',error=repr(exc),finished=time.time());raise

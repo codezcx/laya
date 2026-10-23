@@ -1,6 +1,5 @@
 {
   "seed": 42,
-  "contrast_steps": 800,
   "jev_steps": 1600,
   "validation_every": 200,
   "global_batch": 64,
@@ -21,5 +20,6 @@
     0.25
   ],
   "jev_eval_microbatch": 8,
-  "checkpoint_every": 50
+  "checkpoint_every": 50,
+  "contrast_epochs": 1
 }

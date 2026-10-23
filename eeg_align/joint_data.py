@@ -116,6 +116,9 @@ def raw(r):
 class Sampler:
     def __init__(self,rows):
         self.rows=rows;self.groups={}
+        self.mi_indices=np.array([i for i,r in enumerate(rows) if r['task']==0],dtype=np.int64)
+        self.mi_steps_per_epoch=math.ceil(len(self.mi_indices)/32)
+        self._mi_epoch=None;self._mi_order=None
         for t in range(3):
             classes={}
             for label in range(len(TASKS[t]['classes'])):
@@ -125,6 +128,18 @@ class Sampler:
                 classes[label]={d:list(parents.values()) for d,parents in ds.items()}
                 assert classes[label]
             self.groups[t]=classes
+    def full_mi_batch(self,step,seed=42):
+        """One-based steps: every MI trial exactly once per shuffled epoch."""
+        if step<1:raise ValueError('Steps are one-based')
+        epoch,offset=divmod(step-1,self.mi_steps_per_epoch)
+        key=(seed,epoch)
+        if self._mi_epoch!=key:
+            self._mi_order=np.random.default_rng(np.random.SeedSequence([seed,epoch,104729])).permutation(self.mi_indices)
+            self._mi_epoch=key
+        mi=self._mi_order[offset*32:(offset+1)*32].tolist()
+        # Keep the last short MI batch: no drop_last and no repeated MI padding.
+        return mi+self.batch(step,seed)[32:]
+
     def batch(self,step,seed=42):
         rng=np.random.default_rng(np.random.SeedSequence([seed,step]));result=[]
         for t,n in enumerate([32,16,16]):

@@ -1,4 +1,10 @@
-# Current joint MI/emotion run
+# Current contrast-only rerun
+
+Prior joint-training jobs were stopped by the user. Current experiment: one full shuffled MI epoch,49,193 unique MI trials in1,538steps, plus SEED/SEED-VII sampling. Initialized from original REVE, not the failed joint encoder or prior MI-only encoder. No automatic JEV continuation. Metrics: `artifacts/mi_emotion/contrast_full_mi/metrics.jsonl`; coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. No new validation result yet.
+
+Previous joint contrast best (step800): MI macro dataset BA53.12%, SEED trial accuracy57.78%, SEED-VII trial accuracy26.25%. Previous MI-only contrast macro dataset BA76.53%. These distinguish stage1 quality from downstream JEV performance. Historical artifact directories are preserved.
+
+# Previous joint MI/emotion run
 
 Implementation and protocol: [PROTOCOL.md](PROTOCOL.md). GPU2–3 only. Preparation completed: MI49,193 trials, SEED22,734 windows/405 parent trials, SEED-VII41,844 windows/960 parent trials in training. Validation is fixed and subject-disjoint within each dataset. Both two-GPU smoke checks passed (contrast backward/validation and JEV mixed-choice backward/paired validation); 12 unit/distributed tests passed. Contrast completed800steps. The first JEV run was interrupted by node loss at step173, before any checkpoint was saved. A fresh JEV run using the selected contrast encoder is prepared under `jev_restart`; training microbatch4, validation microbatch8, length-sorted validation. Smoke metrics are execution checks, not model-quality results.
 

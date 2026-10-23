@@ -18,13 +18,13 @@ Source-data manifests, prepared float32 trial arrays and splits are ignored unde
 
 Catalog: `configs/mi_emotion_tasks.json`. MI has left/right hand; SEED has negative/neutral/positive valence; SEED-VII has happy/neutral/disgust/sad/anger/fear/surprise. Coarse valence and discrete emotion are distinct task-conditioned targets. Input texts contain task and class, not source dataset, subject, session or true-answer hints.
 
-Global batch64 has MI32, SEED16, SEED-VII16. On two GPUs each rank sees16/8/8. Classes are balanced within each task over steps. Within a class choose source dataset uniformly, parent trial uniformly, then a window uniformly. Sampling is reproducible with replacement, independently of answer-option permutation. Accordingly a fixed number of steps is not a full shuffled epoch. One 800-step contrast run draws25,600 MI and12,800 windows from each emotion task; these are draws, not unique examples.
+Current contrast training traverses every MI training trial once per shuffled epoch:49,193 unique trials,32 per global batch,1,538steps. The final batch retains9 MI trials without duplication or dropping. Each batch additionally samples SEED16 and SEED-VII16. JEV retains its separate task-balanced sampling until explicitly restarted. Full batches distribute16/8/8 per GPU; the final partial batch distributes the nine MI trials across both ranks. MI sampling is a uniform shuffled permutation of the full manifest, preserving its actual dataset proportions. Emotion sampling remains class-balanced, parent-trial-uniform then window-uniform with replacement. One complete contrast epoch draws49,193 distinct MI trials and24,608 windows from each emotion task. Seeds fix the permutation and emotional samples.
 
 ## Stage 1
 
 Original REVE-base with all active encoder parameters trained; unused attention-pooling query frozen. Mean all real channel/time tokens → Linear512→1024 → L2 normalization. Freeze local Qwen3-Embedding-0.6B and embed all12 task+class texts. Symmetric multi-positive InfoNCE uses same(task,class) positives, independently within each task; repeated texts are never negatives. Weighted loss=0.5MI+0.25SEED+0.25SEED-VII. Differentiable global gather then one parameter-gradient average across ranks.
 
-800 steps, global64, microbatch4, AdamW encoder1e-5/head1e-3,80-step linear warmup, temperature0.07, weight decay0.01, gradient clip1. Validate every200steps and at completion. Report each dataset's accuracy and BA, then select by equal macro average of the three task scores (MI score itself averages its nine datasets). Emotion selection uses parent-trial BA. The pretrained head is used only for contrastive classification and discarded before JEV.
+One complete MI epoch (1,538steps), global batch up to64 (last41), microbatch4, AdamW encoder1e-5/head1e-3,80-step linear warmup, temperature0.07, weight decay0.01, gradient clip1. Validate every200steps and at completion. Report each dataset's accuracy and BA, then select by equal macro average of the three task scores (MI score itself averages its nine datasets). Emotion selection uses parent-trial BA. The pretrained head is used only for contrastive classification and discarded before JEV.
 
 ## Stage 2
 
@@ -43,3 +43,7 @@ Previous MI-only CE/contrast controls were stopped by the user. Their implementa
 The first JEV run stopped at logged step173 when the node was lost; it had no saved production JEV checkpoint. Preserve that run under `artifacts/mi_emotion/jev`. The replacement run is `artifacts/mi_emotion/jev_restart`, initialized from the completed contrast best encoder and original JEV weights, starting at step1. Training global batch64 and task quotas are unchanged. Save `last.pt` (weights plus optimizer) after step1 and every50steps, before scheduled validation. Full validation remains every200steps; `best.pt` updates after validation improvement. Two-GPU maximum-length checks test training microbatch4 and validation microbatch8 before launch.
 
 Restart command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --jev-only --jev-output jev_restart --jev-smoke-output jev_batch_check`. This skips the already completed contrast stage and refuses to overwrite outputs.
+
+## Current contrast-only rerun
+
+The user stopped the prior job. Restart contrast from original REVE and a fresh projection, preserving text templates, task loss weights and optimizer settings. Do not automatically start JEV. Command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --contrast-only --contrast-output contrast_full_mi --contrast-smoke-output contrast_full_mi_smoke`. Output: `artifacts/mi_emotion/contrast_full_mi/`. Coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. The distributed smoke tests the final41-sample batch.
