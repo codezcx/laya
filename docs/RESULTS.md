@@ -1,6 +1,16 @@
 # Frozen MI+SEED encoder probe diagnostic
 
-Current job extracts frozen step1538 REVE features from `contrast_mi_seed/last.pt` and fits independent512-dimensional linear MI/SEED classifiers after discarding the contrast projection. It does not yet train separate contrastive projection heads. Output: `artifacts/mi_emotion/probe_mi_seed_encoder/`; final report `results.json`. Train/validation splits unchanged.
+Completed frozen step1538 REVE probes from `contrast_mi_seed/last.pt`, discarding the contrast projection and fitting independent 512-dimensional linear MI/SEED classifiers. This tests the existing shared-head encoder, not separate contrastive heads. Train/validation splits unchanged; no test-set access.
+
+| Metric | Train | Validation |
+| --- | ---: | ---: |
+| MI dataset macro balanced accuracy | 61.82% | 61.35% |
+| SEED window accuracy | 91.55% | 56.57% |
+| SEED parent-trial accuracy | 100.00% | 57.04% |
+
+Both probes converged (MI 915, SEED 642 L-BFGS iterations). Same-encoder text matching gave MI BA 55.87% and SEED trial accuracy 55.56%; linear readout improves these by 5.48 and 1.48 percentage points. MI remains well below the matched MI-only contrast result (81.90%); even its training score is low. SEED has a substantial train/validation gap. These findings concern global mean pooled features and fixed linear readouts, not proof that all encoder token information is absent. Training SEED trials aggregate all available windows, while validation uses eight windows per trial; the window metrics also show the gap.
+
+Output: `artifacts/mi_emotion/probe_mi_seed_encoder/results.json`. Feature extraction succeeded, but the initial fit crashed inside the SciPy OpenBLAS SKYLAKEX kernel. Reused the identical feature cache with `--fit-only`, one BLAS thread and `OPENBLAS_CORETYPE=Haswell`; fitting hyperparameters unchanged. Recovery completed in 47.14 seconds (fitting only, excluding feature extraction).
 
 # Active MI + SEED three-class matched control
 

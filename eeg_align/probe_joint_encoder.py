@@ -30,8 +30,41 @@ def metrics(rows,probabilities):
     return dict(datasets=results,macro_dataset_balanced_accuracy=float(np.mean([v['trial']['balanced_accuracy'] for v in results.values()])))
 
 
+def fit_cached(out,world,rows,started):
+    arrays={}
+    for split,rr in rows.items():
+        x=np.empty((len(rr),512),np.float32);seen=[]
+        for shard in range(world):
+            d=np.load(out/f'{split}_rank{shard}.npz');x[d['indices']]=d['features'];seen.extend(d['indices'].tolist())
+        assert sorted(seen)==list(range(len(rr)));arrays[split]=x
+    results={}
+    with threadpool_limits(limits=1):
+        for task,name,k in [(0,'MI',2),(1,'SEED',3)]:
+            ix={s:[i for i,r in enumerate(rr) if r['task']==task] for s,rr in rows.items()}
+            rr={s:[rows[s][i] for i in ii] for s,ii in ix.items()}
+            x={s:arrays[s][ii] for s,ii in ix.items()};y=np.array([r['label'] for r in rr['train']])
+            assert set(y)==set(range(k));scaler=StandardScaler();xtrain=scaler.fit_transform(x['train']);xval=scaler.transform(x['validation'])
+            classifier=LogisticRegression(C=1.,max_iter=2000,tol=1e-5,solver='lbfgs',random_state=42)
+            write_json(out/'progress.json',dict(stage='fit_probe',task=name))
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always',ConvergenceWarning);classifier.fit(xtrain,y)
+            converged=not any(issubclass(w.category,ConvergenceWarning) for w in caught)
+            result=dict(converged=converged,iterations=classifier.n_iter_.tolist(),train=metrics(rr['train'],classifier.predict_proba(xtrain)),validation=metrics(rr['validation'],classifier.predict_proba(xval)))
+            results[name]=result;write_json(out/f'{name}_metrics.json',result)
+            np.savez(out/f'{name}_linear.npz',weight=classifier.coef_,bias=classifier.intercept_,classes=classifier.classes_,feature_mean=scaler.mean_,feature_scale=scaler.scale_)
+            print('PROBE',name,json.dumps(result),flush=True)
+    write_json(out/'results.json',results);write_json(out/'complete.json',dict(seconds=time.monotonic()-started,converged=all(r['converged'] for r in results.values())))
+
+
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--checkpoint',type=Path);p.add_argument('--out',type=Path,required=True);p.add_argument('--fit-only',action='store_true');a=p.parse_args()
+    if a.fit_only:
+        config=json.loads((a.out/'config.json').read_text());assert config['manifest_sha256']==digest(ROOT/'complete.json')
+        assert not (a.out/'complete.json').exists()
+        rows={s:[r for r in read_rows(s) if r['task'] in (0,1)] for s in ['train','validation']}
+        shards=sorted(a.out.glob('train_rank*.npz'));assert len(shards)==2
+        fit_cached(a.out,len(shards),rows,time.monotonic());return
+    if a.checkpoint is None:raise ValueError('Checkpoint required for extraction')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
     torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     if rank==0:a.out.mkdir(parents=True,exist_ok=False)
@@ -61,30 +94,7 @@ def main():
                     write_json(a.out/f'progress_rank{rank}.json',dict(stage='encode',split=split,done=min(start+64,len(mine)),total=len(mine),seconds=time.monotonic()-started))
             np.savez(a.out/f'{split}_rank{rank}.npz',indices=np.array(mine),features=features)
     del encoder;torch.cuda.empty_cache();dist.barrier()
-    if rank==0:
-        arrays={}
-        for split,rr in rows.items():
-            x=np.empty((len(rr),512),np.float32);seen=[]
-            for shard in range(world):
-                d=np.load(a.out/f'{split}_rank{shard}.npz');x[d['indices']]=d['features'];seen.extend(d['indices'].tolist())
-            assert sorted(seen)==list(range(len(rr)));arrays[split]=x
-        results={}
-        with threadpool_limits(limits=8):
-            for task,name,k in [(0,'MI',2),(1,'SEED',3)]:
-                ix={s:[i for i,r in enumerate(rr) if r['task']==task] for s,rr in rows.items()}
-                rr={s:[rows[s][i] for i in ii] for s,ii in ix.items()}
-                x={s:arrays[s][ii] for s,ii in ix.items()};y=np.array([r['label'] for r in rr['train']])
-                assert set(y)==set(range(k));scaler=StandardScaler();xtrain=scaler.fit_transform(x['train']);xval=scaler.transform(x['validation'])
-                classifier=LogisticRegression(C=1.,max_iter=2000,tol=1e-5,solver='lbfgs',random_state=42)
-                write_json(a.out/'progress.json',dict(stage='fit_probe',task=name))
-                with warnings.catch_warnings(record=True) as caught:
-                    warnings.simplefilter('always',ConvergenceWarning);classifier.fit(xtrain,y)
-                converged=not any(issubclass(w.category,ConvergenceWarning) for w in caught)
-                result=dict(converged=converged,iterations=classifier.n_iter_.tolist(),train=metrics(rr['train'],classifier.predict_proba(xtrain)),validation=metrics(rr['validation'],classifier.predict_proba(xval)))
-                results[name]=result;write_json(a.out/f'{name}_metrics.json',result)
-                np.savez(a.out/f'{name}_linear.npz',weight=classifier.coef_,bias=classifier.intercept_,classes=classifier.classes_,feature_mean=scaler.mean_,feature_scale=scaler.scale_)
-                print('PROBE',name,json.dumps(result),flush=True)
-        write_json(a.out/'results.json',results);write_json(a.out/'complete.json',dict(seconds=time.monotonic()-started,converged=all(r['converged'] for r in results.values())))
+    if rank==0:fit_cached(a.out,world,rows,started)
     dist.barrier();dist.destroy_process_group()
 
 if __name__=='__main__':main()
