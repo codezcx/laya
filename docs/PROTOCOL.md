@@ -51,3 +51,9 @@ The user stopped the prior job. Restart contrast from original REVE and a fresh 
 ## Matched control: disable emotion supervision only
 
 Run `scripts/run_joint_training.py --contrast-only --mi-loss-only --contrast-output contrast_mi_loss_only --contrast-smoke-output contrast_mi_loss_only_smoke`. Same original REVE initialization, projection seed,12 texts, full MI permutation, emotion draws, all forward computations,1,538steps, optimizer and validation as `contrast_full_mi`. Compute all three diagnostic task losses, but backpropagate only `0.5 * MI_loss`; do not renormalize its weight to1.0. Keeping emotion forward passes also preserves RNG consumption. No emotion supervision, no JEV continuation. Compare final step1538 directly to the matched joint run, plus the MI validation trajectory. Overall training accuracy includes the unsupervised emotion examples and is not an MI-only accuracy. Existing aggregate checkpoint selection remains unchanged to keep the control narrowly matched.
+
+## Matched control: MI plus SEED three-class supervision
+
+Current requested experiment restores only SEED valence loss: `0.5 * MI_loss + 0.25 * SEED_loss`, with no renormalization and no SEED-VII gradient contribution. Same original REVE initialization, text prototypes, full MI epoch and batches as the prior MI-loss-only control. SEED-VII forward computations and diagnostic validation remain to preserve RNG consumption and comparability; they do not supervise updates. Compare final step1538 and MI/SEED trajectories rather than interpreting the unsupervised seven-class task as a training objective. No JEV continuation.
+
+Command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --contrast-only --mi-seed-loss-only --contrast-output contrast_mi_seed --contrast-smoke-output contrast_mi_seed_smoke`. Metrics: `artifacts/mi_emotion/contrast_mi_seed/metrics.jsonl`.

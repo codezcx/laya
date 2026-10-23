@@ -55,3 +55,16 @@ def test_mi_only_control_preserves_half_weight_and_zero_emotion_gradients():
     loss.backward()
     assert z.grad[:4].abs().sum()>0
     assert z.grad[4:].abs().sum()==0
+
+def test_mi_seed_control_preserves_weights_and_excludes_seven_class_gradients():
+    from eeg_align.semantic_alignment import task_contrastive_loss
+    torch.manual_seed(4)
+    z=torch.randn(12,8,requires_grad=True);text=torch.randn(7,8)
+    tasks=torch.tensor([0]*4+[1]*4+[2]*4);labels=torch.tensor([0,1,0,1,2,3,2,3,4,5,6,4])
+    _,parts=task_contrastive_loss(z,labels,tasks,text,{0:.5,1:.25,2:.25},distributed=False)
+    loss=.5*parts[0]+.25*parts[1]
+    reference=.5*multipositive_loss(z[:4],labels[:4],text,distributed=False)+.25*multipositive_loss(z[4:8],labels[4:8],text,distributed=False)
+    torch.testing.assert_close(loss,reference)
+    loss.backward()
+    assert z.grad[:4].abs().sum()>0 and z.grad[4:8].abs().sum()>0
+    assert z.grad[8:].abs().sum()==0
