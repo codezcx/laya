@@ -1,6 +1,6 @@
 # Current contrast-only rerun
 
-Prior joint-training jobs were stopped by the user. Current experiment: one full shuffled MI epoch,49,193 unique MI trials in1,538steps, plus SEED/SEED-VII sampling. Initialized from original REVE, not the failed joint encoder or prior MI-only encoder. No automatic JEV continuation. Metrics: `artifacts/mi_emotion/contrast_full_mi/metrics.jsonl`; coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. No new validation result yet.
+Prior joint-training jobs were stopped by the user. Current experiment: one full shuffled MI epoch,49,193 unique MI trials in1,538steps, plus SEED/SEED-VII sampling. Initialized from original REVE, not the failed joint encoder or prior MI-only encoder. No automatic JEV continuation. Metrics: `artifacts/mi_emotion/contrast_full_mi/metrics.jsonl`; coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. Completed1,538steps in1,444.81seconds; best checkpoint is the final step1538. MI macro dataset BA54.38%, SEED trial accuracy62.22%, SEED-VII trial accuracy25.63% (BA26.04%). No JEV continuation was started.
 
 Previous joint contrast best (step800): MI macro dataset BA53.12%, SEED trial accuracy57.78%, SEED-VII trial accuracy26.25%. Previous MI-only contrast macro dataset BA76.53%. These distinguish stage1 quality from downstream JEV performance. Historical artifact directories are preserved.
 
@@ -17,3 +17,15 @@ Implementation and protocol: [PROTOCOL.md](PROTOCOL.md). GPU2–3 only. Preparat
 Previous MI-only experiments and results remain in Git and their original ignored artifact directories. They are not joint-task results. The prior two arms stopped at logged step1200; saved validation ended at1000. At step600, normal-option source validation accuracy was74.55% for CE preconditioning and77.19% for text contrast preconditioning. These are subject-disjoint source-validation accuracies, not training or unseen-dataset test results.
 
 Node-restart checks passed: nine related tests; two-rank longest-input forward/backward with training microbatch4 and paired validation microbatch8. Rank0 peak allocated52.85GiB/reserved56.96GiB across the complete check. Recovery checkpoint saved before validation. Production restart uses GPUs2–3, output `artifacts/mi_emotion/jev_restart/`.
+
+## Diagnosis after full MI coverage
+
+Full coverage did not restore the previous MI-only macro BA76.53%. Final MI dataset accuracies:2a60.24%, Chang54.79%, Cho54.30%, Dreyer54.98%, Kumar52.31%, OpenBMI57.23%, Physionet52.97%, Weibo51.00%, Zhou51.41%.
+
+The last100 full batches have mean MI loss3.46497, essentially the uniform-score baseline ln(32)=3.46574. Thus the training objective itself is barely improved, not just held-out classification. SEED/SEED-VII losses fall to2.04243/2.22725 from the uniform ln(16)=2.77259 baseline. Loss values cannot be compared directly across different task batch sizes.
+
+Saved text prototypes: MI left/right cosine0.98509 (old successful MI-only experiment0.98684); SEED distinct-class average0.91031; SEED-VII0.87435. High MI text similarity may make its signal weaker, but it existed in the successful control and cannot alone explain failure.
+
+Read-only gradient probe: `scripts/diagnose_joint_gradients.py`, final checkpoint, three fixed train batches (sampling steps200/800/1200), train mode, complete encoder plus shared projection gradients, no optimizer updates. Results in `artifacts/mi_emotion/diagnosis/gradients.json`; compute norm/cosine in float64 to avoid long-vector float32 reduction error. Weighted MI gradient norm is about0.4–0.5, while each emotion task is approximately1.8–8.6. This supports investigating task-gradient scale imbalance despite nominal50/25/25 loss weights. MI/emotion cosine values are near zero or mildly positive/negative, not consistently strongly opposing. These are final-checkpoint diagnostics on three batches, not causal evidence or a direct measurement of AdamW parameter-update shares.
+
+Next discriminating controls: run MI-only with the current text/sampler/implementation to isolate regressions; if it recovers, vary only task-loss scaling in the joint run and monitor per-task gradients/validation. Do not start another long JEV stage on the current encoder merely because its aggregate score improved.
