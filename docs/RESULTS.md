@@ -1,6 +1,6 @@
 # Current experiment: separate MI/SEED contrast heads
 
-Launched on GPUs2–3 after six unit/distributed tests and the two-rank final-batch/validation smoke passed. Production step1 completed; original REVE initialization. Production metrics: `artifacts/mi_emotion/contrast_mi_seed_split/metrics.jsonl`. Shared-head reference: final MI BA55.87%, SEED trial accuracy55.56%. No new quality result yet. See [PROTOCOL.md](PROTOCOL.md) for routing and controlled settings.
+Launched on GPUs2–3 after six unit/distributed tests and the two-rank final-batch/validation smoke passed. Production step1 completed; original REVE initialization. Production metrics: `artifacts/mi_emotion/contrast_mi_seed_split/metrics.jsonl`. Shared-head reference: final MI BA55.87%, SEED trial accuracy55.56%. Completed 1,538 steps in 1,442.52 seconds (24.04 minutes). Final validation MI dataset macro BA52.9969%, SEED trial accuracy60.00%. Relative to shared-head final results: MI -2.87 percentage points, SEED +4.44 points. MI peaked at53.45% at step1200; SEED peaked at61.48% at step600. Separate projections did not restore MI under this matched recipe; this does not establish the specific shared-encoder optimization mechanism. No frozen-encoder probe has yet been run for this split-head checkpoint, and no JEV continuation was started. See [PROTOCOL.md](PROTOCOL.md) for routing and controlled settings.
 
 # Frozen MI+SEED encoder probe diagnostic
 
