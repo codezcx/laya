@@ -1,3 +1,7 @@
+# Frozen MI+SEED encoder probe diagnostic
+
+Current job extracts frozen step1538 REVE features from `contrast_mi_seed/last.pt` and fits independent512-dimensional linear MI/SEED classifiers after discarding the contrast projection. It does not yet train separate contrastive projection heads. Output: `artifacts/mi_emotion/probe_mi_seed_encoder/`; final report `results.json`. Train/validation splits unchanged.
+
 # Active MI + SEED three-class matched control
 
 Only MI and SEED valence supervise the current contrast run; SEED-VII loss is disabled. Weights0.5/0.25, original REVE,1,538steps and complete49,193-trial MI coverage. Metrics: `artifacts/mi_emotion/contrast_mi_seed/metrics.jsonl`. Completed1,538steps in1,354.59seconds. Final MI macro dataset BA55.87%, SEED trial accuracy55.56%. Matched final MI BA references: MI-only81.90%, all-three-task54.38%. Thus adding only SEED supervision also reduces MI performance under this recipe (26.03 percentage points relative to MI-only); the seven-class task is not necessary for the failure. This does not establish that all multitask architectures are incompatible. The inherited three-task selector chose step1200 (MI BA53.63%, SEED accuracy59.26%); final-step comparisons use validation_1538.json/last.pt. No JEV continuation was started.
