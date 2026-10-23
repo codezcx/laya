@@ -1,6 +1,6 @@
 # Active MI-loss-only matched control
 
-Current run: `artifacts/mi_emotion/contrast_mi_loss_only/metrics.jsonl`. Disable only emotion losses; MI weight remains0.5, full49,193-trial epoch, original REVE and identical initialization/text/sampling/schedule. The full joint baseline remains `contrast_full_mi`. No new control validation results at launch.
+Current run: `artifacts/mi_emotion/contrast_mi_loss_only/metrics.jsonl`. Disable only emotion losses; MI weight remains0.5, full49,193-trial epoch, original REVE and identical initialization/text/sampling/schedule. The full joint baseline remains `contrast_full_mi`. Completed1,538steps. Final MI macro dataset BA81.90%, versus54.38% in the matched joint run (+27.52 percentage points). MI trajectory: step40066.22%,60075.76%,80076.65%,100080.07%,120080.46%,140080.37%,153881.90%. Final SEED trial accuracy36.30%, SEED-VII12.81% (emotion supervision disabled). This matched seed/run supports a detrimental effect of emotion supervision under the current shared model/objective; it does not isolate gradient magnitude as the sole mechanism. The inherited aggregate selector chose step1400 for best.pt; final step1538 is in last.pt and has the highest observed MI BA. No JEV continuation.
 
 # Current contrast-only rerun
 
