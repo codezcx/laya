@@ -64,3 +64,10 @@ Entry `python -m eeg_align.probe_joint_encoder --checkpoint artifacts/mi_emotion
 
 
 Cached-fit recovery: `OPENBLAS_CORETYPE=Haswell OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 laya/.venv-eeg/bin/python -m eeg_align.probe_joint_encoder --fit-only --out artifacts/mi_emotion/probe_mi_seed_encoder`. This validates the manifest hash and complete index coverage, reuses extracted features, and leaves optimizer/scaling settings unchanged. `complete.json.seconds` for this mode measures fitting only. Completed outputs are not overwritten.
+
+
+## Current experiment: independent MI and SEED contrast heads
+
+Shared trainable REVE, separate Linear(512,1024) MI and SEED projections, copied from the identical seeded shared-head initialization without consuming extra RNG. Route by dataset task during training and diagnostic evaluation. Original REVE initialization, complete 49,193 MI trials, 1,538 steps, text prototypes, splits, sampling, learning rates and loss 0.5*MI + 0.25*SEED remain matched to contrast_mi_seed. SEED-VII keeps zero-loss forward passes and uses the SEED head for diagnostic scores only; its scores do not indicate supervised performance. Inherited three-task best-checkpoint selector is unchanged; compare final step1538, not best.pt. No automatic JEV continuation.
+
+Command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --contrast-only --mi-seed-loss-only --split-contrast-heads --contrast-output contrast_mi_seed_split --contrast-smoke-output contrast_mi_seed_split_smoke`. Two-rank smoke checks the unequal final batch and validation before production. Split-head routing/independent gradients and identical initialization are unit-tested.

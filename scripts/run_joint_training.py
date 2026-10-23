@@ -11,6 +11,7 @@ parser.add_argument('--jev-only',action='store_true')
 parser.add_argument('--contrast-only',action='store_true')
 parser.add_argument('--mi-loss-only',action='store_true')
 parser.add_argument('--mi-seed-loss-only',action='store_true')
+parser.add_argument('--split-contrast-heads',action='store_true')
 parser.add_argument('--contrast-output',default='contrast')
 parser.add_argument('--contrast-smoke-output',default='contrast_smoke')
 parser.add_argument('--jev-output',default='jev')
@@ -19,6 +20,7 @@ args=parser.parse_args()
 assert not (args.jev_only and args.contrast_only)
 assert not (args.mi_loss_only and args.mi_seed_loss_only)
 assert not (args.mi_loss_only or args.mi_seed_loss_only) or args.contrast_only
+assert not args.split_contrast_heads or (args.contrast_only and args.mi_seed_loss_only)
 status={}
 def write(**values):
     status.update(values);temp=OUT/'pipeline.tmp';temp.write_text(json.dumps(status,indent=2));temp.replace(OUT/'pipeline.json')
@@ -30,6 +32,7 @@ def run(stage,name,checkpoint=None,smoke=False):
     if smoke:cmd+=['--smoke']
     if stage=='contrast' and args.mi_loss_only:cmd+=['--mi-loss-only']
     if stage=='contrast' and args.mi_seed_loss_only:cmd+=['--mi-seed-loss-only']
+    if stage=='contrast' and args.split_contrast_heads:cmd+=['--split-contrast-heads']
     env=dict(os.environ,CUDA_VISIBLE_DEVICES='2,3',OMP_NUM_THREADS='3',TOKENIZERS_PARALLELISM='false',PYTHONPATH=str(ROOT))
     with (OUT/f'{name}.log').open('x') as log:
         p=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,env=env)
@@ -56,6 +59,7 @@ try:
             if stage=='contrast':
                 assert cfg.get('mi_loss_only',False)==args.mi_loss_only
                 assert cfg.get('mi_seed_loss_only',False)==args.mi_seed_loss_only
+                assert cfg.get('split_contrast_heads',False)==args.split_contrast_heads
             if stage=='jev':
                 current=json.loads((ROOT/'configs/mi_emotion_train.json').read_text())
                 for key in ['jev_microbatch','jev_eval_microbatch']:assert cfg[key]==current[key]

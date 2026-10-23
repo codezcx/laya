@@ -15,6 +15,7 @@ from .distributed import average_gradients,atomic_save
 from .mi_training_data import digest,write_json
 from .jev import load_jev,JEVBridge
 from .task_options import make_question
+from .contrast_heads import SplitContrastHeads
 
 
 def summarise(pred):
@@ -40,9 +41,10 @@ def summarise(pred):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');p.add_argument('--mi-loss-only',action='store_true');p.add_argument('--mi-seed-loss-only',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');p.add_argument('--mi-loss-only',action='store_true');p.add_argument('--mi-seed-loss-only',action='store_true');p.add_argument('--split-contrast-heads',action='store_true');a=p.parse_args()
     if a.mi_loss_only and a.mi_seed_loss_only:raise ValueError('Choose one loss control')
     if (a.mi_loss_only or a.mi_seed_loss_only) and a.stage!='contrast':raise ValueError('Loss controls are contrast-only')
+    if a.split_contrast_heads and not (a.stage=='contrast' and a.mi_seed_loss_only):raise ValueError('Split heads require MI+SEED contrast control')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==2
     torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     c=json.loads(Path('configs/mi_emotion_train.json').read_text());torch.manual_seed(c['seed']);np.random.seed(c['seed'])
@@ -59,16 +61,19 @@ def main():
     model=None;head=None;prototypes=None
     if contrast:
         prototypes=text_prototypes(texts=texts);torch.manual_seed(c['seed']);head=torch.nn.Linear(512,prototypes.shape[1]).cuda()
+        if a.split_contrast_heads:head=SplitContrastHeads(head)
         groups=[dict(params=[p for p in enc.parameters() if p.requires_grad],lr=c['encoder_lr']),dict(params=head.parameters(),lr=c['contrast_head_lr'])]
     else:
         assert a.encoder_checkpoint;enc.eval();torch.manual_seed(c['seed']);text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16)
         groups=[dict(params=model.connector.parameters(),lr=c['jev_learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=c['jev_learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=c['jev_learning_rates'][2])]
     opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']];base_lr=[g['lr'] for g in opt.param_groups]
-    config=dict(c,mi_loss_only=a.mi_loss_only,mi_seed_loss_only=a.mi_seed_loss_only,effective_task_weights=([c['task_weights'][0],0.,0.] if a.mi_loss_only else [c['task_weights'][0],c['task_weights'][1],0.] if a.mi_seed_loss_only else c['task_weights']),mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
+    config=dict(c,split_contrast_heads=a.split_contrast_heads,mi_loss_only=a.mi_loss_only,mi_seed_loss_only=a.mi_seed_loss_only,effective_task_weights=([c['task_weights'][0],0.,0.] if a.mi_loss_only else [c['task_weights'][0],c['task_weights'][1],0.] if a.mi_seed_loss_only else c['task_weights']),mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
     if rank==0:
         write_json(a.out/'config.json',config)
         if contrast:atomic_save(dict(texts=texts,vectors=prototypes.cpu()),a.out/'text_prototypes.pt')
     pool=ThreadPoolExecutor(max_workers=4);cache={};prompt_cache={};began=time.monotonic();best=-1.;log=(a.out/'metrics.jsonl').open('w',buffering=1) if rank==0 else None
+    def project(features,records):
+        return head(features,[r['task'] for r in records]) if a.split_contrast_heads else head(features)
     def batches(rr,micro):
         grouped=defaultdict(list)
         for r,(x,p) in zip(rr,pool.map(raw,rr)):
@@ -115,7 +120,7 @@ def main():
         if contrast:
             for start in range(0,len(rr),64):
                 for x,p,records in batches(rr[start:start+64],c['contrast_microbatch']):
-                    with torch.autocast('cuda',dtype=torch.bfloat16):z=head(enc(x,p).mean((1,2)))
+                    with torch.autocast('cuda',dtype=torch.bfloat16):z=project(enc(x,p).mean((1,2)),records)
                     for h,r in zip(z,records):
                         t=r['task'];lo=OFFSETS[t];k=len(TASKS[t]['classes']);prob=(F.normalize(h.float(),dim=-1)@prototypes[lo:lo+k].T/c['temperature']).softmax(-1).tolist()
                         mine.append({**{key:r[key] for key in ['id','parent_id','task','dataset','subject','label']},'probabilities':prob})
@@ -147,7 +152,7 @@ def main():
         if contrast:
             representations=[];labels=[];tasks=[]
             for x,p,records in batches(rr,c['contrast_microbatch']):
-                with torch.autocast('cuda',dtype=torch.bfloat16):z=head(enc(x,p).mean((1,2))).float()
+                with torch.autocast('cuda',dtype=torch.bfloat16):z=project(enc(x,p).mean((1,2)),records).float()
                 representations.append(z);labels.extend([r['label']+OFFSETS[r['task']] for r in records]);tasks.extend([r['task'] for r in records])
                 for h,r in zip(z.detach(),records):
                     t=r['task'];lo=OFFSETS[t];k=len(TASKS[t]['classes']);pred=(F.normalize(h,dim=-1)@prototypes[lo:lo+k].T).argmax();stats[1]+=int(pred)==r['label']

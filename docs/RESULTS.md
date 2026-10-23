@@ -1,3 +1,7 @@
+# Current experiment: separate MI/SEED contrast heads
+
+Prepared matched control, original REVE initialization; production metrics: `artifacts/mi_emotion/contrast_mi_seed_split/metrics.jsonl`. Shared-head reference: final MI BA55.87%, SEED trial accuracy55.56%. No new quality result yet. See [PROTOCOL.md](PROTOCOL.md) for routing and controlled settings.
+
 # Frozen MI+SEED encoder probe diagnostic
 
 Completed frozen step1538 REVE probes from `contrast_mi_seed/last.pt`, discarding the contrast projection and fitting independent 512-dimensional linear MI/SEED classifiers. This tests the existing shared-head encoder, not separate contrastive heads. Train/validation splits unchanged; no test-set access.
