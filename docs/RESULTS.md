@@ -1,3 +1,7 @@
+# Active MI-loss-only matched control
+
+Current run: `artifacts/mi_emotion/contrast_mi_loss_only/metrics.jsonl`. Disable only emotion losses; MI weight remains0.5, full49,193-trial epoch, original REVE and identical initialization/text/sampling/schedule. The full joint baseline remains `contrast_full_mi`. No new control validation results at launch.
+
 # Current contrast-only rerun
 
 Prior joint-training jobs were stopped by the user. Current experiment: one full shuffled MI epoch,49,193 unique MI trials in1,538steps, plus SEED/SEED-VII sampling. Initialized from original REVE, not the failed joint encoder or prior MI-only encoder. No automatic JEV continuation. Metrics: `artifacts/mi_emotion/contrast_full_mi/metrics.jsonl`; coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. Completed1,538steps in1,444.81seconds; best checkpoint is the final step1538. MI macro dataset BA54.38%, SEED trial accuracy62.22%, SEED-VII trial accuracy25.63% (BA26.04%). No JEV continuation was started.

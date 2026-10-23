@@ -42,3 +42,16 @@ def _distributed_gradient_worker(rank, rendezvous):
 def test_distributed_gradient_matches_global_batch_with_unequal_shards(tmp_path):
     import torch.multiprocessing as mp
     mp.spawn(_distributed_gradient_worker,args=(str(tmp_path/'gloo'),),nprocs=2,join=True)
+
+def test_mi_only_control_preserves_half_weight_and_zero_emotion_gradients():
+    from eeg_align.semantic_alignment import task_contrastive_loss
+    torch.manual_seed(4)
+    z=torch.randn(12,8,requires_grad=True);text=torch.randn(7,8)
+    tasks=torch.tensor([0]*4+[1]*4+[2]*4);labels=torch.tensor([0,1,0,1,2,3,2,3,4,5,6,4])
+    _,parts=task_contrastive_loss(z,labels,tasks,text,{0:.5,1:.25,2:.25},distributed=False)
+    loss=.5*parts[0]
+    reference=.5*multipositive_loss(z[:4],labels[:4],text,distributed=False)
+    torch.testing.assert_close(loss,reference)
+    loss.backward()
+    assert z.grad[:4].abs().sum()>0
+    assert z.grad[4:].abs().sum()==0

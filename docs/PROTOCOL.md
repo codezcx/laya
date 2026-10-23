@@ -47,3 +47,7 @@ Restart command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --jev-
 ## Current contrast-only rerun
 
 The user stopped the prior job. Restart contrast from original REVE and a fresh projection, preserving text templates, task loss weights and optimizer settings. Do not automatically start JEV. Command: `laya/.venv-eeg/bin/python scripts/run_joint_training.py --contrast-only --contrast-output contrast_full_mi --contrast-smoke-output contrast_full_mi_smoke`. Output: `artifacts/mi_emotion/contrast_full_mi/`. Coverage audit: `artifacts/mi_emotion/full_mi_coverage.json`. The distributed smoke tests the final41-sample batch.
+
+## Matched control: disable emotion supervision only
+
+Run `scripts/run_joint_training.py --contrast-only --mi-loss-only --contrast-output contrast_mi_loss_only --contrast-smoke-output contrast_mi_loss_only_smoke`. Same original REVE initialization, projection seed,12 texts, full MI permutation, emotion draws, all forward computations,1,538steps, optimizer and validation as `contrast_full_mi`. Compute all three diagnostic task losses, but backpropagate only `0.5 * MI_loss`; do not renormalize its weight to1.0. Keeping emotion forward passes also preserves RNG consumption. No emotion supervision, no JEV continuation. Compare final step1538 directly to the matched joint run, plus the MI validation trajectory. Overall training accuracy includes the unsupervised emotion examples and is not an MI-only accuracy. Existing aggregate checkpoint selection remains unchanged to keep the control narrowly matched.

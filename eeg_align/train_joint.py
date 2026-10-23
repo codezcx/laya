@@ -40,7 +40,8 @@ def summarise(pred):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--stage',choices=['contrast','jev'],required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--encoder-checkpoint',type=Path);p.add_argument('--smoke',action='store_true');p.add_argument('--mi-loss-only',action='store_true');a=p.parse_args()
+    if a.mi_loss_only and a.stage!='contrast':raise ValueError('MI loss control is contrast-only')
     rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==2
     torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60))
     c=json.loads(Path('configs/mi_emotion_train.json').read_text());torch.manual_seed(c['seed']);np.random.seed(c['seed'])
@@ -62,7 +63,7 @@ def main():
         assert a.encoder_checkpoint;enc.eval();torch.manual_seed(c['seed']);text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16)
         groups=[dict(params=model.connector.parameters(),lr=c['jev_learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=c['jev_learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=c['jev_learning_rates'][2])]
     opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']];base_lr=[g['lr'] for g in opt.param_groups]
-    config=dict(c,mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
+    config=dict(c,mi_loss_only=a.mi_loss_only,effective_task_weights=[c['task_weights'][0],0.,0.] if a.mi_loss_only else c['task_weights'],mi_trials_per_epoch=len(sampler.mi_indices),mi_steps_per_epoch=sampler.mi_steps_per_epoch,stage=a.stage,smoke=a.smoke,manifest_sha256=digest(ROOT/'complete.json'),encoder_checkpoint=str(a.encoder_checkpoint),encoder_sha256=digest(a.encoder_checkpoint) if a.encoder_checkpoint else None,texts=texts,text_model=TEXT_MODEL,encoder=ec,git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in sorted(Path('eeg_align').glob('*.py'))},task_catalog_sha256=digest('configs/mi_emotion_tasks.json'))
     if rank==0:
         write_json(a.out/'config.json',config)
         if contrast:atomic_save(dict(texts=texts,vectors=prototypes.cpu()),a.out/'text_prototypes.pt')
@@ -149,7 +150,9 @@ def main():
                 representations.append(z);labels.extend([r['label']+OFFSETS[r['task']] for r in records]);tasks.extend([r['task'] for r in records])
                 for h,r in zip(z.detach(),records):
                     t=r['task'];lo=OFFSETS[t];k=len(TASKS[t]['classes']);pred=(F.normalize(h,dim=-1)@prototypes[lo:lo+k].T).argmax();stats[1]+=int(pred)==r['label']
-            loss,parts=task_contrastive_loss(torch.cat(representations),torch.tensor(labels,device='cuda'),torch.tensor(tasks,device='cuda'),prototypes,dict(enumerate(c['task_weights'])),c['temperature']);loss.backward();stats[0]=loss.detach()*len(rr);stats[2]=len(rr);taskloss={TASKS[t]['task_id']:float(v.detach()) for t,v in parts.items()};del representations,parts,loss
+            loss,parts=task_contrastive_loss(torch.cat(representations),torch.tensor(labels,device='cuda'),torch.tensor(tasks,device='cuda'),prototypes,dict(enumerate(c['task_weights'])),c['temperature'])
+            if a.mi_loss_only:loss=c['task_weights'][0]*parts[0]
+            loss.backward();stats[0]=loss.detach()*len(rr);stats[2]=len(rr);taskloss={TASKS[t]['task_id']:float(v.detach()) for t,v in parts.items()};del representations,parts,loss
         else:
             for start in range(0,len(rr),c['jev_microbatch']):
                 records=rr[start:start+c['jev_microbatch']];z,y,qq=jev_logits(records,step);loss=F.cross_entropy(z,y,reduction='sum');(loss*world/64).backward();stats[0]+=loss.detach();stats[1]+=(z.argmax(-1)==y).sum();stats[2]+=len(records)
