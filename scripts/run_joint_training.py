@@ -8,6 +8,7 @@ OUT=ROOT/'artifacts/mi_mat'
 OUT.mkdir(exist_ok=True,parents=True)
 parser=argparse.ArgumentParser()
 parser.add_argument('--jev-only',action='store_true')
+parser.add_argument('--encoder-checkpoint',type=Path,help='Explicit REVE checkpoint for JEV-only training')
 parser.add_argument('--contrast-only',action='store_true')
 parser.add_argument('--mi-loss-only',action='store_true')
 parser.add_argument('--mat-loss-only',action='store_true')
@@ -21,6 +22,8 @@ assert not (args.jev_only and args.contrast_only)
 assert not (args.mi_loss_only and args.mat_loss_only)
 assert not (args.mi_loss_only or args.mat_loss_only) or args.contrast_only
 assert not args.split_contrast_heads or args.contrast_only
+assert args.encoder_checkpoint is None or args.jev_only
+jev_checkpoint=args.encoder_checkpoint or OUT/args.contrast_output/'last.pt'
 status={}
 def write(**values):
     status.update(values);temp=OUT/'pipeline.tmp';temp.write_text(json.dumps(status,indent=2));temp.replace(OUT/'pipeline.json')
@@ -49,8 +52,8 @@ try:
     checks=[('contrast_smoke','contrast',None),(args.jev_smoke_output,'jev',OUT/'contrast_smoke/best.pt')]
     if args.contrast_only:checks=[(args.contrast_smoke_output,'contrast',None)]
     if args.jev_only:
-        assert (OUT/'contrast/complete.json').exists() and (OUT/'contrast/best.pt').exists()
-        checks=[(args.jev_smoke_output,'jev',OUT/'contrast/best.pt')]
+        assert jev_checkpoint.is_file()
+        checks=[(args.jev_smoke_output,'jev',jev_checkpoint)]
     for name,stage,checkpoint in checks:
         if (OUT/name/'complete.json').exists():
             assert json.loads((OUT/name/'complete.json').read_text())['smoke']
@@ -61,11 +64,13 @@ try:
                 assert cfg.get('mat_loss_only',False)==args.mat_loss_only
                 assert cfg.get('split_contrast_heads',False)==args.split_contrast_heads
             if stage=='jev':
+                import hashlib
+                assert cfg['encoder_sha256']==hashlib.sha256(checkpoint.read_bytes()).hexdigest()
                 current=json.loads((ROOT/'configs/mi_emotion_train.json').read_text())
                 for key in ['jev_microbatch','jev_eval_microbatch']:assert cfg[key]==current[key]
         else:run(stage,name,checkpoint,smoke=True)
     if not args.jev_only:run('contrast',args.contrast_output)
-    if not args.contrast_only:run('jev',args.jev_output,OUT/args.contrast_output/'best.pt')
+    if not args.contrast_only:run('jev',args.jev_output,jev_checkpoint)
     write(status='complete',finished=time.time())
 except Exception as exc:
     write(status='failed',error=repr(exc),finished=time.time());raise
