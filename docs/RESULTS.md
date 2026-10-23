@@ -1,6 +1,6 @@
 # JEV MI + MAT joint training
 
-Prepared from frozen final contrast REVE(step1538), native JEV LoRA, new connector and trainable decision head. Shuffled binary options; cross-entropy supervision. Metrics: `artifacts/mi_mat/jev/metrics.jsonl`. No JEV validation results yet.
+Launched on GPUs2–3 from frozen final contrast REVE(step1538), native JEV LoRA, new connector and trainable decision head. Shuffled binary options; cross-entropy supervision. Metrics: `artifacts/mi_mat/jev/metrics.jsonl`. Ten related tests passed; two-rank longest-input forward/backward and paired-order smoke validation completed. Production reached step2/1600 with finite loss/gradients; peak allocated54.45GiB. Step1 checkpoint saved. No full JEV validation results yet.
 
 # MI + MAT experiment
 
