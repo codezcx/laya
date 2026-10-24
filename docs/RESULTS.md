@@ -14,3 +14,5 @@ Native baseline completed (task-only instruction, equivalent to upstream level1)
 
 
 Four-GPU restart: two-GPU run stopped at logged step77 by user request, before full step100validation. Artifacts preserved in stopped_2gpu_step77/. Restart fresh on GPUs0–3 with global batch48 and per-GPU microbatch6;600steps. No old training state reused.
+
+Four-rank smoke passed, then fresh production reached step8/600. Steady early step times approximately5.4seconds versus8.1seconds on two GPUs (~1.5x throughput); validation time not yet measured. Peak allocated54.07GiB per rank0; original global batch48 preserved.
