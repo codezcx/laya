@@ -24,6 +24,11 @@ def read_dataset(task):
         if names is None:names=ch
         assert ch==names and int(d['freq'])==200
         signals.append(np.stack([d['eeg'][c] for c in names]));labels.append(options.index(f"{float(d['label']):.2f} Hz"));subjects.append(str(d['subject']))
+    # Exported Nakanishi epochs differ by +/-1 sample (829/830/831).
+    # Retain all observed samples and pad only the missing tail, never crop.
+    lengths=[v.shape[-1] for v in signals];longest=max(lengths)
+    if longest-min(lengths)>2:raise ValueError(f'Unexpected Nakanishi duration range: {min(lengths)}..{longest}')
+    signals=[np.pad(v,((0,0),(0,longest-v.shape[-1]))) for v in signals]
     return np.stack(signals),np.asarray(labels),np.asarray(subjects),names,200.
 
 
@@ -54,7 +59,7 @@ def main():
         features=np.lib.format.open_memmap(dest/'queries.npy',mode='w+',dtype=np.float16,shape=(len(x),tokens,256))
         inst=torch.from_numpy(text[text_info['texts'].index(task['instruction'])]).cuda()[None]
         accepted=np.ones(len(x),dtype=bool);excluded=[]
-        report=dict(iqr_fallback_count=0,dataset=ds,source=task['source'],n=len(x),original_channels=names,excluded_reference_electrodes=[c for c in raw_names if c.upper() in {'A1','A2'}],sampling_rate=fs,tokens=tokens,subjects=splits,split_policy='70/15/15 subject holdout seed42, NOT official LOSO/fewshot; chb01/chb21 grouped',catalog_sha256=digest(ROOT/'configs/benchmark_tasks.json'),checkpoint_sha256=digest(CONFIG['checkpoint']),normalization='Per complete epoch robust clipping and median/IQR; labels and other epochs never used',max_bipolar_residual=0.,missing_lead_instances=0)
+        report=dict(nakanishi_tail_padding='0-2 samples to 831 at 200Hz; all original samples retained' if ds=='Nakanishi2015' else None,iqr_fallback_count=0,dataset=ds,source=task['source'],n=len(x),original_channels=names,excluded_reference_electrodes=[c for c in raw_names if c.upper() in {'A1','A2'}],sampling_rate=fs,tokens=tokens,subjects=splits,split_policy='70/15/15 subject holdout seed42, NOT official LOSO/fewshot; chb01/chb21 grouped',catalog_sha256=digest(ROOT/'configs/benchmark_tasks.json'),checkpoint_sha256=digest(CONFIG['checkpoint']),normalization='Per complete epoch robust clipping and median/IQR; labels and other epochs never used',max_bipolar_residual=0.,missing_lead_instances=0)
         with (dest/'rows.jsonl').open('w') as rows:
             for offset in range(0,len(x),a.batch):
                 end=min(len(x),offset+a.batch);raw=x[offset:end];good=np.isfinite(raw).all(axis=(1,2)) & np.any(raw!=0,axis=(1,2))

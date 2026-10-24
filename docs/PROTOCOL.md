@@ -12,7 +12,7 @@ All cached epochs remain available; no training dataset is capped. Sampling bala
 
 ## Input and text
 
-Use the trusted local benchmark pickles without redefining labels. BNCI2015001 is right hand/feet; both P300 datasets map0=target,1=non-target. Sleep labels are wake,N1,N2,N3,REM. Nakanishi mounted MOABB epochs retain12numeric frequencies in increasing order. SEED here has1-second cached epochs, unlike the older4-second matched control.
+Use the trusted local benchmark pickles without redefining labels. BNCI2015001 is right hand/feet; both P300 datasets map0=target,1=non-target. Sleep labels are wake,N1,N2,N3,REM. Nakanishi mounted MOABB epochs retain12numeric frequencies in increasing order. Their exported lengths are829/830/831samples (20/1770/10epochs); zero-pad0–2tail samples to831, retaining all observed samples. SEED here has1-second cached epochs, unlike the older4-second matched control.
 
 Resample to200Hz; anti-alias filtering occurs in polyphase resampling. Preserve the source preprocessing; do not apply MI-specific bands to all tasks. Robust0.1/99.9percentile clipping and median/IQR scaling are computed separately per complete epoch (standard-deviation fallback if sparse signals have zero IQR, counted in the manifest), preventing cross-sample statistics. This normalization scope differs from upstream LEAF's batch-wide pipeline. Map to the released LEAF65-channel template using its aliases/interpolation; SEED additionally clips[-10,10]. A1/A2 reference electrodes in TUAB are excluded because they are absent from the LEAF template; retain all19scalp channels. Sparse montages entail extensive interpolation and may limit performance.
 
