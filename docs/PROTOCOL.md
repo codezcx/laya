@@ -28,3 +28,10 @@ Commands: `CUDA_VISIBLE_DEVICES=2 laya/.venv-eeg/bin/python -u -m eeg_align.leaf
 
 
 User requested a fresh four-GPU restart after two-GPU step77. Stopped only this experiment controller/launcher/workers. Old output retained under artifacts/leaf_2a_seed/stopped_2gpu_step77/. No weights or optimizer resumed; same frozen LEAF cache, native JEV initial weights, global48,seed42 and600steps. Changed world size2→4,microbatch8→6 (local24→12); global gradients are still normalized by48 and averaged across ranks. Floating-point reduction order can change numerical results.
+
+
+## Frozen external MI inference
+
+User requested no SFT and no restriction based on LEAF pretraining membership. Evaluate the unchanged step600 best JEV checkpoint on fixed prior validation subsets:Cho2017(2,000trials/10subjects),Lee2019_MI=OpenBMI(2,200/11),PhysionetMI(993/22). Binary left/right options, normal/reversed order, task-only LEAF instruction and matching native LEAF baseline. Read hash-verified datasets/mi_mat/validation.jsonl and authenticated imagery records; no classifier fitting, optimizer, or dataset-specific threshold selection. Average reference,0.3–40Hz IIR for short exported3/4-second epochs,official LEAF robust scaling/interpolation grouped by dataset/subject/session/length. This differs from the2a training FIR processing and is explicitly recorded. All recognizable scalp channels retained with official alias mapping; no channel positions guessed. Report trial accuracy,BA,confusion matrix,per-subject performance and option consistency. These are complete named subsets,not all available subjects of each dataset.
+
+Command: `CUDA_VISIBLE_DEVICES=0,1,2,3 OMP_NUM_THREADS=3 laya/.venv-eeg/bin/python -m torch.distributed.run --nproc-per-node=4 --master-port=29684 scripts/evaluate_leaf_mi.py`. Outputs:`artifacts/leaf_2a_seed/external_mi/`. This is frozen transfer inference; no encoder/head weights changed.

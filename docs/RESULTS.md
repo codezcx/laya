@@ -23,3 +23,16 @@ Four-rank smoke passed, then fresh production reached step8/600. Steady early st
 Finished600steps in3,403.26seconds(56.72minutes). Final step600 is also validation-selected best. Normal-order validation:2a54.3403%(+17.1875points vs native LEAF37.1528%),SEED window68.5185%(+3.5185points),SEED trial77.0370%(+9.6296points). Reversed order:2a54.5139%,SEED window68.2407%,SEED trial74.8148%. Window semantic prediction consistency95.8333%/98.6111% for2a/SEED. No test evaluation; released LEAF training exposure remains unresolved, not zero-shot evidence.
 
 Important class failure:2a normal-order tongue recall3/144=2.0833%;135/144tongue trials predicted feet. Other recalls:left84.03%,right57.64%,feet73.61%. Thus overall improvement does not establish reliable four-class decoding.2a validation contains one held-out adapter subject(A07), limiting generalization claims. Files:artifacts/leaf_2a_seed/jev/validation_0600.json,best.pt,last.pt. Last-batch training accuracy72.92% is not full-training-set accuracy.
+
+
+## Frozen transfer inference on other MI datasets
+
+Completed5,193trials in176.49seconds; noSFT,optimizer,threshold fitting or weight updates. Same step600best.pt; candidates changed to left/right. Fixed previous validation subsets,not complete source datasets.
+
+| Dataset | Trials / subjects | Native LEAF accuracy | JEV normal accuracy | JEV reversed accuracy | Semantic consistency |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cho2017 | 2000 / 10 | 60.30% | 61.35% | 62.30% | 97.35% |
+| OpenBMI (Lee2019_MI) | 2200 / 11 | 66.73% | 75.82% | 73.95% | 96.05% |
+| PhysionetMI | 993 / 22 | 66.16% | 69.99% | 70.19% | 96.78% |
+
+Improvements over native normal-order baseline:+1.05,+9.09,+3.83percentage points. Normal JEV still left-biased:Cho left/right recalls86.50%/36.20%;Physionet97.18%/42.86%. OpenBMI81.73%/69.91%. Infer transfer performance under recorded preprocessing,not proof of universal robustness. Results,subject breakdowns,confusion matrices and source/checkpoint provenance:artifacts/leaf_2a_seed/external_mi/results.json,config.json,predictions.jsonl. Upstream pretraining membership was not a selection criterion per user request.
