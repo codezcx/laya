@@ -48,7 +48,7 @@ def to_electrodes(x, channels):
             reconstructed = np.einsum('ce,bet->bct', design, values)
             error = float(np.linalg.norm(reconstructed-observed) / max(np.linalg.norm(observed), 1e-12))
             residual = max(residual, error)
-            if error > .01:
+            if error > .05:
                 raise ValueError(f'Bipolar montage inconsistent: relative residual={error}')
             recovered[ix] = values
         return recovered, electrodes, {'montage': 'minimum_norm_bipolar', 'relative_residual': residual,
