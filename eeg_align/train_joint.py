@@ -36,14 +36,14 @@ def make_variant(task,label,sample,step,seed,variant=None):
 
 def main():
  p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');a=p.parse_args()
- rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==2
+ rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==CONFIG['world_size'] and CONFIG['global_batch']%world==0
  torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60));torch.manual_seed(CONFIG['seed'])
  if rank==0:a.out.mkdir(parents=True,exist_ok=False)
  dist.barrier();train,xt=load('train');val,xv=load('validation')
  text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16,input_dim=256)
  groups=[dict(params=model.connector.parameters(),lr=CONFIG['learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=CONFIG['learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=CONFIG['learning_rates'][2])]
  opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']]
- config=dict(CONFIG,smoke=a.smoke,data_manifest_sha256=digest(ROOT/'complete.json'),task_sha256=digest('configs/mi_emotion_tasks.json'),git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},encoder='frozen LEAF final-normalized instruction-conditioned queries',trainable_parameters=sum(p.numel() for p in active))
+ config=dict(CONFIG,actual_world_size=world,smoke=a.smoke,data_manifest_sha256=digest(ROOT/'complete.json'),task_sha256=digest('configs/mi_emotion_tasks.json'),git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},encoder='frozen LEAF final-normalized instruction-conditioned queries',trainable_parameters=sum(p.numel() for p in active))
  if rank==0:(a.out/'config.json').write_text(json.dumps(config,indent=2))
  prompts={};start=time.monotonic();best=-1
  def forward(rr,x,step,variant=None):
