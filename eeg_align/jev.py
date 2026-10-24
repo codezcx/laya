@@ -84,14 +84,14 @@ def load_jev(device='cuda'):
     return text,weight.to(device),torch.tensor(head['bias'][start:end],device=device),tokenizer
 
 class JEVBridge(nn.Module):
-    def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False,head_choices=2):
+    def __init__(self,text,weight,bias,tokenizer,train_lora=False,train_head=False,head_choices=2,input_dim=512):
         super().__init__();self.text=text;self.train_lora=train_lora
         if not 2 <= head_choices <= len(weight):raise ValueError('Invalid head choice count')
         weight=weight[:head_choices];bias=bias[:head_choices]
         self.text.requires_grad_(False)
         for name,p in self.text.named_parameters():
             if name.endswith(('lora_A','lora_B')):p.requires_grad_(train_lora)
-        self.connector=nn.Sequential(nn.LayerNorm(512),nn.Linear(512,5120),nn.GELU(),nn.Linear(5120,5120)).to(weight.device)
+        self.connector=nn.Sequential(nn.LayerNorm(input_dim),nn.Linear(input_dim,5120),nn.GELU(),nn.Linear(5120,5120)).to(weight.device)
         if train_head:
             self.head_weight=nn.Parameter(weight.clone());self.head_bias=nn.Parameter(bias.clone())
         else:

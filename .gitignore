@@ -25,3 +25,6 @@ datasets/mi_emotion/
 
 # Current MI/MAT prepared signals and manifests
 /datasets/mi_mat/
+
+# Frozen LEAF features and data manifests
+/datasets/leaf_2a_seed/

@@ -1,56 +1,59 @@
 {
-  "status": "active_joint_training",
   "tasks": [
     {
       "task_id": "motor_imagery",
       "datasets": [
-        "BNCI2014_001",
-        "Chang2025",
-        "Cho2017",
-        "Dreyer2023",
-        "Kumar2024",
-        "Lee2019_MI",
-        "PhysionetMI",
-        "Weibo2014",
-        "Zhou2016"
+        "2a"
       ],
       "question": "Which movement is the participant imagining?",
+      "instruction": "This is a motor imagery decoding task",
       "classes": [
         {
-          "class_id": "left_hand",
+          "class_id": "left",
           "option": "Left hand motor imagery",
-          "contrast_text": "Task: motor imagery recognition. Class: Left hand motor imagery."
+          "prototype": "Left"
         },
         {
-          "class_id": "right_hand",
+          "class_id": "right",
           "option": "Right hand motor imagery",
-          "contrast_text": "Task: motor imagery recognition. Class: Right hand motor imagery."
+          "prototype": "Right"
+        },
+        {
+          "class_id": "foot",
+          "option": "Both feet motor imagery",
+          "prototype": "Foot"
+        },
+        {
+          "class_id": "tongue",
+          "option": "Tongue motor imagery",
+          "prototype": "Tongue"
         }
       ]
     },
     {
-      "task_id": "mental_arithmetic",
+      "task_id": "emotion",
       "datasets": [
-        "MAT"
+        "SEED"
       ],
-      "question": "Is the participant resting or performing mental arithmetic?",
+      "question": "What is the emotional valence associated with this EEG recording?",
+      "instruction": "This is an emotion recognition task",
       "classes": [
         {
-          "class_id": "rest",
-          "option": "Resting without mental arithmetic",
-          "contrast_text": "Task: mental arithmetic recognition. Class: resting without performing mental arithmetic."
+          "class_id": "negative",
+          "option": "Negative emotion",
+          "prototype": "Negative"
         },
         {
-          "class_id": "arithmetic",
-          "option": "Performing mental arithmetic",
-          "contrast_text": "Task: mental arithmetic recognition. Class: performing mental arithmetic."
+          "class_id": "neutral",
+          "option": "Neutral emotion",
+          "prototype": "Neutral"
+        },
+        {
+          "class_id": "positive",
+          "option": "Positive emotion",
+          "prototype": "Positive"
         }
       ]
     }
-  ],
-  "positive_identity": [
-    "task_id",
-    "class_id"
-  ],
-  "option_permutation": "deterministic hash of seed, epoch, sample_id; target is position of semantic class after permutation"
+  ]
 }

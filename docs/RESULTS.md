@@ -1,12 +1,5 @@
-# JEV MI + MAT joint training
+# LEAF baseline and JEV adaptation
 
-Launched on GPUs2–3 from frozen final contrast REVE(step1538), native JEV LoRA, new connector and trainable decision head. Shuffled binary options; cross-entropy supervision. Metrics: `artifacts/mi_mat/jev/metrics.jsonl`. Ten related tests passed; two-rank longest-input forward/backward and paired-order smoke validation completed. Production reached step2/1600 with finite loss/gradients; peak allocated54.45GiB. Step1 checkpoint saved. No full JEV validation results yet.
+Active: frozen released LEAF on2a four-class andSEED three-class, followed byJEV joint training on the same subject-disjoint adapter splits. Baseline output: `artifacts/leaf_2a_seed/baseline.json`. Preparation progress: `artifacts/leaf_2a_seed/prepare_progress.json`. JEV metrics: `artifacts/leaf_2a_seed/jev/metrics.jsonl`; controller status:`artifacts/leaf_2a_seed/pipeline.json`.
 
-# MI + MAT experiment
-
-Data preparation complete;12 unit/distributed tests passed, all MI manifest rows match the prior run, full49,193-trial coverage verified, and every MAT train/validation window and coordinate shape checked. Two-rank final-partial-batch training/validation smoke passed. Production launched on GPUs2–3 and reached step30/1538; no full validation yet. Tests/smoke and production status are recorded in artifacts/mi_mat/pipeline.json. Production metrics: artifacts/mi_mat/contrast/metrics.jsonl. Completed1,538steps in1,070.12seconds (17.84minutes). Final validation: MI dataset-macro BA77.8581%; MAT window accuracy74.4186%, window BA63.7433%, record accuracy50.00%(4/8). MAT majority-window baseline72.09%; no test evaluation. MI trajectory: step60051.70%,80054.99%,100073.21%,120077.05%,140078.08%,153877.86%. Thus MI learned late in training, unlike the prior SEED joint runs; final MI is4.04points below the historical MI-only81.90%. Different auxiliary data and removal of VII diagnostic passes prevent attributing the difference solely to task identity. MAT remains weak on held-out subjects; the final batch training accuracy is not full-training-set accuracy. No JEV continuation. Final checkpoint: artifacts/mi_mat/contrast/last.pt; full final metrics: validation_1538.json. See [PROTOCOL.md](PROTOCOL.md).
-
-Historical context (different auxiliary dataset): MI-only final macro BA81.90%; MI+SEED shared head55.87% MI /55.56% SEED; independent heads53.00% MI /60.00% SEED. These are text-match validation scores. Detailed historical results and implementation are archived in Git7f579e0; ignored artifacts remain intact.
-
-
-LEAF encoder feasibility: released language-aligned weights downloaded and strict-loaded; two real MAT windows encoded successfully. See [LEAF_ENCODER.md](LEAF_ENCODER.md). No quality result or JEV replacement yet.
+Preparation in progress; no new full baseline or JEV quality claims yet. Existing two-MAT-window smoke was an interface check only. Historical REVE experiment results and code are archived in Git throughc75a101; all ignored artifacts retained. See [PROTOCOL.md](PROTOCOL.md).

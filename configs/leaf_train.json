@@ -1,0 +1,13 @@
+{
+  "seed": 42,
+  "steps": 600,
+  "validation_every": 100,
+  "checkpoint_every": 50,
+  "global_batch": 48,
+  "microbatch": 8,
+  "eval_microbatch": 16,
+  "learning_rates": [0.0001, 0.000005, 0.00001],
+  "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
+  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
+  "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379"
+}
