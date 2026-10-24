@@ -16,3 +16,10 @@ Native baseline completed (task-only instruction, equivalent to upstream level1)
 Four-GPU restart: two-GPU run stopped at logged step77 by user request, before full step100validation. Artifacts preserved in stopped_2gpu_step77/. Restart fresh on GPUs0–3 with global batch48 and per-GPU microbatch6;600steps. No old training state reused.
 
 Four-rank smoke passed, then fresh production reached step8/600. Steady early step times approximately5.4seconds versus8.1seconds on two GPUs (~1.5x throughput); validation time not yet measured. Peak allocated54.07GiB per rank0; original global batch48 preserved.
+
+
+## Completed four-GPU JEV result
+
+Finished600steps in3,403.26seconds(56.72minutes). Final step600 is also validation-selected best. Normal-order validation:2a54.3403%(+17.1875points vs native LEAF37.1528%),SEED window68.5185%(+3.5185points),SEED trial77.0370%(+9.6296points). Reversed order:2a54.5139%,SEED window68.2407%,SEED trial74.8148%. Window semantic prediction consistency95.8333%/98.6111% for2a/SEED. No test evaluation; released LEAF training exposure remains unresolved, not zero-shot evidence.
+
+Important class failure:2a normal-order tongue recall3/144=2.0833%;135/144tongue trials predicted feet. Other recalls:left84.03%,right57.64%,feet73.61%. Thus overall improvement does not establish reliable four-class decoding.2a validation contains one held-out adapter subject(A07), limiting generalization claims. Files:artifacts/leaf_2a_seed/jev/validation_0600.json,best.pt,last.pt. Last-batch training accuracy72.92% is not full-training-set accuracy.
