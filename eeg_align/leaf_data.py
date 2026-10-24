@@ -109,7 +109,7 @@ def prepare():
   (ROOT/f'{split}.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rr))
   result[split]=metrics(rr,np.concatenate(scores[split]))
   for name in [f'{split}_queries.npy',f'{split}_probabilities.npy',f'{split}.jsonl']:hashes[name]=digest(ROOT/name)
- source_hashes={r['source']:digest(r['source']) for rr in rows.values() for r in rr}
+ source_hashes={path:digest(path) for path in sorted({r['source'] for rr in rows.values() for r in rr})}
  config=dict(configuration=CONFIG,checkpoint_sha256=digest(CONFIG['checkpoint']),task_catalog_sha256=digest('configs/mi_emotion_tasks.json'),files_sha256=hashes,source_sha256=source_hashes,counts={s:dict(Counter(r['dataset'] for r in rr)) for s,rr in rows.items()},test_policy='2a subjects8,9 and existing SEED test subjects untouched; released-model prior exposure not excluded',preprocessing='2a per session; SEED per parent trial normalization/interpolation; no cross-trial session concatenation')
  (ROOT/'complete.json').write_text(json.dumps(config,indent=2));(OUT/'baseline.json').write_text(json.dumps(result,indent=2));print('BASELINE',result,flush=True)
 
