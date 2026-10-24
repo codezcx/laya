@@ -62,6 +62,7 @@ def main():
  def evaluate(step):
   model.eval();indices=list(range(len(val)))
   if a.smoke:indices=[next(i for i,r in enumerate(val) if r['task']==t and r['label']==c) for t in range(2) for c in range(len(TASKS[t]['classes']))]
+  indices=sorted(indices)
   mine=indices[rank::world];result=[]
   for offset in range(0,len(mine),CONFIG['eval_microbatch']):
    ix=mine[offset:offset+CONFIG['eval_microbatch']];rr=[val[i] for i in ix];zz=[]
