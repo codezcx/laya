@@ -2,6 +2,24 @@
 
 Current: online LEAF→JEV joint fold0 on11classification datasets, 100-step frozen warmup followed by encoder fine-tuning. Previous frozen-query preparation was stopped and its ignored artifacts retained. No new SFT accuracy has been established yet. See [protocol](PROTOCOL.md). Status: `artifacts/benchmark/cross_subject_fold0/pipeline.json`; metrics: `artifacts/benchmark/cross_subject_fold0/jev/metrics.jsonl`. This is a single joint cross-subject fold, not complete per-dataset cross-validation.
 
+The two-step four-GPU smoke run passed on all11datasets and both option orders. Encoder gradient norm was0during frozen warmup and4.4612after unfreezing; the tokenizer parameter-update assertions passed. These two-step predictions are functional checks, not benchmark accuracy. Formal3,000-step SFT has been launched.
+
+Fold0 contains476,032training epochs,58,362validation epochs and60,275test epochs. Full split/count audit: `datasets/benchmark/signals/fold0/complete.json`.
+
+| Dataset | Train | Validation | Test |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 | 2016 | 288 | 288 |
+| BNCI2014004 | 1120 | 120 | 160 |
+| BNCI2015001 | 2000 | 200 | 200 |
+| BNCI2014008 | 25200 | 4200 | 4200 |
+| BNCI2014009 | 4608 | 576 | 576 |
+| CHB_MIT | 23994 | 491 | 1807 |
+| TUAB | 43218 | 5148 | 5508 |
+| SleepEDF | 327294 | 43735 | 43932 |
+| SEED | 44122 | 3394 | 3394 |
+| EEGMAT | 1020 | 30 | 30 |
+| Nakanishi2015 | 1440 | 180 | 180 |
+
 Historical completed LEAF results below use different inputs/splits and must not be directly substituted for this benchmark.
 
 # LEAF baseline and JEV adaptation
