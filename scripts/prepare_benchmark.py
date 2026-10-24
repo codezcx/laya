@@ -53,10 +53,16 @@ def main():
         samples=int(np.ceil(x.shape[-1]*200/fs));chunks=int(np.ceil(samples/2000));tokens=8*chunks
         features=np.lib.format.open_memmap(dest/'queries.npy',mode='w+',dtype=np.float16,shape=(len(x),tokens,256))
         inst=torch.from_numpy(text[text_info['texts'].index(task['instruction'])]).cuda()[None]
+        accepted=np.ones(len(x),dtype=bool);excluded=[]
         report=dict(dataset=ds,source=task['source'],n=len(x),original_channels=names,excluded_reference_electrodes=[c for c in raw_names if c.upper() in {'A1','A2'}],sampling_rate=fs,tokens=tokens,subjects=splits,split_policy='70/15/15 subject holdout seed42, NOT official LOSO/fewshot; chb01/chb21 grouped',catalog_sha256=digest(ROOT/'configs/benchmark_tasks.json'),checkpoint_sha256=digest(CONFIG['checkpoint']),normalization='Per complete epoch robust clipping and median/IQR; labels and other epochs never used',max_bipolar_residual=0.,missing_lead_instances=0)
         with (dest/'rows.jsonl').open('w') as rows:
             for offset in range(0,len(x),a.batch):
-                end=min(len(x),offset+a.batch);xx,_,audit=to_electrodes(x[offset:end],names)
+                end=min(len(x),offset+a.batch);raw=x[offset:end];good=np.isfinite(raw).all(axis=(1,2)) & np.any(raw!=0,axis=(1,2))
+                accepted[offset:end]=good
+                excluded.extend(dict(source_index=offset+int(j),reason='all_zero_or_nonfinite') for j in np.flatnonzero(~good))
+                ids=np.arange(offset,end)[good]
+                if not len(ids):continue
+                xx,_,audit=to_electrodes(raw[good],names)
                 report['max_bipolar_residual']=max(report['max_bipolar_residual'],audit.get('relative_residual',0.))
                 report['missing_lead_instances']+=audit.get('missing_lead_instances',0)
                 xx=resample(xx[:,keep],fs)
@@ -74,14 +80,15 @@ def main():
                         if padding:piece=np.pad(piece,((0,0),(0,0),(0,padding)))
                         _,_,history=model.forward_with_q(torch.from_numpy(piece.copy()).cuda(),inst.expand(len(piece),-1))
                         q=model.qformer.final_norm(history[-1]);assert torch.isfinite(q).all();qq.append(q.cpu().numpy())
-                features[offset:end]=np.concatenate(qq,axis=1)
-                for i in range(offset,end):
-                    row=dict(id=f'{ds}-{i}',parent_id=f'{ds}-{i}',task=tid,dataset=ds,subject=str(groups[i]),original_subject=str(subjects[i]),label=int(y[i]),source_index=i,split=splits[groups[i]],tokens=tokens)
+                features[ids]=np.concatenate(qq,axis=1)
+                for i in ids:
+                    row=dict(id=f'{ds}-{i}',parent_id=f'{ds}-{i}',task=tid,dataset=ds,subject=str(groups[i]),original_subject=str(subjects[i]),label=int(y[i]),source_index=int(i),split=splits[groups[i]],tokens=tokens)
                     rows.write(json.dumps(row)+'\n')
                 (dest/'progress.json').write_text(json.dumps(dict(encoded=end,total=len(x),seconds=time.monotonic()-start)))
                 if offset==0 or end==len(x) or end%1024==0:print(ds,end,len(x),time.monotonic()-start,flush=True)
         features.flush();del features
-        report['counts']={split:{'n':int(sum(splits[g]==split for g in groups)), 'labels':{str(c):int(sum((splits[g]==split and label==c) for g,label in zip(groups,y))) for c in np.unique(y)}} for split in ['train','validation','test']}
+        report['excluded']=excluded;report['valid_n']=int(accepted.sum())
+        report['counts']={split:{'n':int(sum(splits[g]==split for g in groups[accepted])), 'labels':{str(c):int(sum((splits[g]==split and label==c) for g,label in zip(groups[accepted],y[accepted]))) for c in np.unique(y)}} for split in ['train','validation','test']}
         assert all(all(n>0 for n in r['labels'].values()) for r in report['counts'].values()),report['counts']
         report['files_sha256']={n:digest(dest/n) for n in ['queries.npy','rows.jsonl']};report['seconds']=time.monotonic()-start
         (dest/'complete.json').write_text(json.dumps(report,indent=2));print('COMPLETE',ds,report['counts'],flush=True)
