@@ -110,41 +110,6 @@ def load_pickle(path):
         return LocalUnpickler(handle).load()
 
 
-class QueryStore:
-    def __init__(self, arrays, addresses):
-        self.arrays, self.addresses = arrays, addresses
-
-    def __getitem__(self, indices):
-        result = np.zeros((len(indices), 24, 256), dtype=np.float16)
-        for j,i in enumerate(indices):
-            ds, source_index = self.addresses[i]
-            q = self.arrays[ds][source_index]
-            result[j,:len(q)] = q
-        return result
-
-
-def load_cache(split, validation_cap=None):
-    from .leaf_data import digest
-    arrays, rows, addresses = {}, [], []
-    for task in catalog():
-        ds=task['task_id'];folder=Path('datasets/benchmark')/ds
-        done=json.loads((folder/'complete.json').read_text())
-        assert done['catalog_sha256']==digest(CATALOG)
-        assert done['files_sha256']['rows.jsonl']==digest(folder/'rows.jsonl')
-        arrays[ds]=np.load(folder/'queries.npy',mmap_mode='r')
-        rr=[json.loads(line) for line in (folder/'rows.jsonl').read_text().splitlines()]
-        selected=[r for r in rr if r['split']==split]
-        if validation_cap and len(selected)>validation_cap:
-            # Fixed label-stratified monitor only; full validation and test later.
-            rng=np.random.default_rng(42);chosen=[]
-            for c in range(len(task['classes'])):
-                ix=[i for i,r in enumerate(selected) if r['label']==c]
-                chosen.extend(rng.choice(ix,min(len(ix),max(1,validation_cap//len(task['classes']))),replace=False).tolist())
-            selected=[selected[i] for i in sorted(chosen)]
-        rows.extend(selected);addresses.extend((ds,r['source_index']) for r in selected)
-    return rows,QueryStore(arrays,addresses)
-
-
 class BalancedSampler:
     def __init__(self, rows):
         self.pools={}
@@ -172,3 +137,25 @@ def metrics(rows, probabilities):
         per_subject={s:classification_metrics([r['label'] for r in rr if r['subject']==s],p[[r['subject']==s for r in rr]],k) for s in sorted({r['subject'] for r in rr})}
         result[task['task_id']]=dict(epoch=classification_metrics([r['label'] for r in rr],p,k),per_subject=per_subject,subject_macro_balanced_accuracy=float(np.mean([v['balanced_accuracy'] for v in per_subject.values()])))
     return result
+
+
+def read_dataset(task):
+    import pickle
+    source=Path(task['source'])
+    if source.is_file():
+        d=load_pickle(source)
+        return d.eeg_data,np.asarray(d.labels,dtype=int),np.asarray(d.subject_ids).astype(str),d.channel_names,float(d.sampling_rate)
+    signals=[];labels=[];subjects=[];names=None
+    options=[c['option'] for c in task['classes']]
+    for path in sorted(source.rglob('*.pkl')):
+        d=pickle.load(path.open('rb'));ch=list(d['eeg'])
+        if names is None:names=ch
+        assert ch==names and int(d['freq'])==200
+        signals.append(np.stack([d['eeg'][c] for c in names]));labels.append(options.index(f"{float(d['label']):.2f} Hz"));subjects.append(str(d['subject']))
+    # Exported Nakanishi epochs differ by +/-1 sample (829/830/831).
+    # Retain all observed samples and pad only the missing tail, never crop.
+    lengths=[v.shape[-1] for v in signals];longest=max(lengths)
+    if longest-min(lengths)>2:raise ValueError(f'Unexpected Nakanishi duration range: {min(lengths)}..{longest}')
+    signals=[np.pad(v,((0,0),(0,longest-v.shape[-1]))) for v in signals]
+    return np.stack(signals),np.asarray(labels),np.asarray(subjects),names,200.
+

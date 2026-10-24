@@ -4,8 +4,8 @@
   "validation_every": 200,
   "checkpoint_every": 100,
   "global_batch": 88,
-  "microbatch": 8,
-  "eval_microbatch": 16,
+  "microbatch": 4,
+  "eval_microbatch": 8,
   "learning_rates": [
     0.0001,
     5e-06,
@@ -16,5 +16,8 @@
   "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
   "world_size": 4,
   "validation_cap_per_dataset": 2048,
-  "backend": "benchmark"
+  "backend": "online_signal",
+  "fold": 0,
+  "encoder_warmup_steps": 100,
+  "encoder_learning_rate": 1e-06
 }

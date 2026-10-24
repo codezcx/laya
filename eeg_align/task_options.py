@@ -5,7 +5,7 @@ from pathlib import Path
 import random
 
 
-def load_tasks(path='configs/mi_emotion_tasks.json'):
+def load_tasks(path='configs/benchmark_tasks.json'):
     tasks=json.loads(Path(path).read_text())['tasks']
     return {t['task_id']:t for t in tasks}
 

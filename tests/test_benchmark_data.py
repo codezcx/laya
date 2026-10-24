@@ -48,10 +48,27 @@ def test_missing_bipolar_measurement_is_not_zero_constraint():
     np.testing.assert_allclose(x[:,names.index('Fp1')]-x[:,names.index('C3')],5,atol=1e-6)
 
 
-def test_sampler_and_variable_query_mask():
-    from eeg_align.benchmark_data import BalancedSampler,QueryStore
+def test_sampler_balances_tasks():
+    from eeg_align.benchmark_data import BalancedSampler
     rows=[dict(task=t,label=c,subject='one') for t in range(3) for c in range(t+2)]
     sampler=BalancedSampler(rows);sample=sampler(rows,1,batch=12)
     assert [sum(rows[i]['task']==t for i in sample) for t in range(3)]==[4,4,4]
-    store=QueryStore({'short':np.ones((1,8,256)), 'long':np.ones((1,24,256))},[('short',0),('long',0)])
-    q=store[[0,1]];assert q.shape==(2,24,256) and not q[0,8:].any() and q[1].all()
+
+
+def test_cross_subject_folds_have_no_subject_overlap():
+    from eeg_align.signal_data import cross_subject_groups
+    subjects=list(map(str,range(1,10)))
+    seen=[]
+    for fold in range(9):
+        mapping,protocol=cross_subject_groups(subjects,'BNCI2014001',fold)
+        assert list(mapping.values()).count('test')==1
+        assert list(mapping.values()).count('validation')==1
+        assert list(mapping.values()).count('train')==7
+        seen.extend(s for s,v in mapping.items() if v=='test')
+    assert sorted(seen)==subjects
+    subjects=list(map(str,range(78)));seen=[]
+    for fold in range(10):
+        mapping,_=cross_subject_groups(subjects,'SleepEDF',fold)
+        seen.extend(s for s,v in mapping.items() if v=='test')
+        assert set(mapping.values())=={'train','validation','test'}
+    assert len(seen)==78 and len(set(seen))==78
