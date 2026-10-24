@@ -28,3 +28,6 @@ datasets/mi_emotion/
 
 # Frozen LEAF features and data manifests
 /datasets/leaf_2a_seed/
+
+# Task-conditioned benchmark query caches
+/datasets/benchmark/

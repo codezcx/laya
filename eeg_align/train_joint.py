@@ -1,4 +1,4 @@
-"""JEV adaptation of frozen language-conditioned LEAF queries on 2a and SEED."""
+"""JEV adaptation of frozen language-conditioned LEAF queries across EEG tasks."""
 import argparse,json,os,time,subprocess
 from pathlib import Path
 from collections import defaultdict
@@ -35,33 +35,43 @@ def make_variant(task,label,sample,step,seed,variant=None):
 
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');a=p.parse_args()
+ global CONFIG,TASKS,ROOT,load,metrics,sample_indices
+ p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True);p.add_argument('--smoke',action='store_true');p.add_argument('--benchmark',action='store_true');p.add_argument('--evaluate-checkpoint',type=Path);p.add_argument('--split',choices=['validation','test'],default='validation');a=p.parse_args()
+ if a.benchmark:
+  from . import benchmark_data as backend
+  CONFIG=json.loads(Path('configs/benchmark_train.json').read_text());TASKS=backend.catalog();ROOT=Path('datasets/benchmark');metrics=backend.metrics
+  load=lambda split:backend.load_cache(split,CONFIG['validation_cap_per_dataset'] if split=='validation' and not a.evaluate_checkpoint else None)
  rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']];assert world==CONFIG['world_size'] and CONFIG['global_batch']%world==0
  torch.cuda.set_device(local);torch.set_num_threads(3);dist.init_process_group('nccl',timeout=timedelta(minutes=60));torch.manual_seed(CONFIG['seed'])
  if rank==0:a.out.mkdir(parents=True,exist_ok=False)
- dist.barrier();train,xt=load('train');val,xv=load('validation')
+ dist.barrier();train,xt=load('train');val,xv=load(a.split)
+ if a.benchmark:sample_indices=backend.BalancedSampler(train)
  text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16,input_dim=256)
  groups=[dict(params=model.connector.parameters(),lr=CONFIG['learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=CONFIG['learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=CONFIG['learning_rates'][2])]
  opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']]
- config=dict(CONFIG,actual_world_size=world,smoke=a.smoke,data_manifest_sha256=digest(ROOT/'complete.json'),task_sha256=digest('configs/mi_emotion_tasks.json'),git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},encoder='frozen LEAF final-normalized instruction-conditioned queries',trainable_parameters=sum(p.numel() for p in active))
+ if a.evaluate_checkpoint:
+  restored=torch.load(a.evaluate_checkpoint,map_location='cpu',weights_only=False)['trainable'];parameters=dict(model.named_parameters());assert set(restored)=={n for n,p in parameters.items() if p.requires_grad}
+  with torch.no_grad():
+   for n,v in restored.items():parameters[n].copy_(v)
+ config=dict(CONFIG,actual_world_size=world,smoke=a.smoke,data_manifest_sha256=({t['task_id']:digest(ROOT/t['task_id']/'complete.json') for t in TASKS} if a.benchmark else digest(ROOT/'complete.json')),task_sha256=digest('configs/benchmark_tasks.json' if a.benchmark else 'configs/mi_emotion_tasks.json'),git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},encoder='frozen LEAF final-normalized instruction-conditioned queries',trainable_parameters=sum(p.numel() for p in active))
  if rank==0:(a.out/'config.json').write_text(json.dumps(config,indent=2))
  prompts={};start=time.monotonic();best=-1
  def forward(rr,x,step,variant=None):
   qs=[make_variant(TASKS[r['task']],r['label'],r['id'],step,CONFIG['seed'],variant) for r in rr]
   for q in qs:
    if q['suffix'] not in prompts:prompts[q['suffix']]=torch.tensor(tok.encode(q['suffix'],add_special_tokens=False),device='cuda')
-  inputs=torch.from_numpy(np.array(x,copy=True)).cuda();valid=torch.ones(inputs.shape[:2],device='cuda',dtype=torch.bool)
+  inputs=torch.from_numpy(np.array(x,copy=True)).cuda();valid=torch.arange(inputs.shape[1],device='cuda')[None,:]<torch.tensor([r.get('tokens',inputs.shape[1]) for r in rr],device='cuda')[:,None]
   z=model(inputs,valid,suffix_ids=[prompts[q['suffix']] for q in qs],num_choices=[q['num_choices'] for q in qs])['logits']
   return z,torch.tensor([q['label'] for q in qs],device='cuda'),qs
  def semantic(z,qs,rr):
   values=[]
   for prob,q,r in zip(z.softmax(-1).detach().cpu().numpy(),qs,rr):
-   ids=[c['class_id'] for c in TASKS[r['task']]['classes']];v=[float(prob[q['option_class_ids'].index(i)]) for i in ids];values.append(v+[0.]*(4-len(v)))
+   ids=[c['class_id'] for c in TASKS[r['task']]['classes']];v=[float(prob[q['option_class_ids'].index(i)]) for i in ids];values.append(v+[0.]*((16 if a.benchmark else 4)-len(v)))
   return values
  @torch.no_grad()
  def evaluate(step):
   model.eval();indices=list(range(len(val)))
-  if a.smoke:indices=[next(i for i,r in enumerate(val) if r['task']==t and r['label']==c) for t in range(2) for c in range(len(TASKS[t]['classes']))]
+  if a.smoke:indices=[next(i for i,r in enumerate(val) if r['task']==t and r['label']==c) for t in range(len(TASKS)) for c in range(len(TASKS[t]['classes']))]
   indices=sorted(indices)
   mine=indices[rank::world];result=[]
   for offset in range(0,len(mine),CONFIG['eval_microbatch']):
@@ -72,7 +82,7 @@ def main():
   gathered=[None]*world;dist.all_gather_object(gathered,result);pred=sorted(sum(gathered,[]));assert [r[0] for r in pred]==indices
   rr=[val[i] for i,_,_ in pred];probs=np.array([p for _,p,_ in pred]);alt=np.array([q for _,_,q in pred]);report=dict(normal=metrics(rr,probs),reversed=metrics(rr,alt))
   report['consistency']={task['datasets'][0]:float(np.mean(probs[[r['task']==t for r in rr]].argmax(1)==alt[[r['task']==t for r in rr]].argmax(1))) for t,task in enumerate(TASKS)}
-  report['selection_score']=float(np.mean([m['trial']['balanced_accuracy'] for m in report['normal'].values()]))
+  report['selection_score']=float(np.mean([m['epoch' if a.benchmark else 'trial']['balanced_accuracy'] for m in report['normal'].values()]))
   if rank==0:
    (a.out/f'validation_{step:04d}.json').write_text(json.dumps(dict(step=step,metrics=report,predictions=[dict(r,probabilities=p.tolist(),alternate_probabilities=q.tolist()) for r,p,q in zip(rr,probs,alt)])))
   return report
@@ -80,6 +90,10 @@ def main():
   state=dict(step=step,config=config,optimizer=opt.state_dict(),best_score=best,trainable={n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad})
   atomic_save(state,a.out/'last.pt')
   if improved:atomic_save(state,a.out/'best.pt')
+ if a.evaluate_checkpoint:
+  report=evaluate(0)
+  if rank==0:(a.out/'complete.json').write_text(json.dumps(dict(checkpoint=str(a.evaluate_checkpoint),split=a.split,metrics=report),indent=2))
+  dist.barrier();dist.destroy_process_group();return
  log=(a.out/'metrics.jsonl').open('w',buffering=1) if rank==0 else None
  total=1 if a.smoke else CONFIG['steps']
  for step in range(1,total+1):

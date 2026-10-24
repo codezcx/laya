@@ -1,6 +1,10 @@
+# EEG-FM-Benchmark SFT status
+
+The new11-dataset classification extension is being prepared; no SFT results yet. Two non-classification datasets remain pending. See [current protocol](PROTOCOL.md). Real-input adapter audit: `artifacts/benchmark/adapter_audit.json`; controller: `artifacts/benchmark/pipeline.json`. Do not mix these new epoch lengths/splits with the earlier matched control below.
+
 # LEAF baseline and JEV adaptation
 
-Active: frozen released LEAF on2a four-class andSEED three-class, followed byJEV joint training on the same subject-disjoint adapter splits. Baseline output: `artifacts/leaf_2a_seed/baseline.json`. Preparation progress: `artifacts/leaf_2a_seed/prepare_progress.json`. JEV metrics: `artifacts/leaf_2a_seed/jev/metrics.jsonl`; controller status:`artifacts/leaf_2a_seed/pipeline.json`.
+Completed matched control: frozen released LEAF on2a four-class andSEED three-class, followed byJEV joint training on the same subject-disjoint adapter splits. Baseline output: `artifacts/leaf_2a_seed/baseline.json`. Preparation progress: `artifacts/leaf_2a_seed/prepare_progress.json`. JEV metrics: `artifacts/leaf_2a_seed/jev/metrics.jsonl`; controller status:`artifacts/leaf_2a_seed/pipeline.json`.
 
 Native baseline completed (task-only instruction, equivalent to upstream level1):
 
