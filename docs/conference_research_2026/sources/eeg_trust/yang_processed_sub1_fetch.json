@@ -1,0 +1,29 @@
+{
+  "source_url": "https://ndownloader.figshare.com/files/51001884",
+  "files": [
+    {
+      "path": "WBCIC_SHU Motor Imagery dataset/derivatives/2C dataset_processeddata/sub-001/ses-01/eeg/sub-001_ses-01_task-motorimagery_eeg.mat",
+      "local_path": "artifacts/benchmark/yang_data_audit/processed_sub1/sub-001_ses-01_task-motorimagery_eeg.mat",
+      "bytes": 43046107,
+      "sha256": "3cf5b2880e8048f08f5e7e7dfcb5f6254f34600463212e5016256caaafdd2178",
+      "crc32_verified": true,
+      "download_seconds": 10.271966888976749
+    },
+    {
+      "path": "WBCIC_SHU Motor Imagery dataset/derivatives/2C dataset_processeddata/sub-001/ses-02/eeg/sub-001_ses-02_task-motorimagery_eeg.mat",
+      "local_path": "artifacts/benchmark/yang_data_audit/processed_sub1/sub-001_ses-02_task-motorimagery_eeg.mat",
+      "bytes": 43063836,
+      "sha256": "b8b369ea4b92d4aa5ec6527ef014ee7f4e3ca7a7865be4c46eecafea2b457270",
+      "crc32_verified": true,
+      "download_seconds": 10.022897524002474
+    },
+    {
+      "path": "WBCIC_SHU Motor Imagery dataset/derivatives/2C dataset_processeddata/sub-001/ses-03/sub-001_ses-03_task-motorimagery_eeg.mat",
+      "local_path": "artifacts/benchmark/yang_data_audit/processed_sub1/sub-001_ses-03_task-motorimagery_eeg.mat",
+      "bytes": 43011222,
+      "sha256": "8c4c72d22366eaf5dba2ae6b755567d56edc7a186220c540dbb43a799b3faaa4",
+      "crc32_verified": true,
+      "download_seconds": 10.205836134031415
+    }
+  ]
+}

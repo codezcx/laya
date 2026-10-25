@@ -1,0 +1,21 @@
+{
+  "validated_against_three_complete_crc_checked_MAT_files": true,
+  "subject": 1,
+  "processed_sessions": [
+    1,
+    2,
+    3
+  ],
+  "unique_mapping_to_native": [
+    1,
+    3,
+    2
+  ],
+  "tail_reader_checks": [
+    "complete outer deflate suffix ends at archive entry boundary",
+    "inner zlib Adler32 verified",
+    "MAT labels field parsed by scipy",
+    "all extracted labels equal full-file loadmat result"
+  ],
+  "not_claimed": "Full outer ZIP CRC for MAT files other than the three downloaded validation files."
+}

@@ -1,0 +1,36 @@
+{
+  "equal_labels_out_of_200": [
+    [
+      200,
+      88,
+      98
+    ],
+    [
+      98,
+      102,
+      200
+    ],
+    [
+      88,
+      200,
+      102
+    ]
+  ],
+  "rows": "processed session 1,2,3",
+  "columns": "native session 1,2,3",
+  "exact_matches": [
+    [
+      1,
+      1
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "consequence": "Same-number processed/raw correspondence is false for sub-1; prior chronology-sorted score reanalysis must not be interpreted as date-verified until mapping is corrected."
+}
