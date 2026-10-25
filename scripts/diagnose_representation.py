@@ -131,6 +131,8 @@ def main():
     parser.add_argument('--checkpoint', type=Path)
     parser.add_argument('--expected-step', type=int)
     parser.add_argument('--source-cv-cache', type=Path)
+    parser.add_argument('--prepared-signals', type=Path,
+                        help='Verified 2a raw LEAF preprocessing cache; otherwise use the existing online adapter')
     parser.add_argument('--native-candidate-instruction', action='store_true',
                         help='Initial 2a encoder control: blend task text with all four native candidate texts')
     parser.add_argument('--out', type=Path, required=True)
@@ -139,7 +141,7 @@ def main():
     parser.add_argument('--batch-size', type=int, default=32)
     args = parser.parse_args()
     if args.source_cv_cache:
-        if args.checkpoint or args.expected_step is not None or args.native_candidate_instruction:
+        if args.checkpoint or args.expected_step is not None or args.native_candidate_instruction or args.prepared_signals:
             parser.error('--source-cv-cache cannot be combined with a checkpoint')
         source_subject_cv(args.source_cv_cache, args.out)
         return
@@ -222,6 +224,16 @@ def main():
     args.out.mkdir(parents=True, exist_ok=False)
     torch.save(restored, args.out / 'encoder.pt')
     del restored
+    if args.prepared_signals:
+        assert args.datasets == ['BNCI2014001'] and not args.native_candidate_instruction
+        from eeg_align.leaf_preprocessing import PreparedSignalStore
+        store = PreparedSignalStore(args.prepared_signals)
+        preprocessing = dict(mode='raw_leaf_2a', cache=str(args.prepared_signals.resolve()),
+                             complete_sha256=digest(args.prepared_signals/'complete.json'),
+                             normalization=store.metadata['normalization'])
+    else:
+        store = SignalStore()
+        preprocessing = dict(mode='current_online_signal_adapter')
     plan = dict(
         checkpoint=str(args.checkpoint.resolve()), step=args.expected_step, bn_policy='frozen',
         source_encoder_sha256=source_fingerprints, instruction_intervention=intervention,
@@ -230,7 +242,7 @@ def main():
             ['git', 'rev-parse', 'HEAD'], text=True).strip(),
         sklearn_version=sklearn.__version__, torch_version=torch.__version__,
         fold=CONFIG['fold'], datasets=args.datasets, batch_size=args.batch_size,
-        representation='8 final normalized LEAF query tokens flattened to 2048; exact online preprocessing',
+        representation='8 final normalized LEAF query tokens flattened to 2048', preprocessing=preprocessing,
         encoder_mode='eval; all parameters frozen; CUDA bfloat16 autocast as in joint validation',
         estimator=dict(scaler='StandardScaler fit on training rows only', classifier='LogisticRegression',
                        C=1.0, class_weight='balanced', solver='lbfgs', max_iter=1000, tol=1e-4,
@@ -245,7 +257,6 @@ def main():
     encoder.cuda().eval().requires_grad_(False)
     before_parameters = tensor_fingerprint(dict(encoder.named_parameters()))
     before_buffers = tensor_fingerprint(dict(encoder.named_buffers()))
-    store = SignalStore()
     features, models, results = {}, {}, {}
     started = time.monotonic()
     with (args.out / 'predictions.jsonl').open('x') as predictions, threadpool_limits(limits=3):

@@ -9,7 +9,17 @@ from eeg_align.signal_data import ROOT as OUT
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--datasets',nargs='+');a=p.parse_args();OUT.mkdir(parents=True,exist_ok=True)
+    p=argparse.ArgumentParser();p.add_argument('--datasets',nargs='+')
+    p.add_argument('--leaf-2a-raw-root',type=Path)
+    p.add_argument('--out',type=Path)
+    a=p.parse_args()
+    if a.leaf_2a_raw_root:
+        if a.datasets:p.error('--datasets cannot be combined with --leaf-2a-raw-root')
+        from eeg_align.leaf_preprocessing import prepare_leaf_2a
+        prepare_leaf_2a(a.leaf_2a_raw_root,a.out or OUT.parent/'leaf_2a_preprocessing')
+        return
+    if a.out:p.error('--out requires --leaf-2a-raw-root')
+    OUT.mkdir(parents=True,exist_ok=True)
     for tid,task in enumerate(catalog()):
         ds=task['task_id']
         if a.datasets and ds not in a.datasets:continue
