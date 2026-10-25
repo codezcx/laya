@@ -19,7 +19,7 @@ sources/eeg_trust/search_log.json 保留 14 组搜索工具输出与两组读取
 - 没有做当前本地受控实验来证明“上下文预算导致排名反转”。
 - 不能把本地 bundled preprocessing 的改善归因于某一项归一化操作。
 - 没有证据证明所有 EEG 模型不可信，也不把所有模型说成端到端。
-- 没有完成安全适应/风险控制领域的全部 novelty 排查，当前课题不能宣称首创。
+- 已完成普通受损率认证到 LTT 的直接归约，排除该版本的新颖性；这不是对全部安全适应理论的穷尽审查。
 - 作者在 arXiv 声称接收，与独立核对官方接收目录是不同证据等级。
 - 真实伪迹、数据漂移和标签分歧的存在，不自动构成新的研究问题。
 - 有完整数学推导，不自动意味着非平凡主定理或现实适用。
@@ -35,3 +35,11 @@ sources/eeg_trust/search_log.json 保留 14 组搜索工具输出与两组读取
 ## 流程
 
 使用 scientific-critical-thinking 技能和此前 literature-review 的来源记录方法。无独立评审者，没有把同一助手的自我质疑称作独立复核。流程参考保留在 REPORT；它不是科研结论证据。
+
+## 后续查重与否定结果
+
+- 定向读取 LTT 的定义和一般过程，按用户级样本、受损损失与预算参数逐项归约，撤下普通“受损率认证”候选。
+- 读取 Matched-Input Estimates Differ in Sign Across Architectures 全文的实验设计、结果与限制，排除把匹配输入比较当作首次提出的问题。未独立复现论文数值。
+- 核验 EEG-Arena 原始摘要；全文 HTML 因长度限制失败。不得把摘要核验升级为全文审阅。
+- 本轮搜索记录在 sources/eeg_trust/novelty_followup_search.json；其中第三方页面与 gauge/reference 检索命中仅用于导航，不据此认定方法有效或 novelty 穷尽。逐项判断见 sources/eeg_trust/novelty_audit.json。
+- 归约是本次分析；未启动新训练，也没有把初步文献审查说成已取得新的科研贡献。

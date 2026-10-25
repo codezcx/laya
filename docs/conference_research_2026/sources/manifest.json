@@ -45,6 +45,11 @@
     "sha256": "f08fc443218ddad4041675a57c494a8a4fd3bffb3695680e659777577f9f2053"
   },
   {
+    "path": "sources/eeg_trust/arena_abstract.json",
+    "bytes": 5577,
+    "sha256": "82bca72ffc5436de810bb2d65f5fa0aea3d1026fe46f674ce8a11c0fead0b278"
+  },
+  {
     "path": "sources/eeg_trust/conformal_eeg.json",
     "bytes": 12947,
     "sha256": "e7e0c25acdcf45b324dc3c5d65051e84e31f34e0647148360b1c0116faf6b610"
@@ -70,9 +75,19 @@
     "sha256": "6294da2394a3cdcedf18ba5218ae7205b2053a46ed537ec249adf003b61e76d1"
   },
   {
+    "path": "sources/eeg_trust/learn_then_test.json",
+    "bytes": 159741,
+    "sha256": "85484e216b19e001bf73c39f4751dd332ad00f0b0887442b2a28265c64d9e653"
+  },
+  {
     "path": "sources/eeg_trust/local_code_evidence.json",
     "bytes": 6642,
     "sha256": "fbfa474246c4421d526132b6ba5be9c33a74cf1e0ee9e2408e06233715ae5aa7"
+  },
+  {
+    "path": "sources/eeg_trust/matched_input.json",
+    "bytes": 29087,
+    "sha256": "eae5101f6d4b80ee7a301f1f98b81f41f2466178c68db1d7eb5fd81047db1ecd"
   },
   {
     "path": "sources/eeg_trust/moabb_results.json",
@@ -108,6 +123,16 @@
     "path": "sources/eeg_trust/neurips_what_capture.json",
     "bytes": 3806,
     "sha256": "8df0fa788074e2aaaaebd4aa12192a33a63715dedfbab3d78131866f2eb7ca1e"
+  },
+  {
+    "path": "sources/eeg_trust/novelty_audit.json",
+    "bytes": 1544,
+    "sha256": "9e92737922fce90ea926aa42a916958eca18a9fb95e38c2b4c0df5e0294bcd6c"
+  },
+  {
+    "path": "sources/eeg_trust/novelty_followup_search.json",
+    "bytes": 172673,
+    "sha256": "87ac6aa42649b36a0626fca4120ad56197372ede111c54a9412f9579bba05711"
   },
   {
     "path": "sources/eeg_trust/ospdim.json",

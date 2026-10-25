@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-25",
+  "decisions": [
+    {
+      "candidate": "finite-context user-harm certification",
+      "status": "ordinary formulation rejected as novelty",
+      "primary": "https://arxiv.org/html/2110.01052",
+      "sections": [
+        "1.1",
+        "2"
+      ],
+      "reason": "user evaluation packages as iid observations, harm indicator as bounded loss, budget/pipeline as parameter: direct LTT instantiation",
+      "conditions": [
+        "fixed training and adaptation rules",
+        "independent labeled calibration users",
+        "matched deployment population",
+        "multiplicity handled"
+      ],
+      "not_proved": "all possible safe EEG adaptation questions are solved"
+    },
+    {
+      "candidate": "matched-input model comparison",
+      "status": "phenomenon and experimental pattern already studied",
+      "primary": "https://arxiv.org/html/2609.23924",
+      "sections": [
+        "IV-B",
+        "V-C",
+        "VI"
+      ],
+      "limits": [
+        "preprint",
+        "descriptive signs, not corrected significant interaction",
+        "bundled pathways and retuning",
+        "not independently reproduced"
+      ]
+    },
+    {
+      "candidate": "generic larger EEG model leaderboard",
+      "status": "insufficient novelty by itself",
+      "primary": "https://arxiv.org/abs/2609.32743",
+      "read_scope": "abstract only; HTML fetch failed due length"
+    }
+  ],
+  "next_evidence": "isolate a concrete local failure mechanism before claiming a new contribution",
+  "goal_complete": false
+}
