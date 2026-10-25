@@ -43,6 +43,24 @@ Thus BN freezing mitigates one failure mechanism, while class-specific drift and
 
 Training updates 301–400: updating mean loss / sampled accuracy **0.93779 / 52.1818%**; frozen **0.91114 / 53.9205%**, each over exactly 100 updates. Evidence: [paired comparison and class-recall changes](../artifacts/benchmark/cross_subject_fold0_bn_control/comparison_0400.json), branch `validation_0400.json`, `reload_check_0400.json`, and the continuously updated `metrics.jsonl` files. Updating BN mean running variance at validation was 87.6562; frozen remained 26.5335.
 
+## Known-category option controls at update 400
+
+The follow-up distinguishes knowing how to map an explicitly stated category to an option from obtaining that category from EEG. Select one deterministic **training** example for each of the 38 task/classes. Every class is tested at every answer position using cyclic rotations, yielding 222 cases per condition. These are deliberately answer-provided positive controls, **not EEG classification or generalization scores**. Cyclic rotations cover all positions, not every possible permutation.
+
+| Model and input | Correct / cases |
+| --- | ---: |
+| Native JEV, category stated in native bare text template | 222 / 222 |
+| Native JEV, category stated in EEG wrapper without signal tokens | 222 / 222 |
+| Frozen-BN step 400, category stated in native bare text template | 222 / 222 |
+| Frozen-BN step 400, category stated in EEG wrapper without signal tokens | 222 / 222 |
+| Frozen-BN step 400, actual EEG plus stated category | 221 / 222 |
+
+Thus the adapted model retains the ability to follow a known category and choose its corresponding letter. With actual EEG and the explicit hint, 2a, 2b and Nakanishi all pass every cyclic case. The only error is normal-EEG example `TUAB-24228`, normal order: uncalibrated choice probabilities are 0.497855 for the correct A versus 0.502145 for B. In the paired **signal-only** control, 2a gets 8/16, 2b 2/4 and Nakanishi 7/144 cases correct. These counts reuse just one source example per class; they are not full-training-set metrics.
+
+The observed fixed-A behavior on EEG validation therefore does not establish loss of the general text-to-option mapping skill. The stronger supported interpretation is difficulty obtaining reliable category evidence from the EEG path. This control does not separate limitations of the encoder, connector and EEG-conditioned language computation. It supports focusing subsequent diagnosis on that path and its cross-subject generalization, while preserving the functioning text/choice interface.
+
+Evidence and exact prompts: `option_binding_0400/{plan,cases,metrics,verification}.json` and `predictions.jsonl` under the current run root. All 1,332 recorded decisions were checked against their probabilities and option maps. The adapted state was strictly restored, remained unchanged throughout inference, and is preserved with its step/config in `model_state.pt`; no optimizer was created. The native template was checked against local `laya/JEV-27B-VL/README.md` and `server_vllm.py`. Both live training branches continued without source or weight changes. Helper: `scripts/diagnose_option_binding.py`.
+
 ## Paired validation: update 200
 
 Exact same 9,748 validation IDs/labels in both branches, also matching the historical monitor subset. Dataset-macro BA: updating BN **46.2519%**, frozen BN **54.5269%** (+8.2749 percentage points). Both saved models reproduce logits exactly on all 38 task/class diagnostic examples. This is one seed and the first checkpoint; later checkpoints are still required to assess stability.

@@ -166,7 +166,7 @@ def main():
     state = capture_model(model)
     fingerprints = {k:tensor_fingerprint(state[k]) for k in ['trainable','buffers']}
     assert all(fingerprints[k] == tensor_fingerprint(checkpoint[k]) for k in fingerprints)
-    torch.save(state, args.out / 'model_state.pt')
+    torch.save(dict(state, step=checkpoint['step'], config=checkpoint['config']), args.out / 'model_state.pt')
     after = args.checkpoint.stat()
     assert (before.st_ino, before.st_size, before.st_mtime_ns) == (after.st_ino, after.st_size, after.st_mtime_ns)
     del checkpoint, state
