@@ -4,12 +4,13 @@
   "requirements": {
     "real_cropping_label_mechanism": "verified against local code and original BCI protocol; speculative temporal boundary recommendation withdrawn",
     "real_reliability_variation": "official dataset rank examples plus completed matched input pilot; not a universal distrust conclusion",
-    "clear_current_question": "same-person cross-day repeatability of relative decoder advantage and equal-budget prospective personalization value",
+    "clear_current_question": "Finite-horizon repeatability of paired decoder advantage and equal-budget future selection value; stable latent components require explicit assumptions. Programmed cued-MI windows are not an uncertain-boundary target.",
     "closest_prior_comparison": "Expanded with original Yang2025 validation and FALCON NeurIPS 2024 section 4.2; generic neural decoder cross-session rankings are already studied.",
-    "new_empirical_effect": "Prior 42-person date-sorted author-score interpretation withdrawn: direct MAT labels disprove same-number raw/processed mapping for sub-1. Published global means remain verified. Correct mapping needed before using longitudinal correlations.",
+    "new_empirical_effect": "Corrected mapped author-score reanalysis on 42 three-date people: primary r=.057 (bootstrap -.169,.304), ten pairs reported; retrospective selection gap -.660 pp (-1.618,.206). Exploratory only, no noise decomposition or equal-information refitting.",
     "novelty": "conditional bounded-search assessment, not firstness proof",
-    "data_for_full_question": "All 153 converted BDF physical headers fetched; 25 nonchronological IDs and 9 two-date people; native sub-1 dates agree. BIDS events already offset +1.5s. Raw/processed waveform mapping and other-user event offsets still need validation."
+    "data_for_full_question": "153 full processed/native label sequences yield unique mappings for all 51 people; processed numbering is chronological. All native-event/converted-signal header dates agree; 9 two-date people excluded. Waveform checks limited to subject 1 first trials. Full signal/training protocol acceptance remains incomplete."
   },
-  "next_action": "Map processed to native sessions using complete ordered label sequences and sampled waveforms; correct or withdraw chronology-sorted author-score results before planning model fits.",
-  "previous_goal_turn_classification": "progress: committed locked classical pilot, verified numerical outcomes, found chronology and access issues"
+  "next_action": "Resolve remaining claim-level novelty and minimal controlled-study feasibility: a low correlation in existing scores alone is insufficient contribution. Lock equal-history calibration/query evaluation and independent confirmation before claiming a new empirical result.",
+  "previous_goal_turn_classification": "no progress in artifacts: conversational clarification distinguished programmed windows from uncertain event targets; resumed by verifying full mapping and correcting statistics.",
+  "current_goal_turn_classification": "progress: verified 51 mappings and 153 date pairs, corrected and independently checked full secondary analysis, narrowed estimands and updated current docs."
 }
