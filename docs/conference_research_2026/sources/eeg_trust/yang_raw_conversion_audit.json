@@ -1,0 +1,283 @@
+{
+  "date": "2026-10-25",
+  "scope": "Subject 1 three sessions: author ZIP prefix and five fixed record positions via native mirror; no trial or model outcomes",
+  "script": "scripts/audit_yang_raw_conversion.py",
+  "script_sha256": "fdb6b8ba2315e3c91c661c03a051607701f0717b7dad813b3d067512d94baadb",
+  "command": "python scripts/audit_yang_raw_conversion.py --inventory docs/conference_research_2026/sources/eeg_trust/yang_archive_inventory.json --out artifacts/benchmark/yang_data_audit/raw_conversion_check",
+  "result_path": "artifacts/benchmark/yang_data_audit/raw_conversion_check/result.json",
+  "result_sha256": "ec8a3c5f909200db7d98dee5e088f0784cee249f891575014332ccca0a450a0b",
+  "interpretation": {
+    "numerical_relation": "converted header values = 0.001 * native header values to half a converted quantization step at all checked samples",
+    "raw_header_unit": "?V",
+    "converted_header_unit": "uV",
+    "physical_unit_truth": "Not established by signal equivalence. Current MOABB code interprets native values as nV and multiplies MNE values by 1e-9, whereas the measured header reads ?V.",
+    "admissible_use": "Native numerical convention can be explicitly recovered by multiplying converted header values by 1000, with measured quantization error. Any use beyond these development checks needs session-specific validation. Do not report absolute physical amplitude from this audit.",
+    "no_temporal_boundary_claim": true,
+    "no_model_performance_or_novelty_claim": true
+  },
+  "sessions": [
+    {
+      "subject": 1,
+      "native_session": 1,
+      "converted_url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-0/eeg/sub-1_ses-0_task-imagery_run-0_eeg.bdf",
+      "source_mirror_url": "https://data.nemar.org/nm000348/v1.0.5/sourcedata/2C%20dataset/sub-001/ses-01/eeg/data.bdf",
+      "archive_path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-01/eeg/data.bdf",
+      "compressed_bytes": 262144,
+      "whole_native_crc_verified": false,
+      "compressed_sha256": "97f3dc22beaa4656658ce2a84bf7d63ec62a42a8f39ccdd594874fbc8e37c248",
+      "mirror_prefix_matches_author_signal": true,
+      "sparse_checks": [
+        {
+          "first_record": 0,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999940356640821,
+          "mirror_sha256": "b44bb1e5910987bf8d433dd9ecef7b3f964ad4d2c0423b0d56a486c8ba3d2fae",
+          "converted_sha256": "928c172e469359fb5ec158e2ba5561a854724335026fd53bc2913e01a73356fc"
+        },
+        {
+          "first_record": 562,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49998860689853347,
+          "mirror_sha256": "d85349bf09e2968e29a0fbdfb0606dbe67d6735107a708d18c40102dcea5600d",
+          "converted_sha256": "276f80a38024a2a741aba9bf56a8a29127385a9ba1ec04d0c8f8e45083f3c88a"
+        },
+        {
+          "first_record": 1125,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49996306547243974,
+          "mirror_sha256": "a09388f95eba45923084dc5a6643fd13900e7868c7f727bd3d43f07615e95f6c",
+          "converted_sha256": "81be18d6c1405be464434c1c05cef2ab73fc1372a9ab1bc79ff25a39032d6fed"
+        },
+        {
+          "first_record": 1687,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999968692651057,
+          "mirror_sha256": "72bcb0a6d8c366869923aec07bb82073e18990eea4a7894b3c0700563cb144b6",
+          "converted_sha256": "b0cdadc0aeb745bb8fadba71ac88d0755d01f2ab89c2b8322a0df035a6504724"
+        },
+        {
+          "first_record": 2248,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49998577600701555,
+          "mirror_sha256": "bbbc3ec35e5f61e1ed627534f25eda08956ce894e27e4a786ce345a55e71dd9c",
+          "converted_sha256": "94d5fd9b8bb3c8091380256040fa6818b5ea36c25f9b81fcfe7ccf61c1114a07"
+        }
+      ],
+      "native_unit_fields": [
+        "?V"
+      ],
+      "converted_unit_fields": [
+        "uV"
+      ],
+      "nonconstant_prefix_min_correlation": 0.9999992423331913
+    },
+    {
+      "subject": 1,
+      "native_session": 2,
+      "converted_url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-1/eeg/sub-1_ses-1_task-imagery_run-0_eeg.bdf",
+      "source_mirror_url": "https://data.nemar.org/nm000348/v1.0.5/sourcedata/2C%20dataset/sub-001/ses-02/eeg/data.bdf",
+      "archive_path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-02/eeg/data.bdf",
+      "compressed_bytes": 262144,
+      "whole_native_crc_verified": false,
+      "compressed_sha256": "5c538ac2e50d451ead2a629b22958c7b9d93e2a01334ea1a769308e684754304",
+      "mirror_prefix_matches_author_signal": true,
+      "sparse_checks": [
+        {
+          "first_record": 0,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49999604746591997,
+          "mirror_sha256": "aa5f336e0ba87e7f0583645151d8e03f9230bb123fba5f2783972f92154560eb",
+          "converted_sha256": "f199b4f73759246780b537fdf4fd3fb80a81d17ffd6e1b13078914ab76634086"
+        },
+        {
+          "first_record": 550,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49999814192220693,
+          "mirror_sha256": "b21eac9f3bf55455c7723484b430e67a77a70904878f0b8fa43dde44e6b0b669",
+          "converted_sha256": "2d0ca68042599c35d446e090767a72c7db85dca1c2d3279a35605889faaba3b4"
+        },
+        {
+          "first_record": 1101,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49998893400977407,
+          "mirror_sha256": "66a89078ce57ffa0c83358a7e87d842a630f8a6659ed394422d563866b3c7fb3",
+          "converted_sha256": "b444278ca2dca880df00cd83deb5fe05172b9b8731daff2e49f7a19f009c0595"
+        },
+        {
+          "first_record": 1652,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999934485445705,
+          "mirror_sha256": "5839d9406da2b8c975e8780c774e51bff96029f39215d026a6698aa7240df225",
+          "converted_sha256": "25adebb2863769a2ef66ab339b1d8a39328a8b046b7f86c67bf21e634391335a"
+        },
+        {
+          "first_record": 2201,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999910302473642,
+          "mirror_sha256": "309549cb3a19291ae806d61847276e363a29d2e4f0808fd40a1c70bb62a8b018",
+          "converted_sha256": "f2892c490b0e2bda545a3c4f3c9a888aa28fc7a067d5d18594e95591cf59bbba"
+        }
+      ],
+      "native_unit_fields": [
+        "?V"
+      ],
+      "converted_unit_fields": [
+        "uV"
+      ],
+      "nonconstant_prefix_min_correlation": 0.9999998048314601
+    },
+    {
+      "subject": 1,
+      "native_session": 3,
+      "converted_url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-2/eeg/sub-1_ses-2_task-imagery_run-0_eeg.bdf",
+      "source_mirror_url": "https://data.nemar.org/nm000348/v1.0.5/sourcedata/2C%20dataset/sub-001/ses-03/eeg/data.bdf",
+      "archive_path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-03/eeg/data.bdf",
+      "compressed_bytes": 262144,
+      "whole_native_crc_verified": false,
+      "compressed_sha256": "32f7c6fc50a602bb870ce006dcd2ea126db43aeb9211824cae2c73e719008409",
+      "mirror_prefix_matches_author_signal": true,
+      "sparse_checks": [
+        {
+          "first_record": 0,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49999863846320236,
+          "mirror_sha256": "3df1f8e7f3412ce20793addabe92945aec884371d9f8ff4367c049e701d4559c",
+          "converted_sha256": "f7e10b937aa04804e77891b463396d25b1a2e5ca727c09fee77af960db000639"
+        },
+        {
+          "first_record": 550,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49999843236901825,
+          "mirror_sha256": "61584b5f487da022eb6c2194ebbbead1e800b25468b314dc6cc6770e7a1cbd98",
+          "converted_sha256": "a028c2e19a815460fae2887aa603b3d601fd798391402eaa98252886fa83e6a2"
+        },
+        {
+          "first_record": 1101,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.49999559269390703,
+          "mirror_sha256": "b0ec7b33f8793e44167fb9e7bdd8dc21494bd49ac1f5d0dd1fe0a1560caa325e",
+          "converted_sha256": "da38af102084a637d9d950cfd930a001551d1749d92a1a0701fabb56270e10f5"
+        },
+        {
+          "first_record": 1651,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999780141623037,
+          "mirror_sha256": "cd5d1202a2cc686b774bf297b3817b82b0794a5a3baa3327d448a53d6f88a01c",
+          "converted_sha256": "9a7a0321551aa94e9fb7e556d3e8c7acbab58e8b07677fe4aebc74e6e2bc267b"
+        },
+        {
+          "first_record": 2200,
+          "records": 2,
+          "channels": 64,
+          "max_error_in_converted_quantization_steps": 0.4999507682143885,
+          "mirror_sha256": "3ce365ad33299a7724f554ad643ff8545d54d57c06cd73ef683db8d123839efa",
+          "converted_sha256": "868e0f0be5b06d27c5901f5b62b308d170642894ecde945c60405a82151f3fc5"
+        }
+      ],
+      "native_unit_fields": [
+        "?V"
+      ],
+      "converted_unit_fields": [
+        "uV"
+      ],
+      "nonconstant_prefix_min_correlation": 0.9999992123882325
+    }
+  ],
+  "independent_verification": {
+    "mne_version": "1.12.1",
+    "checks": [
+      {
+        "session": 1,
+        "kind": "native",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 2.9103830456733704e-11,
+        "mne_scale_from_header_numbers": 1,
+        "fragment_sha256": "72aece3838c1c1128aa31868236bebe2d35ab3f0650a00d59e14944990cbd332"
+      },
+      {
+        "session": 1,
+        "kind": "converted",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 6.776263578034403e-20,
+        "mne_scale_from_header_numbers": 1e-06,
+        "fragment_sha256": "4678c982f6ab8a077f8243a79fae64a3e260618bd3cf318b8a3cb80b5e8ee62e"
+      },
+      {
+        "session": 2,
+        "kind": "native",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 5.820766091346741e-11,
+        "mne_scale_from_header_numbers": 1,
+        "fragment_sha256": "49d38db3b5f4989214a842ec8a4fb7b9b7de0bf9a3e586d8283fbc39578cddeb"
+      },
+      {
+        "session": 2,
+        "kind": "converted",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 1.0842021724855044e-19,
+        "mne_scale_from_header_numbers": 1e-06,
+        "fragment_sha256": "5b2b9a131e085ed2f32e092e700a0dd4635b0b9f6ead0183c09367f9b60a89fd"
+      },
+      {
+        "session": 3,
+        "kind": "native",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 5.820766091346741e-11,
+        "mne_scale_from_header_numbers": 1,
+        "fragment_sha256": "78886b6892797ca39974b8347030d1466085d7961e631e7ca825a29e140a6f52"
+      },
+      {
+        "session": 3,
+        "kind": "converted",
+        "channels": 64,
+        "samples": 2000,
+        "max_abs_difference": 1.0842021724855044e-19,
+        "mne_scale_from_header_numbers": 1e-06,
+        "fragment_sha256": "dfd0e8c470f83c03e37f9c56d9d7ffc610e72ed456c7471699d20faa91bf7c9b"
+      }
+    ],
+    "scope": "Independent MNE decoder versus manual decoder on first records; physical unit truth not inferred"
+  },
+  "vendor_archive": {
+    "path": "WBCIC_SHU Motor Imagery dataset/code/pre-processed/Neuracle1.1.rar",
+    "bytes": 8052,
+    "crc_verified": true,
+    "sha256": "829cfc32c836d1ac9f85ae540835d1f177ea214a57cbd9e8278ac997f33c713a"
+  },
+  "author_reader": {
+    "sha256": "dd6acba71429ba029dd6d6fe29e9eaf1a9d51233fc484dbca87e63bd624dd18f",
+    "path": "artifacts/benchmark/yang_data_audit/raw_conversion_check/author_readbdfdata.m",
+    "finding": "Archived reader calibrates signed digital data with header physical/digital range slope; no 1e-3 factor in the inspected data calibration. The code alone does not establish SI units; it omits the constant header offset, removed by subsequent baseline/reference operations."
+  },
+  "upstream_loader": {
+    "url": "https://github.com/NeuroTechX/moabb/blob/f3941890d8857b79ff21dc1809bc97d0c512813f/moabb/datasets/yang2025.py",
+    "sha256": "fd728abdb6e490a3d0eb917e8c7848871b62ef2fa77c00b8e7c68770ab1b2e0e",
+    "local_path": "artifacts/benchmark/yang_data_audit/prior_review/moabb_yang2025.py",
+    "scope": "Current code corroborates scaling convention; exact NEMAR export revision not established."
+  },
+  "limitations": [
+    "One development participant; three native sessions; five two-second locations each. Not full-cohort or full-signal equivalence.",
+    "Native ZIP signal entries only partially decompressed: full-entry CRC not checked. Author-supplied small vendor-reader archive CRC verified.",
+    "NEMAR native mirror header identification fields were scrubbed according to provenance README; signal prefix matches author ZIP. No identifying fields retained in the structured report.",
+    "No absolute voltage correction silently applied to any existing model or dataset. No training code changed."
+  ]
+}

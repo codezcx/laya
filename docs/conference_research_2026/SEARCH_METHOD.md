@@ -2,6 +2,10 @@
 
 更新：2026-10-25。当前目标是核实 EEG 可信性问题的现实性、明确定义并查重；旧边界方向已撤回。
 
+最新原始数值核验：新增 `audit_yang_raw_conversion.py`，仅使用已查看的开发被试 subject 1，读取三个原始 ZIP 压缩前缀及 NEMAR 原始/转换版的固定位置范围，总缓存约 13.6 MB。三会话各五个两秒片段的 64 通道满足固定 0.001 数值关系，误差小于半个转换量化步长；MNE 独立核验首段解码。小型作者附带 Neuracle 读取器归档完整 CRC 通过；没有运行其代码。原始信号大条目未完成 CRC，不能把局部核对升级为完整等价。记录在 `sources/eeg_trust/yang_raw_conversion_audit.json`。
+
+GitHub 连接器读取 NEMAR README、来源说明、元数据，以及 MOABB 固定提交和厂商读取器；尝试的 MOABB `1.5.0` / `v1.5.0` ref 均返回 404，改用 API 确认的 develop 提交，不宣称取得历史导出版本。厂商 FAQ 网页工具超时、直接请求返回 429；搜索片段未被用作已核实的物理标定结论。原始 `?V` 单位字段与加载器的 nV 解释尚未解决，当前仅确认数值关系。没有新的模型拟合或新颖性结论。
+
 ## 本轮证据
 
 1. 读取当前仓库 README、PROTOCOL、RESULTS、任务目录、2a 裁窗与 LEAF 归一化实现，以及相邻 EEG-FM-Benchmark 的数据构建器。仅只读检查，没有导入/运行训练代码。路径、行号、SHA256 保存在 sources/eeg_trust/local_code_evidence.json。
