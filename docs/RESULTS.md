@@ -1,13 +1,13 @@
 # Joint cross-subject learning-rate experiment
 
-Current run: `artifacts/benchmark/cross_subject_fold0_lr_cosine/`. Preparing a two-H200 fresh run with 90-update LR warmup and cosine decay to 2% of peak; the LEAF encoder remains frozen for the first 100 updates and warms up separately for updates 101–190. Same initialization, seed, data, sampler and global batch 88 as the retained constant-LR control. See [protocol](PROTOCOL.md) for the world-size/microbatch reproducibility limitation. No new validation result yet.
+Current run: `artifacts/benchmark/cross_subject_fold0_lr_cosine/`. Launched on 2026-10-25 on two H200 GPUs, fresh initialization with 90-update LR warmup and cosine decay to 2% of peak; the LEAF encoder remains frozen for the first 100 updates and warms up separately for updates 101–190. Same initialization, seed, data, sampler and global batch 88 as the retained constant-LR control. Implementation commit: `441a8fa`. See [protocol](PROTOCOL.md) for the world-size/microbatch reproducibility limitation. No new formal validation result yet.
 
 - Status: `artifacts/benchmark/cross_subject_fold0_lr_cosine/pipeline.json`.
 - Per-step loss, sampled training accuracy and learning rates: `artifacts/benchmark/cross_subject_fold0_lr_cosine/jev/metrics.jsonl`.
 - Validation every 200 updates on the same 9,748 rows; last checkpoint every 100 updates.
 - Planned 3,000 updates, followed by full validation/test using the best validation-selected checkpoint.
 
-Pre-launch checks: 18 focused tests passed (schedule endpoints and delayed encoder warmup, optimizer/scheduler restoration, distributed accumulation, data adapters and choice masking). Read-only comparison confirmed all 9,748 monitor validation IDs/labels match the old run, 476,032 training epochs remain available, and two-/four-rank partitioning preserves the same 88 global sample IDs with eight per dataset per step. The production-sized two-GPU smoke test is the next launch gate.
+Pre-launch checks: 18 focused tests passed (schedule endpoints and delayed encoder warmup, optimizer/scheduler restoration, distributed accumulation, data adapters and choice masking). Read-only comparison confirmed all 9,748 monitor validation IDs/labels match the old run, 476,032 training epochs remain available, and two-/four-rank partitioning preserves the same 88 global sample IDs with eight per dataset per step. The two-GPU smoke test passed with production microbatch 22/rank, both option orders and all 11 datasets: encoder gradient norm 0 while frozen and 6.8471 after unfreezing, with the tokenizer parameter-update assertions passing. Peak rank-0 allocated GPU memory was 59.23 GiB; smoke execution took 91.83 seconds excluding model loading. Smoke uses a shortened two-update LR schedule and does not count as benchmark validation. The controller has advanced to formal production SFT.
 
 ## Retained constant-LR control
 
