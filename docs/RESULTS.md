@@ -1,12 +1,59 @@
 # Joint cross-subject BatchNorm comparison
 
-Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Paired validation at update 600 is complete: macro BA is **51.48% updating / 55.59% frozen**. Both checkpoint reload checks passed and training continues.
+Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Both completed the planned **1200-update diagnostic stage**, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Best validation macro BA: **51.85% updating (step 1200) / 55.59% frozen (step 600)**. Final step-1200 macro BA: **51.85% / 55.39%**. All scheduled checkpoint reload checks passed; neither branch is still running. These are validation results, not independent test scores.
 
 - Live summaries: `LIVE.md`, `monitor.json` under the current root.
 - Per-step metrics: `{updating,frozen}/metrics.jsonl`.
 - Fixed monitor validation: 9,748 rows, every 200 global updates.
 - Last checkpoint: every 100 updates; best: validation-selected dataset-macro BA.
 - Historical artifact index: [ARCHIVE.md](ARCHIVE.md).
+
+## Completed matched comparison
+
+Both branches completed all 1,100 continuation updates (101–1200) and six scheduled validations on the same 9,748 IDs/labels. Saved probabilities reproduce the reported normal/reversed metrics; every validation reload check covers all 38 task/classes with exactly matching logits. The controller reports `complete`, both branch completion files record step 1200, and final/best checkpoint metadata are audited in `completion_audit.json`. Training losses and gradient norms are finite throughout, and each update contains eight examples from each dataset. No test subjects were evaluated or used for selection.
+
+| Validation update | Updating BN macro BA | Frozen BN macro BA |
+| --- | ---: | ---: |
+| 200 | 46.25% | 54.53% |
+| 400 | 47.40% | 55.38% |
+| 600 | 51.48% | **55.59%** |
+| 800 | 44.73% | 53.40% |
+| 1000 | 44.63% | 54.22% |
+| 1200 | **51.85%** | 55.39% |
+
+Freezing BN improves macro BA at all six matched checkpoints in this run. Its observed validation range is 2.19 points, versus 7.22 with updating BN; the final paired difference is 3.54 points. This supports keeping frozen statistics as the better tested normalization policy for this setup. It is a one-seed, one-fold result and does not establish universal superiority. Training continues to fit better with frozen BN (last 100 updates: loss 0.84683, sampled accuracy 58.87%, versus 0.89572 / 56.08%), but validation has not surpassed its step-600 best.
+
+| Dataset | Updating step 1200 accuracy / BA | Frozen step 1200 accuracy / BA | Frozen selected step 600 accuracy |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 (2a) | 28.13% / 28.13% | 26.74% / 26.74% | 27.43% |
+| BNCI2014004 (2b) | 52.50% / 52.50% | 50.00% / 50.00% | 50.83% |
+| BNCI2015001 | 64.50% / 64.50% | 66.00% / 66.00% | 75.00% |
+| BNCI2014008 (P300) | 50.00% / 52.42% | 55.68% / 52.64% | 44.49% |
+| BNCI2014009 (P300) | 38.89% / 55.00% | 54.86% / 54.58% | 61.98% |
+| CHB-MIT | 58.25% / 70.70% | 81.67% / 83.50% | 83.50% |
+| TUAB | 56.79% / 56.79% | 62.21% / 62.21% | 60.84% |
+| SleepEDF | 47.29% / 47.29% | 61.47% / 61.47% | 61.03% |
+| SEED | 63.59% / 63.59% | 61.00% / 61.00% | 65.59% |
+| EEGMAT | 70.00% / 70.00% | 83.33% / 83.33% | 93.33% |
+| Nakanishi2015 | 9.44% / 9.44% | 7.78% / 7.78% | 10.00% |
+
+The selected column uses one common step-600 checkpoint, not per-dataset best steps. Important failures remain: 2a/2b/SSVEP are near chance, P300 discrimination is weak, and some class recalls collapse. Frozen step-1200 2a recalls are 34.72%, 70.83%, 1.39%, 0%; 2b recalls are 90% and 10%. Nakanishi predicts the same semantic class for most trials and has zero reversal consistency. Conversely, frozen CHB-MIT seizure recall recovers to 85.71% at step 1200 (50% at step 600), while SEED declines from 65.59% to 61.00%. Dataset/class trends matter even when the macro score is nearly unchanged. EEGMAT still has just 30 validation windows.
+
+Artifacts: `comparison_0800.json`, `comparison_1000.json`, `comparison_1200.json`, full `training_blocks.json`, branch metrics/validation/reload files. Use `frozen/best.pt` for the validation-selected shared model (step 600); `frozen/last.pt` is step 1200. The initial 1200-step comparison is finished; no automatic extension to 3000 or test-set evaluation was launched.
+
+## Initial 2a instruction and input-interface audit
+
+Upstream LEAF instruction tuning blends the task vector with the normalized mean of all candidate-label vectors in 90% of examples; its inference helper supports task-only and blended modes. Test this supported variant on the frozen initial encoder with the same 2,016 training and 288 validation trials. All 381 trainable encoder tensors and BN buffers match; only the 2a instruction-buffer row changes. Every example receives all four native labels (`Left`, `Right`, `Foot`, `Tongue`), not its true answer. Neither live JEV branch was modified.
+
+| Readout on identical 2a validation trials | Task only | Task + all candidates |
+| --- | ---: | ---: |
+| Fixed C=1 linear probe | 30.21% | 30.21% |
+| Source-subject-selected probe | 29.51% (C=0.01) | 32.64% (C=0.1) |
+| Released output projection + native prototypes | 25.69% | 25.35% |
+
+Both source-CV maxima are 38.00% BA. The selected-probe validation gain is nine correct examples (+3.125 points), with a different selected C, so it does not isolate an instruction-only gain. Fixed-C and released-projection readouts do not improve. This does not support missing candidate blending as the main explanation for poor 2a transfer. All probe fits converge; reloaded probe metrics, encoder immutability, identical IDs and the exact native blending formula were checked. The released projection readout is calculated in float32 from saved BF16-encoder queries, not an end-to-end BF16 forward. Evidence: `representation_probe_0200/native_candidate_control/{instruction_comparison,plan,complete}.json`, source-CV files, and saved scores/features. No test evaluation or JEV retraining is included in these figures.
+
+A separate code/input audit finds a concrete distribution difference to investigate next: upstream LEAF's 2a builder applies 22-channel common-average reference and 0.3–40 Hz filtering, then robust scaling across a subject's epoch batch. The benchmark builder specifies MOABB 0.1–75 Hz without explicit CAR, and the current online adapter applies per-epoch robust scaling without adding CAR or 0.3–40 Hz filtering. Across all 2,016 current training trials, the median fraction of raw signal energy in the channel-common component is 80.38% (5th–95th percentiles 69.60–88.60%); the median 40–75 Hz share of 0.3–75 Hz Hann-windowed power is 3.34%. These are descriptive input measurements, not evidence that common activity is noise or that removing it improves accuracy. Code inspection also does not fully establish the historical cache's provenance. Evidence, exact formulas and inspected source hashes: `input_interface_audit.json`. A controlled input-reference comparison is a better next diagnostic than attributing the remaining failure to JEV's output slots; it was not added to the completed matched BN run.
 
 ## Startup verification
 
@@ -40,7 +87,7 @@ The small macro-score improvement should not be read as broad progress. EEGMAT h
 
 Evidence: [paired update-600 audit](../artifacts/benchmark/cross_subject_fold0_bn_control/comparison_0600.json), branch `validation_0600.json` and `reload_check_0600.json`. Updating BN mean running variance is 43.2360; frozen remains 26.5335. Training continues under the unchanged matched protocol.
 
-### Training trend through update 600
+### Training trend through update 1200
 
 Every row below averages exactly 100 sampled training updates; these are not full-training-set evaluations. Source: `training_blocks.json` and the per-branch JSONL logs.
 
@@ -51,6 +98,12 @@ Every row below averages exactly 100 sampled training updates; these are not ful
 | 301–400 | 0.93779 / 52.18% | 0.91114 / 53.92% |
 | 401–500 | 0.92618 / 52.83% | 0.89873 / 54.86% |
 | 501–600 | 0.92264 / 53.66% | 0.88031 / 56.34% |
+| 601–700 | 0.92392 / 52.98% | 0.87639 / 56.51% |
+| 701–800 | 0.90687 / 54.76% | 0.86369 / 57.84% |
+| 801–900 | 0.89756 / 55.48% | 0.85711 / 58.18% |
+| 901–1000 | 0.89192 / 56.01% | 0.84897 / 58.28% |
+| 1001–1100 | 0.89887 / 56.05% | 0.84313 / 59.61% |
+| 1101–1200 | 0.89572 / 56.08% | 0.84683 / 58.87% |
 
 Training-log integrity was checked through update 643 in both branches: all 543 updates from 101 are present, losses and gradient norms are finite, every update contains eight examples from each of the 11 datasets, and aggregate loss/accuracy agree with their dataset means. Learning rates match across branches at every update; BN counts and modes follow the specified intervention throughout. Evidence: `training_health.json` under the current run root. Over updates 501–600, median pre-clipping gradient norms are 5.20 / 4.25 (updating/frozen); both branches clip every update at the configured norm of 1. Clipping frequency alone does not establish an optimization fault, so the matched configuration is unchanged.
 

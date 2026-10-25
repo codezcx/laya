@@ -2,7 +2,10 @@
 
 当前保留一套 EEG-FM-Benchmark 联合训练代码，11 个分类数据集，文本指定任务与选项，采用被试隔离的第 0 折。当前实验比较 BatchNorm 正常更新与固定统计量：两组各用一张 H200，从同一个 step 100 checkpoint 开始，其余配置一致。
 
-LEAF 解冻训练、JEV LoRA 始终开启；AdamW 加预热和余弦学习率衰减。有效 batch 88、microbatch 22。先比较到 step 1200，保持原 3000 步学习率曲线。完整保存参数、BN buffers、优化器、scheduler 和随机状态，并在保存后检查预测可复现。
+LEAF 解冻训练、JEV LoRA 始终开启；AdamW 加预热和余弦学习率衰减。有效 batch 88、microbatch 22。两组已完成 step 1200 的对照，保持原 3000 步学习率曲线；当前没有训练任务运行。完整保存参数、BN buffers、优化器、scheduler 和随机状态，并在保存后检查预测可复现。
+
+
+已完成的验证结果：冻结 BN 最佳宏平均 BA **55.59%（step 600）**，更新 BN 最佳 **51.85%（step 1200）**。选用 `frozen/best.pt`；这轮未评估测试集。当前输出目录已存在，启动器会拒绝覆盖；如需重跑，应先明确新的输出目录。
 
 - [当前训练协议](docs/PROTOCOL.md)
 - [结果与指标说明](docs/RESULTS.md)

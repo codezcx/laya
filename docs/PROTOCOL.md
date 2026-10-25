@@ -2,6 +2,8 @@
 
 Current implementation trains one shared model on 11 classification datasets from EEG-FM-Benchmark. The current experiment tests updating versus fixed BatchNorm statistics under the same warmup/cosine schedule. Task catalog: `configs/benchmark_tasks.json`; training settings: `configs/benchmark_train.json`. Ignored datasets, checkpoints and logs are retained. No frozen-query cache is used by this run.
 
+Status: both matched branches completed the planned step-1200 diagnostic stop on 2026-10-25. Best validation macro BA is 51.85% for updating BN (step 1200) and 55.59% for frozen BN (step 600). The 3000-step setting remains the LR horizon, not a claim that 3000 updates were run. No test evaluation or further training was started automatically. See [RESULTS.md](RESULTS.md) for all six validations and the saved checkpoint audit.
+
 ## Cross-subject protocol
 
 Start with joint fold0. For ordinary datasets, sort actual subject IDs numerically, hold out one subject for test and the next subject for validation; all other subjects train. For TUAB and SleepEDF, shuffle subjects with seed42 and partition into10groups; hold out group0 for test, group1 for validation, and train on8groups. chb01 and chb21 are one person and always share a split, per [PhysioNet](https://physionet.org/content/chbmit/1.0.0/).
