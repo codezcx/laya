@@ -8,6 +8,12 @@ Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two s
 - Last checkpoint: every 100 updates; best: validation-selected dataset-macro BA.
 - Historical artifact index: [ARCHIVE.md](ARCHIVE.md).
 
+## Startup verification
+
+Implementation `55008f1`: 22 focused tests passed. Both one-GPU real-model smoke tests completed successfully. The frozen branch retained BN count 32,365 and mean variance 26.5335 while encoder gradients remained nonzero (norm 2.1252); the updating branch advanced BN count to 32,381 and mean variance 29.5483 (encoder gradient norm 1.9542). Both had a peak allocated memory of 58.71 GiB. These two-update checks are functional validation, not evidence of classification superiority.
+
+Checkpoint round trips covered all 11 tasks and 38 task/class examples. Both branches saved nine named buffers and reproduced logits exactly after deliberately perturbing the head and BN state (maximum difference 0, prediction agreement 100%). Smoke metrics/reload proof files remain under the current run; consumed smoke weights were moved into the external archive. Formal branch processes have started loading the common update-100 checkpoint. Initial-state matching and later validation results are pending.
+
 ## Checkpoint correction and initialization
 
 The previous trainer saved trainable parameters but omitted LEAF SyncBatchNorm running statistics. Online in-process validation scores remain evidence for the live models, but later reloads cannot reproduce those models exactly. This implementation now saves all buffers, optimizer/scheduler and RNG state; unit tests require identical restored predictions, next updates and random draws. Real-model round-trip checks run on held-out examples for every task/class.
