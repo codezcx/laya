@@ -38,6 +38,8 @@ This is not simply a model always choosing the same letter: frozen 2a predominan
 
 Training updates 101–200: updating mean loss 1.00035 and sampled accuracy 46.7841%; frozen mean loss 0.95501 and sampled accuracy 50.2841%. Mean BN running variance ranged 33.67–913.82 for the updating branch versus a constant 26.5335 for the frozen branch. This is training-batch evidence, not full-training-set evaluation.
 
+The next complete block, updates 201–300, has mean loss / sampled accuracy **0.96114 / 50.0682%** for updating and **0.93282 / 52.2727%** for frozen. Exactly 100 updates contribute to each mean; per-dataset values are in `training_block_0300.json`. These are new training observations, not a new validation result. The next fixed validation is update 400.
+
 ## Read-only diagnostic evidence while paired training runs
 
 `bn_update_audit.json` accounts for the 16 BN calls per optimizer update with momentum 0.1. Because the task order is fixed, only 18.53% of the prior update's running statistic remains after the next update; newly observed statistics contribute 17.78% from SleepEDF, 15.39% from SEED, 10% from Nakanishi, but 2.06% from the first task (2a). These are EMA coefficients, not measured per-task feature magnitudes or proof of a validation effect. They explain why equal example counts do not imply equal influence on shared BN statistics. The branch comparison tests the resulting train/eval normalization behavior directly.
@@ -63,6 +65,20 @@ This does **not** support attributing all poor performance to the JEV interface:
 The same previously fixed Fourier rule was subsequently applied to the 180 Nakanishi validation rows, with no parameter change. Accuracy was **12.78% on the raw cache and 65.56% after exact online preprocessing**, compared with 11.11% for the LEAF-query probe. All IDs/labels match. The processed inputs therefore retain useful frequency information on this held-out subject. The raw-to-processed change includes robust clipping, spatial interpolation and padding; it is not an isolated estimate of any single preprocessing effect. This result motivates checking the representation/readout's cross-subject frequency generalization, without asserting an encoder implementation bug.
 
 Evidence: [diagnostic metrics](../artifacts/benchmark/cross_subject_fold0_bn_control/representation_probe_0200/metrics.json), `comparison.json`, `sampling_0200.json`, `frequency_{raw,online}_validation.json`, and `verification.json` in the same directory. The exact encoder snapshot, features, fitted probes and per-example predictions are preserved there. Encoder parameters and buffers remained unchanged; all 9,108 saved train/validation probabilities reproduce exactly after reloading the fitted probes. All three fits converged without warnings. The frequency-score synthetic test passed. Neither active BN branch was changed.
+
+### Source-subject regularization selection and initial-encoder control
+
+The follow-up selects C using only leave-one-training-subject-out BA, with the scaler refit inside every fold. Choices for all datasets were saved before accessing outer validation arrays. The six prespecified candidates were `[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]`. The same procedure was repeated with the step-100 encoder, before unfreezing. All 381 trainable encoder tensors and four released-model buffers in that initial snapshot exactly match the release; the fifth buffer is the current task-instruction table. Every sample ID and label matches the step-200 diagnostic.
+
+| Dataset | Initial C | Initial validation accuracy / BA | Step-200 C | Step-200 validation accuracy / BA |
+| --- | ---: | ---: | ---: | ---: |
+| BNCI2014001 | 0.01 | 29.51% / 29.51% | 0.01 | 29.86% / 29.86% |
+| BNCI2014009 | 0.01 | 76.22% / 61.56% | 0.1 | 73.96% / 58.12% |
+| Nakanishi2015 | 0.001 | 10.56% / 10.56% | 0.001 | 10.56% / 10.56% |
+
+For the step-200 encoder, selected-C training accuracy is 71.33% / 83.18% / 26.67%, respectively. Stronger regularization reduces the near-perfect training fit but does not recover 2a or Nakanishi validation performance. Initial and step-200 selected-C source-subject CV BA are 38.00% / 37.85% for 2a, 62.02% / 62.07% for P300 and 11.67% / 12.01% for Nakanishi. At fixed C=1, initial validation BA is 30.21% / 53.85% / 11.11%, versus step-200 28.47% / 54.48% / 11.11%. Thus these low 2a/SSVEP scores were already present in the initial query representation under this readout; this is not evidence of a new collapse caused solely by the first 100 encoder updates. The P300 selected-C comparison changes C as well as encoder weights, so it does not isolate an encoder-only effect.
+
+There were 138 inner-fold fits per encoder, all without convergence warnings. Reloaded probe probabilities match exactly on all saved examples. Evidence: `representation_probe_0200/source_cv_comparison.json`, `encoder_comparison.json`, and the `source_cv/{plan,selection,metrics,verification}.json` files under both the diagnostic root and `initial_encoder_control/`. The fixed encoder had already seen all source subjects during its training history; these inner scores evaluate the readout, not a fully held-out end-to-end model. Outer validation has also been inspected repeatedly. No independent test claim is made. The matched BN training branches remain unchanged; update 400 will test whether the normalization benefit persists.
 
 ## Checkpoint correction and initialization
 
