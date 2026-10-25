@@ -52,6 +52,8 @@ Every row below averages exactly 100 sampled training updates; these are not ful
 | 401–500 | 0.92618 / 52.83% | 0.89873 / 54.86% |
 | 501–600 | 0.92264 / 53.66% | 0.88031 / 56.34% |
 
+Training-log integrity was checked through update 643 in both branches: all 543 updates from 101 are present, losses and gradient norms are finite, every update contains eight examples from each of the 11 datasets, and aggregate loss/accuracy agree with their dataset means. Learning rates match across branches at every update; BN counts and modes follow the specified intervention throughout. Evidence: `training_health.json` under the current run root. Over updates 501–600, median pre-clipping gradient norms are 5.20 / 4.25 (updating/frozen); both branches clip every update at the configured norm of 1. Clipping frequency alone does not establish an optimization fault, so the matched configuration is unchanged.
+
 ## Paired validation: update 400
 
 All 9,748 validation IDs and labels match update 200 and match across branches. Metrics were recomputed from the saved per-example probabilities; both models reproduced logits exactly on the 38-example reload check covering every task/class. Both branches now select update 400 as their best saved checkpoint. Dataset-macro BA is **47.4038% updating / 55.3783% frozen**, a **7.9744-point** paired difference. From update 200, these changed by +1.1519 / +0.8514 points. This supports a continued aggregate benefit from freezing BN over these two checkpoints, not a universal per-task improvement.
