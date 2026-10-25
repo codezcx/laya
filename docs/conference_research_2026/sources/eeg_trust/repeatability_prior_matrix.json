@@ -1,6 +1,6 @@
 {
   "date": "2026-10-25",
-  "status": "bounded search; plausible empirical gap, not proof of firstness",
+  "status": "Expanded primary-source review: no standalone new-problem claim; conditional empirical extension requires substantive independent evidence.",
   "priors": [
     {
       "url": "https://arxiv.org/html/2606.24394",
@@ -20,9 +20,12 @@
     {
       "url": "https://www.frontiersin.org/journals/human-neuroscience/articles/10.3389/fnhum.2026.1895016/full",
       "sections": [
-        "2.8"
+        "2.2",
+        "2.8",
+        "4.5",
+        "4.6"
       ],
-      "coverage": "true cross-session selection, configurations averaged over target sessions for individual summaries; not stable versus session-specific relative advantage decomposition"
+      "coverage": "Target-fold automatic configuration selection and selected-versus-oracle performance on matched grids. All other sessions form source archive; chronological-only evaluation and pretrained representations are explicitly proposed future work. Prior average-summary-only description understated overlap."
     },
     {
       "url": "https://www.mdpi.com/2073-431X/13/7/158",
@@ -45,7 +48,7 @@
         "Fig 8 and Table 2",
         "Usage Notes"
       ],
-      "coverage": "Multiple model aggregate benchmark plus within-person EEGNet score changes across nominal sessions; does not report relative-pair repeatability decomposition. Published author score matrix now independently reanalysed, with chronology/mapping caveats."
+      "coverage": "Multiple model aggregate benchmark plus within-person EEGNet score changes. Our author-score reanalysis now uses complete verified label-sequence session mapping; does not identify stable latent relative preference."
     },
     {
       "url": "https://papers.neurips.cc/paper_files/paper/2024/file/8c2e6bb15be1894b8fb4e0f9bcad1739-Paper-Datasets_and_Benchmarks_Track.pdf",
@@ -53,6 +56,31 @@
         "4.2"
       ],
       "coverage": "Explicit cross-session model-ranking stability in invasive M1-A; excludes generic neural-decoder rank-stability novelty. Not EEG multi-person relative-preference variance decomposition or equal-information longitudinal selection value."
+    },
+    {
+      "url": "https://doi.org/10.3217/978-3-85125-962-9-65",
+      "sections": [
+        "BCI Meeting 2023 PDF page 63, article 144437"
+      ],
+      "coverage": "Single tactile-P300 user, 17 sessions, 4 classifiers and 4 calibration modes; inconsistent ranking explicitly reported. Abstract evidence, not MI prevalence."
+    },
+    {
+      "url": "https://doi.org/10.3389/fnrgo.2022.838342",
+      "sections": [
+        "2",
+        "3",
+        "Fig.3"
+      ],
+      "coverage": "Earlier validation versus held-out third-session competition results; aggregate EEG validation-to-future mismatch already studied."
+    },
+    {
+      "url": "https://doi.org/10.1016/j.heliyon.2024.e37343",
+      "sections": [
+        "3.2.4",
+        "4",
+        "5"
+      ],
+      "coverage": "Current calibration versus all-history versus selected-history adaptation, target-session random tenfold CV; historical adaptation baselines are established."
     }
   ]
 }

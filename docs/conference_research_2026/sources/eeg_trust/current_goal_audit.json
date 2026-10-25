@@ -4,13 +4,13 @@
   "requirements": {
     "real_cropping_label_mechanism": "verified against local code and original BCI protocol; speculative temporal boundary recommendation withdrawn",
     "real_reliability_variation": "official dataset rank examples plus completed matched input pilot; not a universal distrust conclusion",
-    "clear_current_question": "Finite-horizon repeatability of paired decoder advantage and equal-budget future selection value; stable latent components require explicit assumptions. Programmed cued-MI windows are not an uncertain-boundary target.",
-    "closest_prior_comparison": "Expanded with original Yang2025 validation and FALCON NeurIPS 2024 section 4.2; generic neural decoder cross-session rankings are already studied.",
+    "clear_current_question": "Actual future value of early personal information under equal historical/current calibration information; relative-advantage repeatability auxiliary, not a proxy for value. Exact counterexamples verified. Programmed cued MI is not an uncertain-boundary target.",
+    "closest_prior_comparison": "Primary review expanded: BCI2023 tactile-P300 single-case rank inconsistency, Roy2022 earlier validation vs future held-out session, Sung2024 history adaptation. Recent cross-session selection paper actually evaluates selected configurations and explicitly suggests chronological/pretrained extensions; previous summary understated overlap.",
     "new_empirical_effect": "Corrected mapped author-score reanalysis on 42 three-date people: primary r=.057 (bootstrap -.169,.304), ten pairs reported; retrospective selection gap -.660 pp (-1.618,.206). Exploratory only, no noise decomposition or equal-information refitting.",
-    "novelty": "conditional bounded-search assessment, not firstness proof",
+    "novelty": "Standalone new-problem novelty not supported. Current candidate is a conditional empirical extension; low correlation, chronology, adding a frozen model or standard variance decomposition are insufficient contributions.",
     "data_for_full_question": "153 full processed/native label sequences yield unique mappings for all 51 people; processed numbering is chronological. All native-event/converted-signal header dates agree; 9 two-date people excluded. Waveform checks limited to subject 1 first trials. Full signal/training protocol acceptance remains incomplete."
   },
-  "next_action": "Resolve remaining claim-level novelty and minimal controlled-study feasibility: a low correlation in existing scores alone is insufficient contribution. Lock equal-history calibration/query evaluation and independent confirmation before claiming a new empirical result.",
-  "previous_goal_turn_classification": "no progress in artifacts: conversational clarification distinguished programmed windows from uncertain event targets; resumed by verifying full mapping and correcting statistics.",
-  "current_goal_turn_classification": "progress: verified 51 mappings and 153 date pairs, corrected and independently checked full secondary analysis, narrowed estimands and updated current docs."
+  "next_action": "Develop a discriminating empirical hypothesis within the existing candidate, or reject it as a publication direction if it remains only known temporal selection with new packaging. Do not start large training just to manufacture rank flips.",
+  "previous_goal_turn_classification": "progress: committed verified processed/native mapping and corrected all author-score statistics at 5f7d53e.",
+  "current_goal_turn_classification": "progress: verified closer prior work, corrected understated overlap, ruled out standalone novelty, and clarified decision estimand with exact counterexamples."
 }

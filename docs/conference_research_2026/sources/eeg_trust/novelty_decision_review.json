@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-25",
+  "purpose": "Claim-level novelty review of the existing longitudinal EEG candidate; not a new research branch.",
+  "search_queries": [
+    "EEG motor imagery classifier selection previous session next session best classifier individual",
+    "brain computer interface classifier ranking stability across sessions individual algorithm selection",
+    "EEG motor imagery test retest reliability classifier performance difference personalized models",
+    "\"Improving inter-session performance via relevant session-transfer\"",
+    "\"EEG\" \"classifier\" \"ranking\" \"test-retest\"",
+    "\"EEG\" \"personalized\" \"algorithm selection\" \"session\""
+  ],
+  "access_notes": [
+    "Web PDF open returned 502; direct requests download succeeded (57,821,097 bytes). Parsed with system Python PyMuPDF and visually checked PDF page 63; no package installation.",
+    "PMC web opens returned recaptcha. Official Europe PMC fullTextXML succeeded for PMC13562021, PMC10790860 and PMC11409124.",
+    "Primary Frontiers full text succeeded. Review covered named sections, not a reproduction of published experiments."
+  ],
+  "findings": [
+    {
+      "source": "https://doi.org/10.3217/978-3-85125-962-9-65",
+      "title": "Riemannian vs. Linear P300 classification for a tactile Brain-Computer-Interface in an end-user single-case study",
+      "year": 2023,
+      "location": "BCI Meeting proceedings PDF page 63, article 144437",
+      "coverage": "One user, 17 home tactile-P300 sessions; four classifiers and four calibration modes; reports inconsistent classifier rankings.",
+      "limit": "Conference abstract, single case, different EEG paradigm; cannot establish prevalence or effects in cued MI.",
+      "implication": "Exclude first EEG evidence that the best classifier can change across sessions."
+    },
+    {
+      "source": "https://doi.org/10.3389/fnhum.2026.1895016",
+      "location": "sections 2.2, 2.8, 4.5, 4.6",
+      "coverage": "Explicit target-fold configuration selection using source proxy scores, selected versus post-hoc performance, matched grid and source-pooling baselines.",
+      "limit": "Leave-one-session-out uses all other sessions, not a past-only archive.",
+      "implication": "Our earlier description based only on averaging target-fold scores understated overlap. Strict chronology and pretrained representations are explicitly suggested future directions, not enough alone for a strong novel-problem claim."
+    },
+    {
+      "source": "https://doi.org/10.1016/j.heliyon.2024.e37343",
+      "location": "sections 3.2.4, 4, 5",
+      "coverage": "Current-session calibration alone versus all previous-session data versus relevant previous data using a fixed CNN, with target-session random tenfold CV.",
+      "limit": "Not model-family selection or trial-prefix prospective evaluation; threshold chosen empirically.",
+      "implication": "Equal-history adaptation comparison is necessary design control, not a newly invented question."
+    },
+    {
+      "source": "https://doi.org/10.3389/fnrgo.2022.838342",
+      "location": "sections 2 and 3, Figure 3",
+      "coverage": "15 users, three sessions; first two sessions for training and third for held-out evaluation. Directly compares validation and final test performance of competing decoders.",
+      "limit": "Aggregate competition comparison, not per-user relative-advantage noise decomposition.",
+      "implication": "Exclude broad novelty that earlier validation superiority can fail on later EEG sessions."
+    }
+  ],
+  "decision": {
+    "standalone_new_problem_claim": "not supported",
+    "current_empirical_results": "Exploratory support for examining model-dependent repeatability; no identified stable component or deployable selection value.",
+    "possible_remaining_contribution": "A substantive, independently replicated answer about when early personal evidence improves future model choice after equal-information adaptation and measurement-error controls.",
+    "insufficient_by_itself": [
+      "another ranking-reversal example",
+      "a low Pearson correlation",
+      "renaming stability as trustworthiness",
+      "strict temporal splits alone",
+      "adding one frozen foundation model",
+      "standard random-effects or selection-value formulas"
+    ],
+    "next_evidence_gate": "Specify a discriminating empirical claim and matched prospective estimator before large-scale training; if only the above extensions remain, do not recommend as a strong novelty-led project."
+  }
+}

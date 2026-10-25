@@ -50,6 +50,11 @@
     "sha256": "82bca72ffc5436de810bb2d65f5fa0aea3d1026fe46f674ce8a11c0fead0b278"
   },
   {
+    "path": "sources/eeg_trust/bci2023_ranking_abstract.json",
+    "bytes": 5214,
+    "sha256": "da55e280f5a8c9d89d74ddd705690bc887c0a09a3607d96c44d9cd2c68b84f41"
+  },
+  {
     "path": "sources/eeg_trust/conformal_eeg.json",
     "bytes": 12947,
     "sha256": "e7e0c25acdcf45b324dc3c5d65051e84e31f34e0647148360b1c0116faf6b610"
@@ -61,8 +66,13 @@
   },
   {
     "path": "sources/eeg_trust/current_goal_audit.json",
-    "bytes": 2215,
-    "sha256": "62e9d757ad70719cf6ad267c68db4fbcb50926072f7c49e41ba94d0cf0289a82"
+    "bytes": 2515,
+    "sha256": "8fb2284d9f3c706b9b21e873ef95c64d31be82022cfb69a3909fc6c91027e524"
+  },
+  {
+    "path": "sources/eeg_trust/decision_estimand_checks.json",
+    "bytes": 998,
+    "sha256": "ff3e00acfc57988973a8ca8ac65fd80db5ebb341fe81fc21c94bdab28847e69d"
   },
   {
     "path": "sources/eeg_trust/falcon_primary_review.json",
@@ -170,6 +180,11 @@
     "sha256": "9e92737922fce90ea926aa42a916958eca18a9fb95e38c2b4c0df5e0294bcd6c"
   },
   {
+    "path": "sources/eeg_trust/novelty_decision_review.json",
+    "bytes": 4529,
+    "sha256": "0e58b0be22077954ad8c0aac37695d96dae678a052c46aabd358c44a1fc84a4c"
+  },
+  {
     "path": "sources/eeg_trust/novelty_followup_search.json",
     "bytes": 172673,
     "sha256": "87ac6aa42649b36a0626fca4120ad56197372ede111c54a9412f9579bba05711"
@@ -180,14 +195,24 @@
     "sha256": "2c5c7fdbb1f55701de14be5451d5c8b387e751e14a0e5b7fb3248954e8613c85"
   },
   {
+    "path": "sources/eeg_trust/pmc10790860_primary.json",
+    "bytes": 26856,
+    "sha256": "35b76e855a6c12c497c216c8e3a1e2b5a6b9a2ebe16337e7bd85c53bcd468c90"
+  },
+  {
+    "path": "sources/eeg_trust/pmc13562021_primary.json",
+    "bytes": 71851,
+    "sha256": "88ac28fdd0ce2fab0b62b5daf8298c8b8d618c496afb5676fca0ec8f7a08fd05"
+  },
+  {
     "path": "sources/eeg_trust/ranking_evidence.json",
     "bytes": 844,
     "sha256": "b99d9373973d8f102980ee3b2a88147f73cce953756cc2a93ed7e6716eeca6cf"
   },
   {
     "path": "sources/eeg_trust/repeatability_prior_matrix.json",
-    "bytes": 2409,
-    "sha256": "f333295227189d2de73a71cc9248fdc45655b9bd3da6de21cc3549b705ae289f"
+    "bytes": 3579,
+    "sha256": "3d1c5221301b0238b2d099c94a4658bdc4aeb3cf6ef9da2d0d26edd3772180d3"
   },
   {
     "path": "sources/eeg_trust/repeatability_search_log.json",
@@ -213,6 +238,11 @@
     "path": "sources/eeg_trust/subject_optimality.json",
     "bytes": 48679,
     "sha256": "c12831fb9598b00129bd78186e698190bc56aa13f1b85349e88cf3d2e1f88439"
+  },
+  {
+    "path": "sources/eeg_trust/sung2024_primary.json",
+    "bytes": 42103,
+    "sha256": "b6499f5b1d154981c59be8f350ca98bd4a497b0a6749ae1433f1fabb42c98ffc"
   },
   {
     "path": "sources/eeg_trust/temporal_pilot_result.json",

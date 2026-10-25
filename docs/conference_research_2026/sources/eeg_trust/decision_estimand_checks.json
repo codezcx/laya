@@ -1,0 +1,47 @@
+{
+  "kind": "exact finite mathematical examples, not EEG results or new statistical method",
+  "cases": [
+    {
+      "name": "perfect_repeatability_no_selection_gain",
+      "early_difference_pp": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "future_difference_pp": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "uniform_history_states": true,
+      "pearson_r": 1.0,
+      "best_fixed_mean": 0.735,
+      "known_conditional_optimal_mean": 0.735,
+      "gain_pp": 0.0,
+      "exact_fraction_gain": "0"
+    },
+    {
+      "name": "zero_linear_correlation_positive_oracle_selection_gain",
+      "early_difference_pp": [
+        -2,
+        -1,
+        1,
+        2
+      ],
+      "future_difference_pp": [
+        1,
+        -1,
+        -1,
+        1
+      ],
+      "uniform_history_states": true,
+      "pearson_r": 0.0,
+      "best_fixed_mean": 0.7,
+      "known_conditional_optimal_mean": 0.705,
+      "gain_pp": 0.5,
+      "exact_fraction_gain": "1/200"
+    }
+  ]
+}
