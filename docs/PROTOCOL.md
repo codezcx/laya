@@ -59,6 +59,14 @@ Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. The controller runs tw
 - Branch weights: `initial.pt`, `last.pt`, `best.pt` within each branch.
 - Controller: `pipeline.json`; summaries: `monitor.json`, `LIVE.md`.
 - Compact historical comparisons: `artifacts/benchmark/reference_constant_lr/`, `reference_cosine_partial/`.
+
+## Frozen representation diagnostic
+
+While the matched branches run, `scripts/diagnose_representation.py` freezes the saved frozen-BN step-200 LEAF encoder, including its BN buffers, and extracts the exact eight query tokens used as JEV input. Flattening produces 2,048 features per example. Three unresolved datasets are checked: BNCI2014001, BNCI2014009 and Nakanishi2015. Use all their existing training rows and the same held-out validation subjects; no test access or split changes.
+
+Each task gets a separate fixed `StandardScaler` + `LogisticRegression(C=1, class_weight='balanced', solver='lbfgs', max_iter=1000, random_state=42)` pipeline. Scaling and classifier fitting use training rows only. No validation hyperparameter search. Save train/validation accuracy, BA, confusion matrices, convergence warnings, IDs, probabilities, features and the exact encoder snapshot under `cross_subject_fold0_bn_control/representation_probe_0200/`. Verify encoder parameters and buffers remain unchanged after extraction.
+
+This is a diagnostic of accessible class information, not a matched comparison of optimizers or training exposure. A better linear-probe result would support usable information in the encoder output, but would not by itself locate a specific JEV interface bug. The extra encoder-only inference process may affect one branch's wall time; it does not update either training model.
 - Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
 
 Superseded tracked implementations are in Git (`521f865` before this replacement). Old artifacts are moved outside the repository, not deleted. See [ARCHIVE.md](ARCHIVE.md) for the inventory. Unrelated ECG-R1 working files, shared models, datasets, environments and third-party installations are retained.
