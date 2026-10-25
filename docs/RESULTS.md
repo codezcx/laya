@@ -4,6 +4,8 @@ Current paired continuation: `artifacts/benchmark/cross_subject_fold0_leaf_prepr
 
 Startup verification: 28 focused tests passed. A mixed batch verified identical grouping/shapes and byte-identical inputs for all ten unchanged tasks. Both real-model two-update smoke tests completed with nonzero encoder gradients after unfreezing and fixed BN statistics; checkpoint reloads reproduced logits exactly on all 38 task/classes. The formal paired jobs and TensorBoard exporter have been launched. Evidence: `startup_checks.json` and smoke logs under the new run root. Smoke scores are functional checks, not experiment results.
 
+Both formal initial snapshots have now been compared directly with the step-600 source: all trainable parameters, buffers, optimizer moments/groups, scheduler and Python/NumPy/torch RNG states match exactly (4,767 tensor pairs checked per branch). Both initial 38-case reload checks also pass. Evidence: `initial_comparison.json` and each branch's `reload_check_0600.json`. The first full validation measures input replacement before the 200 new training updates.
+
 ## Raw LEAF preprocessing control on 2a
 
 The same frozen initial encoder, 2,016 training trials and 288 validation trials were evaluated with the original online adapter versus the raw LEAF 2a pipeline. Encoder parameters, buffers, instruction text, IDs and labels match exactly. The native pipeline uses T-session MAT files only; selecting labeled runs preserves 96 A04T trials that upstream's fixed skip would drop. This is a bundled input-pipeline intervention, including subject-level unlabeled normalization; it is not an isolated CAR effect or a JEV training result.
