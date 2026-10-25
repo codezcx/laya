@@ -66,8 +66,8 @@
   },
   {
     "path": "sources/eeg_trust/current_goal_audit.json",
-    "bytes": 2515,
-    "sha256": "8fb2284d9f3c706b9b21e873ef95c64d31be82022cfb69a3909fc6c91027e524"
+    "bytes": 3474,
+    "sha256": "f86b50d2d0c53d1dc940c5021286c0f695f370151f997a6a0b774689362f7963"
   },
   {
     "path": "sources/eeg_trust/decision_estimand_checks.json",
@@ -225,6 +225,16 @@
     "sha256": "a470da7c8b3c5166630aa85b70c9280ab381daea44eb9d2a650624cc48d38e1a"
   },
   {
+    "path": "sources/eeg_trust/selection_precision_plan.json",
+    "bytes": 8085,
+    "sha256": "2b9be440dd6f06c3b6479a5a76453aab20851838f0c037f089e677f9b910cc4f"
+  },
+  {
+    "path": "sources/eeg_trust/selection_precision_verification.json",
+    "bytes": 2338,
+    "sha256": "963cc05316cebb47e979bdf7d6e67fc39e3f33bc694b90c2c277db39378042e0"
+  },
+  {
     "path": "sources/eeg_trust/session_feasibility.json",
     "bytes": 1243,
     "sha256": "8ff78bbdee558ef0e50ab194af43e6ab7a4a4e1d4f3eb5e9f336cae6af23492c"
@@ -338,6 +348,11 @@
     "path": "sources/eeg_trust/yang_native_header_event_fetch.json",
     "bytes": 2118,
     "sha256": "385f45e63aa64ab26ad08cc044598a8fcd2296a320d36e6555c8d282ecc845c2"
+  },
+  {
+    "path": "sources/eeg_trust/yang_preprocessing_information_audit.json",
+    "bytes": 2463,
+    "sha256": "25abea7604be7b902a089485af85023b9f745aa81230103888b1c858284d4a5d"
   },
   {
     "path": "sources/eeg_trust/yang_primary_sections.json",

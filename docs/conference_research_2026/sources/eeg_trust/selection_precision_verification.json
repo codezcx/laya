@@ -1,0 +1,98 @@
+{
+  "sensitivity_rows": 28,
+  "version_pair": [
+    {
+      "numpy": "2.4.4",
+      "scipy": "1.18.0"
+    },
+    {
+      "numpy": "2.2.6",
+      "scipy": "1.15.3"
+    }
+  ],
+  "max_mde_cross_version_difference": 7.852718475476195e-12,
+  "independent_normal_chisquare_integrals": [
+    {
+      "n": 7,
+      "alpha": 0.05,
+      "target": 0.8,
+      "integral": 0.800000000000279,
+      "quadrature_error": 4.1675682398052785e-11
+    },
+    {
+      "n": 42,
+      "alpha": 0.05,
+      "target": 0.8,
+      "integral": 0.8000000000001171,
+      "quadrature_error": 7.546386112737086e-11
+    },
+    {
+      "n": 7,
+      "alpha": 0.05,
+      "target": 0.9,
+      "integral": 0.9000000000000015,
+      "quadrature_error": 4.1688745042417595e-11
+    },
+    {
+      "n": 42,
+      "alpha": 0.05,
+      "target": 0.9,
+      "integral": 0.8999999999996011,
+      "quadrature_error": 3.7336356904843386e-11
+    },
+    {
+      "n": 7,
+      "alpha": 0.016666666666666666,
+      "target": 0.8,
+      "integral": 0.8000000000000002,
+      "quadrature_error": 1.2139874548521133e-11
+    },
+    {
+      "n": 42,
+      "alpha": 0.016666666666666666,
+      "target": 0.8,
+      "integral": 0.8000000000000008,
+      "quadrature_error": 5.874925682637728e-11
+    },
+    {
+      "n": 7,
+      "alpha": 0.016666666666666666,
+      "target": 0.9,
+      "integral": 0.8999999999999999,
+      "quadrature_error": 7.520528948386215e-11
+    },
+    {
+      "n": 42,
+      "alpha": 0.016666666666666666,
+      "target": 0.9,
+      "integral": 0.9000000000000018,
+      "quadrature_error": 8.555199683676548e-11
+    }
+  ],
+  "reference_model_simulation_checks": [
+    {
+      "n_people": 42,
+      "simulations": 20000,
+      "standardized_effect": 0.0,
+      "rejection_fraction": 0.0502,
+      "wilson_95": [
+        0.047259212047703,
+        0.05331354358836872
+      ],
+      "noncentral_t_probability": 0.05000000000000003
+    },
+    {
+      "n_people": 42,
+      "simulations": 20000,
+      "standardized_effect": 0.44275440474084976,
+      "rejection_fraction": 0.79895,
+      "wilson_95": [
+        0.7933383279728934,
+        0.8044468536691618
+      ],
+      "noncentral_t_probability": 0.8000000000001163
+    }
+  ],
+  "input_hashes_verified": true,
+  "scope": "Formula/software verification only, not validity of EEG planning assumptions or novelty."
+}

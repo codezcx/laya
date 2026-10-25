@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-25",
+  "author_sample_script_sha256": "3aa23e802ed1c3ed117abfe404ca47fdf756ddabfdfb51c7242abbedabc619d4",
+  "upstream_filter_source_url": "https://github.com/widmann/firfilt/blob/master/pop_eegfiltnew.m",
+  "upstream_filter_saved_copy_sha256": "d88561c01215f6f7100499c61ba28d372f3fd5cbba9dcd19fe174d169271a8ad",
+  "official_tutorial": "https://eeglab.org/tutorials/05_Preprocess/Filtering.html",
+  "observations": [
+    "Author example filters the continuous record before epoching, with .5-40 Hz bandpass and 49-51 Hz bandstop.",
+    "No minphase or explicit filter-order option is supplied.",
+    "Inspected upstream implementation defaults to minphase=0 and labels that branch zero-phase, non-causal."
+  ],
+  "interpretation": "A chronological index split of these processed epochs does not by itself establish prediction using only samples available by each decision time. This is an information-access requirement, not evidence that authors leaked target labels or that unknown physiological event boundaries exist.",
+  "limitations": [
+    "The sample script is not a complete versioned processing manifest for every published MAT.",
+    "Exact EEGLAB/firfilt versions and future support of the published MAT are not established.",
+    "No measured accuracy inflation, source-code execution, or new model fitting.",
+    "Continuous filtering is a standard offline analysis choice; it must match the declared intended use."
+  ],
+  "admissible_next_routes": [
+    "Describe use of published MAT as retrospective offline evaluation and do not claim strict online deployment.",
+    "For a strict prefix/decision-time claim, build and verify an explicit raw-signal pipeline with fixed available context and latency; separate choices for filtering, calibration and query access."
+  ],
+  "archive_sizes": {
+    "processed_51": {
+      "files": 153,
+      "bytes": 6588196172,
+      "compressed_bytes": 6589198902
+    },
+    "native_signal_51": {
+      "files": 153,
+      "bytes": 68034673920,
+      "compressed_bytes": 43980899417
+    },
+    "processed_42": {
+      "files": 126,
+      "bytes": 5424470102,
+      "compressed_bytes": 5425295665
+    },
+    "native_signal_42": {
+      "files": 126,
+      "bytes": 56150768640,
+      "compressed_bytes": 36340003014
+    }
+  },
+  "download_note": "Sizes are from the archive inventory, not new downloads. Only previously cached subject-1 full MAT and waveform fragments are available locally."
+}

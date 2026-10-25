@@ -1,0 +1,250 @@
+{
+  "kind": "planning_sensitivity_under_frozen_policy_iid_normal_user_differences",
+  "inputs_sha256": {
+    "docs/conference_research_2026/sources/eeg_trust/yang_author_score_result.json": "3e2490bb036d729f7c58941cf23a7831715057ab87c66d8799b7f333130ba0e7",
+    "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/scripts/audit_selection_precision.py": "7dded2e9a93d507ef1cefd65c67b56bc839391847a000b17711b519e71c8d286"
+  },
+  "versions": {
+    "numpy": "2.4.4",
+    "scipy": "1.18.0"
+  },
+  "planning_assumptions": [
+    "Policies and model configurations fixed on independent development people.",
+    "One paired future-session-average gain per independent confirmation person.",
+    "Normally distributed user gains with a common unknown SD for the exact t model.",
+    "Single two-sided primary contrast alpha=.05; alpha=.05/3 is a separate conservative scenario for three confirmatory contrasts, not a selected result.",
+    "No dropout assumed; n is usable confirmation people, not enrollment or trial count."
+  ],
+  "author_sd_pp": 3.0584596413011678,
+  "author_sd_usage": "Illustrative scale anchor only. Retrospective author CV scores are not prospective equal-history policy gains, and their global choices share data. This SD is not a validated variance estimate for the future design.",
+  "no_observed_effect_used": true,
+  "no_minimum_practical_effect_assumed": true,
+  "sensitivity": [
+    {
+      "n_people": 7,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 1.2725666554546602,
+      "illustrative_mde_pp_at_author_sd": 3.892093756573687
+    },
+    {
+      "n_people": 20,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.6604416546230273,
+      "illustrative_mde_pp_at_author_sd": 2.0199341460986937
+    },
+    {
+      "n_people": 30,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.5292356151129541,
+      "illustrative_mde_pp_at_author_sd": 1.6186457695621685
+    },
+    {
+      "n_people": 42,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.44275440474084976,
+      "illustrative_mde_pp_at_author_sd": 1.3541464779082115
+    },
+    {
+      "n_people": 62,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.36152650455975177,
+      "illustrative_mde_pp_at_author_sd": 1.1057142234566835
+    },
+    {
+      "n_people": 100,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.2829126327813849,
+      "illustrative_mde_pp_at_author_sd": 0.8652768693761235
+    },
+    {
+      "n_people": 200,
+      "alpha": 0.05,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.19906417540672036,
+      "illustrative_mde_pp_at_author_sd": 0.6088297465103507
+    },
+    {
+      "n_people": 7,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 1.4788316452439543,
+      "illustrative_mde_pp_at_author_sd": 4.52294690325764
+    },
+    {
+      "n_people": 20,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.7644579021775968,
+      "illustrative_mde_pp_at_author_sd": 2.3380636412839357
+    },
+    {
+      "n_people": 30,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.6124454953270756,
+      "illustrative_mde_pp_at_author_sd": 1.8731398299545636
+    },
+    {
+      "n_people": 42,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.5123233189723073,
+      "illustrative_mde_pp_at_author_sd": 1.5669201943742668
+    },
+    {
+      "n_people": 62,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.41831288016379425,
+      "illustrative_mde_pp_at_author_sd": 1.2793930614174165
+    },
+    {
+      "n_people": 100,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.32734314038309315,
+      "illustrative_mde_pp_at_author_sd": 1.0011657837184729
+    },
+    {
+      "n_people": 200,
+      "alpha": 0.05,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.23032408713093314,
+      "illustrative_mde_pp_at_author_sd": 0.7044369249094927
+    },
+    {
+      "n_people": 7,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 1.6236799991001452,
+      "illustrative_mde_pp_at_author_sd": 4.9659597476357105
+    },
+    {
+      "n_people": 20,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.7835401327714994,
+      "illustrative_mde_pp_at_author_sd": 2.3964258734213892
+    },
+    {
+      "n_people": 30,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.6217976441169455,
+      "illustrative_mde_pp_at_author_sd": 1.9017429995878243
+    },
+    {
+      "n_people": 42,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.5174933122828097,
+      "illustrative_mde_pp_at_author_sd": 1.5827324102602354
+    },
+    {
+      "n_people": 62,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.4208612916973013,
+      "illustrative_mde_pp_at_author_sd": 1.2871872752420743
+    },
+    {
+      "n_people": 100,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.32832814942982924,
+      "illustrative_mde_pp_at_author_sd": 1.0041783941342317
+    },
+    {
+      "n_people": 200,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.8,
+      "mde_in_population_sd": 0.23045365207927476,
+      "illustrative_mde_pp_at_author_sd": 0.7048331940749228
+    },
+    {
+      "n_people": 7,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 1.8585623573158874,
+      "illustrative_mde_pp_at_author_sd": 5.6843379606922015
+    },
+    {
+      "n_people": 20,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.8907237633075895,
+      "illustrative_mde_pp_at_author_sd": 2.7242426816241565
+    },
+    {
+      "n_people": 30,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.7065587297231607,
+      "illustrative_mde_pp_at_author_sd": 2.1609813590673066
+    },
+    {
+      "n_people": 42,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.5879445825110594,
+      "illustrative_mde_pp_at_author_sd": 1.7982047769317395
+    },
+    {
+      "n_people": 62,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.4781167666343025,
+      "illustrative_mde_pp_at_author_sd": 1.4623008345804231
+    },
+    {
+      "n_people": 100,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.3729791414309196,
+      "illustrative_mde_pp_at_author_sd": 1.140741651113628
+    },
+    {
+      "n_people": 200,
+      "alpha": 0.016666666666666666,
+      "target_power": 0.9,
+      "mde_in_population_sd": 0.2617890869369118,
+      "illustrative_mde_pp_at_author_sd": 0.8006713569296274
+    }
+  ],
+  "reference_model_simulation_checks": [
+    {
+      "n_people": 42,
+      "simulations": 20000,
+      "standardized_effect": 0.0,
+      "rejection_fraction": 0.0502,
+      "wilson_95": [
+        0.047259212047703,
+        0.05331354358836872
+      ],
+      "noncentral_t_probability": 0.05000000000000003
+    },
+    {
+      "n_people": 42,
+      "simulations": 20000,
+      "standardized_effect": 0.44275440474084976,
+      "rejection_fraction": 0.79895,
+      "wilson_95": [
+        0.7933383279728934,
+        0.8044468536691618
+      ],
+      "noncentral_t_probability": 0.8000000000001163
+    }
+  ],
+  "exclusions": [
+    "Not power for a bootstrap interval, nested CV, learned policies refitted within folds, heterogeneous mixed effects, or the stability variance component.",
+    "Not a test of equivalence or absence of useful personalization.",
+    "Cannot count sessions or seeds as additional independent people.",
+    "Practical effect threshold and confirmation data are still unspecified."
+  ]
+}

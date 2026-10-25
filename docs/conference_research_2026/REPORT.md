@@ -98,10 +98,10 @@ EEG-Arena 的原始摘要报告覆盖 30 个 EEG 基模、25 个监督基线、5
 
 新增早期先行工作进一步排除了宽泛首创表述：2023 年一项 17 会话触觉 P300 单案例摘要已报告分类器排名不一致；2022 年跨会话 workload 竞赛已比较前两次会话验证与第三次保留测试；2024 年 RST 已比较当前校准与历史数据适应。它们的任务与统计目标并不完全相同，但足以说明“可信性/跨日/个体化”不能作为新问题名称。[BCI2023 p.63](https://bcisociety.org/wp-content/uploads/2023/07/Proceedings2023_V10.pdf#page=63)、[Roy2022](https://doi.org/10.3389/fnrgo.2022.838342)、[Sung2024](https://doi.org/10.1016/j.heliyon.2024.e37343)
 
-**当前不建议按“发现一个全新的可信性问题”直接立项。** 可保留的实证问题需要给出经独立验证、会改变选择策略的答案；现有相关和回顾式选择尚不足以达到这个标准。详细区分、信息权限和后续证据条件已更新于 [问题定义](PROBLEM_DEFINITIONS.md)。
+**当前不建议按“发现一个全新的可信性问题”直接立项。** 可保留的实证问题需要给出经独立验证、会改变选择策略的答案；现有相关和回顾式选择尚不足以达到这个标准。详细区分、信息权限和后续证据条件已更新于 [问题定义](PROBLEM_DEFINITIONS.md)。 当前可行性审查还表明：42 人即使全部用作独立确认，在简化配对模型下对小收益的分辨能力仍有限；处理后 MAT 的顺序切分也不能自动满足严格决策时刻的信息边界。具体假设与数值见 [测量协议](MEASUREMENT_PROTOCOL.md)，不把规划计算当新实证结果。
 
 此前按科学头脑风暴技能的独立生成和非提出者复核步骤，由三个 AI 评审分别生成并交叉批评；它不是外部专家审稿或独立实证验证。复核纠正了一个过强否定：已有算法选择工具，并不意味着个人相对优势的纵向重复性已经被测量。保留这一有条件的实证候选，而非宣布方法首创。[评审记录](sources/eeg_trust/independent_review.json)、[直接文献覆盖矩阵](sources/eeg_trust/repeatability_prior_matrix.json)
 
 旧边界和受损率候选已归档于 fae0972 / a3b0280；输入诊断保留为必要的混杂证据。原训练代码未改变。原始 54 篇会议条目仍是背景索引，不能替代本轮新增文献。[背景索引](PAPERS.md)
 
-流程使用 scientific-critical-thinking、scientific-brainstorming 、experimental-design 与 statistical-analysis 技能；本地推理前使用 get-available-resources 检查资源，流程参考已记入：[Kassis et al., Scientific Agent Skills (2026)](https://doi.org/10.48550/arXiv.2609.00065)。工具流程不是科研结论证据。
+流程使用 scientific-critical-thinking、scientific-brainstorming 、experimental-design、statistical-analysis 与 statistical-power 技能；本地推理前使用 get-available-resources 检查资源，流程参考已记入：[Kassis et al., Scientific Agent Skills (2026)](https://doi.org/10.48550/arXiv.2609.00065)。工具流程不是科研结论证据。
