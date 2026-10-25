@@ -52,7 +52,7 @@ Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. It runs matched two-up
 
 - Run root: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`.
 - Branch logs and weights: `{baseline,leaf_raw}/metrics.jsonl`, `initial.pt`, `last.pt`, `best.pt`.
-- TensorBoard: `<run root>/tensorboard/`; open with `laya/.venv-eeg/bin/tensorboard --logdir <run root>/tensorboard --port 6006`.
+- TensorBoard: `<run root>/tensorboard/`; open with `laya/.venv-eeg/bin/python -m tensorboard.main --logdir <run root>/tensorboard --port 6006`.
 - Shared original signals/splits: `datasets/benchmark/signals/`, fold 0.
 - 2a override: `datasets/benchmark/leaf_2a_preprocessing/`; only its declared training/validation rows are supported.
 - Historical paired BN metrics and frozen probes: `artifacts/benchmark/cross_subject_fold0_bn_control/`.
