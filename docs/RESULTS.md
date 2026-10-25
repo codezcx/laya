@@ -1,14 +1,41 @@
-# Joint cross-subject benchmark status
+# Joint cross-subject learning-rate experiment
 
-Stopped by user on 2026-10-24 at logged step 1,087. This constant-learning-rate run used online LEAF→JEV joint fold0 on 11 classification datasets, with LEAF frozen for the first 100 steps. This was encoder freezing, not learning-rate warmup: no LR scheduler was present. Last checkpoint is step 1,000; validation-selected best is step 600, mean dataset BA 50.0512%. Final full validation/test were not started. Logs, caches and both checkpoints are retained. See [protocol](PROTOCOL.md). Status: `artifacts/benchmark/cross_subject_fold0/pipeline.json`; metrics: `artifacts/benchmark/cross_subject_fold0/jev/metrics.jsonl`. This is a single joint cross-subject fold, not complete per-dataset cross-validation.
+Current run: `artifacts/benchmark/cross_subject_fold0_lr_cosine/`. Preparing a two-H200 fresh run with 90-update LR warmup and cosine decay to 2% of peak; the LEAF encoder remains frozen for the first 100 updates and warms up separately for updates 101–190. Same initialization, seed, data, sampler and global batch 88 as the retained constant-LR control. See [protocol](PROTOCOL.md) for the world-size/microbatch reproducibility limitation. No new validation result yet.
 
-The two-step four-GPU smoke run passed on all11datasets and both option orders. Encoder gradient norm was0during frozen warmup and4.4612after unfreezing; the tokenizer parameter-update assertions passed. These two-step predictions are functional checks, not benchmark accuracy. The planned 3,000-step run was stopped early as recorded above.
+- Status: `artifacts/benchmark/cross_subject_fold0_lr_cosine/pipeline.json`.
+- Per-step loss, sampled training accuracy and learning rates: `artifacts/benchmark/cross_subject_fold0_lr_cosine/jev/metrics.jsonl`.
+- Validation every 200 updates on the same 9,748 rows; last checkpoint every 100 updates.
+- Planned 3,000 updates, followed by full validation/test using the best validation-selected checkpoint.
 
-Fixed monitor validation contains the same 9,748 rows at every checkpoint. Dataset-macro BA at steps 200/400/600/800/1000 was 45.3003% / 48.2431% / 50.0512% / 49.6711% / 46.0625%. Accuracy gains can hide class collapse: CHB-MIT accuracy rose from 71.89% at step 600 to 84.93% at step 1000 while seizure recall fell from 73.81% to 30.95%. At step 1000, BNCI2014009 target recall was zero despite 82.47% overall accuracy. Constant LR is a candidate contributor, not an established cause of these failures.
+Pre-launch checks: 18 focused tests passed (schedule endpoints and delayed encoder warmup, optimizer/scheduler restoration, distributed accumulation, data adapters and choice masking). Read-only comparison confirmed all 9,748 monitor validation IDs/labels match the old run, 476,032 training epochs remain available, and two-/four-rank partitioning preserves the same 88 global sample IDs with eight per dataset per step. The production-sized two-GPU smoke test is the next launch gate.
 
-Fold0 contains476,032training epochs,58,362validation epochs and60,275test epochs. Full split/count audit: `datasets/benchmark/signals/fold0/complete.json`.
+## Retained constant-LR control
 
-| Dataset | Train | Validation | Test |
+Archived implementation: `d11b0bf`. User stopped training on 2026-10-24 at logged step 1,087. Preserved `last.pt`: step 1,000; `best.pt`: step 600, dataset-macro BA 50.0512%. No final full validation/test was run. Artifacts remain under `artifacts/benchmark/cross_subject_fold0/`. The prior 100-update encoder freeze was not LR warmup; rates were constant.
+
+Dataset-macro BA at updates 200/400/600/800/1000: 45.3003% / 48.2431% / 50.0512% / 49.6711% / 46.0625%. All monitor sample IDs and labels are identical across these checkpoints.
+
+| Dataset | Step 600 accuracy / BA | Step 800 accuracy / BA | Step 1000 accuracy / BA |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 | 27.08% / 27.08% | 28.12% / 28.12% | 26.39% / 26.39% |
+| BNCI2014004 | 55.00% / 55.00% | 48.33% / 48.33% | 50.00% / 50.00% |
+| BNCI2015001 | 49.00% / 49.00% | 77.50% / 77.50% | 35.00% / 35.00% |
+| BNCI2014008 | 52.32% / 50.24% | 54.18% / 50.19% | 58.12% / 49.60% |
+| BNCI2014009 | 61.11% / 48.33% | 74.48% / 48.85% | 82.47% / 49.48% |
+| CHB_MIT | 71.89% / 72.76% | 77.60% / 66.17% | 84.93% / 60.47% |
+| TUAB | 60.50% / 60.50% | 59.96% / 59.96% | 60.69% / 60.69% |
+| SleepEDF | 43.47% / 43.47% | 47.92% / 47.92% | 53.55% / 53.55% |
+| SEED | 62.51% / 62.51% | 62.66% / 62.66% | 63.73% / 63.73% |
+| EEGMAT | 73.33% / 73.33% | 50.00% / 50.00% | 50.00% / 50.00% |
+| Nakanishi2015 | 8.33% / 8.33% | 6.67% / 6.67% | 7.78% / 7.78% |
+
+CHB-MIT seizure recall fell from 73.81% at step 600 to 30.95% at step 1000 despite rising overall accuracy. BNCI2014009 target recall was zero at step 1000. Learning-rate scheduling is one candidate explanation to test; these observations do not establish its causal role. Training accuracy in the JSONL is sampled, per-update accuracy, not fixed-checkpoint full-training-set evaluation.
+
+## Unchanged fold-0 data
+
+476,032 training epochs, 58,362 full validation epochs and 60,275 test epochs. One joint subject-disjoint fold; not full benchmark LOSO/10-fold evaluation. Released LEAF pretraining exposure is not excluded. Source: `datasets/benchmark/signals/fold0/complete.json`.
+
+| Dataset | Train | Full validation | Test |
 | --- | ---: | ---: | ---: |
 | BNCI2014001 | 2016 | 288 | 288 |
 | BNCI2014004 | 1120 | 120 | 160 |
@@ -22,43 +49,4 @@ Fold0 contains476,032training epochs,58,362validation epochs and60,275test epoch
 | EEGMAT | 1020 | 30 | 30 |
 | Nakanishi2015 | 1440 | 180 | 180 |
 
-Historical completed LEAF results below use different inputs/splits and must not be directly substituted for this benchmark.
-
-# LEAF baseline and JEV adaptation
-
-Completed matched control: frozen released LEAF on2a four-class andSEED three-class, followed byJEV joint training on the same subject-disjoint adapter splits. Baseline output: `artifacts/leaf_2a_seed/baseline.json`. Preparation progress: `artifacts/leaf_2a_seed/prepare_progress.json`. JEV metrics: `artifacts/leaf_2a_seed/jev/metrics.jsonl`; controller status:`artifacts/leaf_2a_seed/pipeline.json`.
-
-Native baseline completed (task-only instruction, equivalent to upstream level1):
-
-| Dataset/metric | Train | Validation |
-| --- | ---: | ---: |
-| 2a four-class accuracy/BA | 36.28% | 37.15% |
-| SEED three-class window accuracy | 64.72% | 65.00% |
-| SEED trial accuracy | 71.60% | 67.41% |
-
-2a validation predictions heavily favor feet; these are not official benchmark reproduction scores. Upstream also offers candidate-mean instruction blending (level2); this run keeps task-only conditioning fixed for native/JEV comparison. Features: train26,190 (2a3,456/SEED22,734),validation1,656(576/1,080). Source finalization initially repeated hashes per window; extraction finished, and finalization recovered from intact arrays after changing to50unique source hashes. Shapes,finiteness,unique IDs and subject disjointness passed. Nine tests passed. JEV launched on GPUs2–3 after successful two-rank smoke (forward/backward plus normal/reversed validation). Initial smoke failed only its unsorted stratified-index equality assertion; indices sorted, failed artifacts preserved with .failed_order_check suffix, rerun passed. Production reached step2/600, finite gradients/loss, peak allocated54.07GiB; no full JEV validation yet. Step1 checkpoint saved. Existing two-MAT-window smoke was an interface check only. Historical REVE experiment results and code are archived in Git throughc75a101; all ignored artifacts retained. See [PROTOCOL.md](PROTOCOL.md).
-
-
-Four-GPU restart: two-GPU run stopped at logged step77 by user request, before full step100validation. Artifacts preserved in stopped_2gpu_step77/. Restart fresh on GPUs0–3 with global batch48 and per-GPU microbatch6;600steps. No old training state reused.
-
-Four-rank smoke passed, then fresh production reached step8/600. Steady early step times approximately5.4seconds versus8.1seconds on two GPUs (~1.5x throughput); validation time not yet measured. Peak allocated54.07GiB per rank0; original global batch48 preserved.
-
-
-## Completed four-GPU JEV result
-
-Finished600steps in3,403.26seconds(56.72minutes). Final step600 is also validation-selected best. Normal-order validation:2a54.3403%(+17.1875points vs native LEAF37.1528%),SEED window68.5185%(+3.5185points),SEED trial77.0370%(+9.6296points). Reversed order:2a54.5139%,SEED window68.2407%,SEED trial74.8148%. Window semantic prediction consistency95.8333%/98.6111% for2a/SEED. No test evaluation; released LEAF training exposure remains unresolved, not zero-shot evidence.
-
-Important class failure:2a normal-order tongue recall3/144=2.0833%;135/144tongue trials predicted feet. Other recalls:left84.03%,right57.64%,feet73.61%. Thus overall improvement does not establish reliable four-class decoding.2a validation contains one held-out adapter subject(A07), limiting generalization claims. Files:artifacts/leaf_2a_seed/jev/validation_0600.json,best.pt,last.pt. Last-batch training accuracy72.92% is not full-training-set accuracy.
-
-
-## Frozen transfer inference on other MI datasets
-
-Completed5,193trials in176.49seconds; noSFT,optimizer,threshold fitting or weight updates. Same step600best.pt; candidates changed to left/right. Fixed previous validation subsets,not complete source datasets.
-
-| Dataset | Trials / subjects | Native LEAF accuracy | JEV normal accuracy | JEV reversed accuracy | Semantic consistency |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Cho2017 | 2000 / 10 | 60.30% | 61.35% | 62.30% | 97.35% |
-| OpenBMI (Lee2019_MI) | 2200 / 11 | 66.73% | 75.82% | 73.95% | 96.05% |
-| PhysionetMI | 993 / 22 | 66.16% | 69.99% | 70.19% | 96.78% |
-
-Improvements over native normal-order baseline:+1.05,+9.09,+3.83percentage points. Normal JEV still left-biased:Cho left/right recalls86.50%/36.20%;Physionet97.18%/42.86%. OpenBMI81.73%/69.91%. Infer transfer performance under recorded preprocessing,not proof of universal robustness. Results,subject breakdowns,confusion matrices and source/checkpoint provenance:artifacts/leaf_2a_seed/external_mi/results.json,config.json,predictions.jsonl. Upstream pretraining membership was not a selection criterion per user request.
+Earlier approaches and their reports are archived in Git (including `d11b0bf`); ignored datasets, environments, logs and checkpoints have not been deleted.

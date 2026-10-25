@@ -1,5 +1,5 @@
 """Online text-conditioned EEG → LEAF → JEV joint supervised fine-tuning."""
-import argparse,json,os,time,subprocess
+import argparse,json,os,time,subprocess,math
 from pathlib import Path
 from datetime import timedelta
 import numpy as np
@@ -13,6 +13,7 @@ from .online_leaf import OnlineLEAF
 from .task_options import make_question
 from .jev import load_jev,JEVBridge
 from .distributed import average_gradients,atomic_save
+from .lr_schedule import GroupLRSchedule
 TASKS=catalog()
 
 
@@ -35,8 +36,11 @@ def main():
     sampler=BalancedSampler(train);signals=SignalStore()
     text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16,input_dim=256)
     model.add_module('eeg_encoder',OnlineLEAF().cuda())
-    groups=[dict(params=list(model.connector.parameters()),lr=CONFIG['learning_rates'][0]),dict(params=[p for p in model.text.parameters() if p.requires_grad],lr=CONFIG['learning_rates'][1]),dict(params=[model.head_weight,model.head_bias],lr=CONFIG['learning_rates'][2]),dict(params=[p for p in model.eeg_encoder.parameters() if p.requires_grad],lr=CONFIG['encoder_learning_rate'])]
+    groups=[dict(name='connector',params=list(model.connector.parameters()),lr=CONFIG['learning_rates'][0]),dict(name='jev_lora',params=[p for p in model.text.parameters() if p.requires_grad],lr=CONFIG['learning_rates'][1]),dict(name='decision_head',params=[model.head_weight,model.head_bias],lr=CONFIG['learning_rates'][2]),dict(name='eeg_encoder',params=[p for p in model.eeg_encoder.parameters() if p.requires_grad],lr=CONFIG['encoder_learning_rate'])]
     opt=torch.optim.AdamW(groups,weight_decay=.01);active=[p for g in opt.param_groups for p in g['params']]
+    total=2 if a.smoke else CONFIG['steps']
+    encoder_freeze_steps=1 if a.smoke else CONFIG['encoder_warmup_steps']
+    schedule=GroupLRSchedule(opt,total,1 if a.smoke else math.ceil(total*CONFIG['lr_schedule']['warmup_ratio']),CONFIG['lr_schedule']['min_ratio'],encoder_freeze_steps,CONFIG['lr_schedule']['kind'])
     if a.evaluate_checkpoint:
         restored=torch.load(a.evaluate_checkpoint,map_location='cpu',weights_only=False)['trainable'];parameters=dict(model.named_parameters())
         assert set(restored)=={n for n,p in parameters.items() if p.requires_grad}
@@ -50,7 +54,7 @@ def main():
         questions=[make_variant(TASKS[r['task']],r['label'],r['id'],step,CONFIG['seed'],variant) for r in rows]
         for q in questions:
             if q['suffix'] not in prompts:prompts[q['suffix']]=torch.tensor(tok.encode(q['suffix'],add_special_tokens=False),device='cuda')
-        unfreeze=step>CONFIG['encoder_warmup_steps'] or a.evaluate_checkpoint is not None or (a.smoke and step==2)
+        unfreeze=step>encoder_freeze_steps or a.evaluate_checkpoint is not None
         inputs,valid=model.eeg_encoder(signals.batch(rows),len(rows),unfrozen=unfreeze)
         logits=model(inputs,valid,suffix_ids=[prompts[q['suffix']] for q in questions],num_choices=[q['num_choices'] for q in questions])['logits']
         return logits,torch.tensor([q['label'] for q in questions],device='cuda'),questions
@@ -80,7 +84,7 @@ def main():
         return report
 
     def save(step,improved=False):
-        state=dict(step=step,config=config,optimizer=opt.state_dict(),best_score=best,trainable={n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad})
+        state=dict(step=step,config=config,optimizer=opt.state_dict(),scheduler=schedule.state_dict(),best_score=best,trainable={n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad})
         atomic_save(state,a.out/'last.pt')
         if improved:atomic_save(state,a.out/'best.pt')
 
@@ -89,9 +93,9 @@ def main():
         if rank==0:(a.out/'complete.json').write_text(json.dumps(dict(checkpoint=str(a.evaluate_checkpoint),split=a.split,metrics=report),indent=2))
         dist.barrier();dist.destroy_process_group();return
     log=(a.out/'metrics.jsonl').open('w',buffering=1) if rank==0 else None
-    total=2 if a.smoke else CONFIG['steps']
     probe=next(model.eeg_encoder.leaf.tower.tokenizer.parameters())
     for step in range(1,total+1):
+        learning_rates=schedule.set_step(step)
         model.train();opt.zero_grad(set_to_none=True)
         ix=sampler(train,step,CONFIG['seed'],CONFIG['global_batch'])[rank::world];stats=torch.zeros((len(TASKS),3),device='cuda')
         before=probe.detach().clone() if a.smoke else None
@@ -109,7 +113,7 @@ def main():
             assert (delta>0 and encoder_grad>0) if unfrozen else delta==0,(unfrozen,delta,encoder_grad)
         if rank==0:
             sums=stats.sum(0)
-            item=dict(step=step,steps=total,loss=float(sums[0]/sums[2]),train_accuracy=float(sums[1]/sums[2]),encoder_unfrozen=unfrozen,encoder_gradient_norm=encoder_grad,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-start,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,train_by_dataset={task['task_id']:dict(n=int(stats[t,2]),loss=float(stats[t,0]/stats[t,2]),accuracy=float(stats[t,1]/stats[t,2])) for t,task in enumerate(TASKS)})
+            item=dict(step=step,steps=total,loss=float(sums[0]/sums[2]),train_accuracy=float(sums[1]/sums[2]),learning_rates=learning_rates,encoder_unfrozen=unfrozen,encoder_gradient_norm=encoder_grad,gradient_norm=float(grad),elapsed_seconds=time.monotonic()-start,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,train_by_dataset={task['task_id']:dict(n=int(stats[t,2]),loss=float(stats[t,0]/stats[t,2]),accuracy=float(stats[t,1]/stats[t,2])) for t,task in enumerate(TASKS)})
             log.write(json.dumps(item)+'\n');(a.out/'progress.json').write_text(json.dumps(item,indent=2))
             if step==1 or step%10==0:print('TRAIN',item,flush=True)
         if step==1 or step%CONFIG['checkpoint_every']==0 or step==total:
