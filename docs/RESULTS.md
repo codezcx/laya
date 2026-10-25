@@ -1,4 +1,26 @@
-# Joint cross-subject BatchNorm comparison
+# Joint cross-subject LEAF/JEV results
+
+## Raw LEAF preprocessing control on 2a
+
+The same frozen initial encoder, 2,016 training trials and 288 validation trials were evaluated with the original online adapter versus the raw LEAF 2a pipeline. Encoder parameters, buffers, instruction text, IDs and labels match exactly. The native pipeline uses T-session MAT files only; selecting labeled runs preserves 96 A04T trials that upstream's fixed skip would drop. This is a bundled input-pipeline intervention, including subject-level unlabeled normalization; it is not an isolated CAR effect or a JEV training result.
+
+| 2a metric | Current pipeline | Raw LEAF pipeline |
+| --- | ---: | ---: |
+| Fixed C=1 probe validation accuracy | 30.21% | 32.29% |
+| Source-subject-CV-selected probe validation accuracy | 29.51% | 36.11% |
+| Selected source-subject mean BA | 38.00% | 54.37% |
+| Selected C | 0.01 | 0.0001 |
+| Released projection/prototype validation accuracy | 25.69% | 26.74% |
+
+Source-subject BA improves at every identical C in the fixed grid: at C=0.01 it changes from 38.00% to 50.55%, and at C=0.0001 from 34.47% to 54.37%. Thus the source-fold improvement is not solely a result of selecting a different C. The selected-probe outer validation improvement is 19/288 additional correct predictions, but the held-out subject is still weak and has been inspected repeatedly. No test data were evaluated. All probe fits converged and reloaded metrics match. Upstream's default FIR length (2,751 samples) exceeds its six-second epochs (1,500 samples); this behavior and its MNE warning were preserved for this comparison rather than silently changing the filter.
+
+Evidence: `artifacts/benchmark/cross_subject_fold0_bn_control/preprocessing_control_2a/comparison.json`, prepared cache `datasets/benchmark/leaf_2a_preprocessing/`, and probe snapshots/predictions under `preprocessing_control_2a/leaf_raw_probe/`. TensorBoard includes both fixed-C and source-CV probe results as final split metrics, not iterative training curves.
+
+## TensorBoard records
+
+The completed BN comparison has been exported to `artifacts/benchmark/cross_subject_fold0_bn_control/tensorboard/`, with runs `updating`, `frozen` and `probes/*`. Each training branch has 1,100 training points and six validation points. Accuracy and loss are recorded overall and for all 11 datasets; BA is a separate metric. Validation macro metrics weight datasets equally, while `*_pooled` weights examples. Validation loss is mean negative log probability of the true semantic class, reconstructed from saved predictions. Accuracies are fractions in [0,1]. `scripts/log_tensorboard.py --run <root> --out <root>/tensorboard --follow` also supports live export, and the training launcher starts it automatically. JSON metrics remain the authoritative source.
+
+## Completed BatchNorm comparison
 
 Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Both completed the planned **1200-update diagnostic stage**, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Best validation macro BA: **51.85% updating (step 1200) / 55.59% frozen (step 600)**. Final step-1200 macro BA: **51.85% / 55.39%**. All scheduled checkpoint reload checks passed; neither branch is still running. These are validation results, not independent test scores.
 

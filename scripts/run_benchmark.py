@@ -14,7 +14,7 @@ WATCHED=list(Path('eeg_align').glob('*.py'))+[Path('configs/benchmark_tasks.json
 hashes={str(p):digest(p) for p in WATCHED}
 state=dict(controller_pid=os.getpid(),run_name=CONFIG['run_name'],status='starting',policies=POLICIES,
            world_size_per_branch=1,global_batch_per_branch=CONFIG['global_batch'],stop_step=CONFIG['stop_step'])
-jobs=[];handles=[];stopping=False
+jobs=[];handles=[];stopping=False;tb_job=None
 
 def write(**values):
     state.update(values);p=OUT/'pipeline.tmp';p.write_text(json.dumps(state,indent=2));p.replace(OUT/'pipeline.json')
@@ -45,6 +45,12 @@ try:
     for smoke in [True,False]:
         guard();jobs=[launch(policy,gpu,smoke) for gpu,policy in enumerate(POLICIES)]
         write(stage='smoke' if smoke else 'training',status='running',workers={policy:p.pid for policy,p in zip(POLICIES,jobs)})
+        if not smoke:
+            tb_log=(OUT/'tensorboard_export.log').open('x');handles.append(tb_log)
+            tb_job=subprocess.Popen([PYTHON,'-u',str(ROOT/'scripts/log_tensorboard.py'),
+                '--run',str(OUT),'--out',str(OUT/'tensorboard'),'--follow'],
+                stdout=tb_log,stderr=subprocess.STDOUT,env=dict(os.environ,CUDA_VISIBLE_DEVICES=''))
+            write(tensorboard_pid=tb_job.pid,tensorboard_logdir=str(OUT/'tensorboard'))
         while any(p.poll() is None for p in jobs):
             failed=[p for p in jobs if p.poll() not in [None,0]]
             if failed:raise RuntimeError(f'Branch failure: {[(p.pid,p.returncode) for p in failed]}')
@@ -62,6 +68,7 @@ try:
         if not smoke:
             report=update_monitor(OUT,POLICIES)
             assert all(report['initial_state_match'].values())
+            assert tb_job.wait(timeout=60)==0,'TensorBoard export failed; authoritative JSON metrics are preserved'
             write(stage='comparison_ready',status='complete',finished=time.time())
 except BaseException as error:
     shutdown()
@@ -70,4 +77,8 @@ except BaseException as error:
         except subprocess.TimeoutExpired:p.kill();p.wait()
     write(status='failed',error=repr(error));raise
 finally:
+    if tb_job is not None and tb_job.poll() is None:
+        tb_job.terminate()
+        try:tb_job.wait(timeout=15)
+        except subprocess.TimeoutExpired:tb_job.kill();tb_job.wait()
     for log in handles:log.close()
