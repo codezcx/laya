@@ -15,7 +15,7 @@ def frequency_scores(signals,sampling_rate,frequencies):
     return power.mean(axis=1)
 
 
-def frequency_check_train(out):
+def frequency_check_train(out,online=False):
     """Training-only signal sanity check, with no fitted weights or test access.
 
     Score the stated candidate fundamentals by a Hann-windowed Fourier projection
@@ -23,7 +23,7 @@ def frequency_check_train(out):
     fixed positive control for readable frequency information, not a replacement
     model or an estimate of held-out JEV performance.
     """
-    from eeg_align.signal_data import load_rows,ROOT as SIGNAL_ROOT
+    from eeg_align.signal_data import load_rows,SignalStore,ROOT as SIGNAL_ROOT
     from eeg_align.leaf_runtime import digest
     task=next(t for t in catalog() if t['task_id']=='Nakanishi2015')
     rows=[r for r in load_rows('train',0) if r['dataset']==task['task_id']]
@@ -31,16 +31,26 @@ def frequency_check_train(out):
     signals=np.load(folder/'signals.npy',mmap_mode='r')
     frequencies=np.array([float(c['option'].split()[0]) for c in task['classes']])
     n=signals.shape[-1]
+    store=SignalStore() if online else None
+    input_shape=None
     predictions=[]
     for offset in range(0,len(rows),64):
         rr=rows[offset:offset+64]
-        x=np.array(signals[[r['source_index'] for r in rr]],dtype=np.float64)
-        scores=frequency_scores(x,meta['sampling_rate'],frequencies);pred=scores.argmax(-1)
+        if online:
+            grouped=store.batch(rr)
+            assert len(grouped)==1 and len(grouped[0][2])==1
+            assert grouped[0][1]==list(range(len(rr)))
+            x=grouped[0][2][0];sampling_rate=200.
+        else:
+            x=np.array(signals[[r['source_index'] for r in rr]],dtype=np.float64);sampling_rate=meta['sampling_rate']
+        input_shape=list(x.shape[1:])
+        scores=frequency_scores(x,sampling_rate,frequencies);pred=scores.argmax(-1)
         predictions.extend(dict(id=r['id'],subject=r['subject'],label=r['label'],prediction=int(y),scores=s.tolist()) for r,y,s in zip(rr,pred,scores))
     cm=np.zeros((len(frequencies),len(frequencies)),dtype=int)
     for p in predictions:cm[p['label'],p['prediction']]+=1
     report=dict(dataset=task['task_id'],split='train',n=len(rows),frequencies_hz=frequencies.tolist(),
-                sampling_rate=meta['sampling_rate'],channels=meta['channels'],samples=n,
+                sampling_rate=sampling_rate,source_channels=meta['channels'],source_samples=n,
+                input_mode='exact_online_preprocessing' if online else 'raw_cache',input_shape=input_shape,
                 method='Fixed fundamental-only Fourier score, Hann window, channel energy normalization; no fit or parameter selection',
                 train_manifest_sha256=digest(SIGNAL_ROOT/'fold0/train.jsonl'),
                 accuracy=float(np.trace(cm)/cm.sum()),confusion_matrix=cm.tolist(),
@@ -51,9 +61,11 @@ def frequency_check_train(out):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path);parser.add_argument('--frequency-check-train',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path);parser.add_argument('--frequency-check-train',action='store_true');parser.add_argument('--online-input',action='store_true');args=parser.parse_args()
     if args.frequency_check_train:
-        frequency_check_train(args.out or ROOT/'artifacts/benchmark/nakanishi_frequency_train.json');return
+        suffix='online_' if args.online_input else ''
+        frequency_check_train(args.out or ROOT/f'artifacts/benchmark/nakanishi_frequency_{suffix}train.json',args.online_input);return
+    if args.online_input:parser.error('--online-input requires --frequency-check-train')
     args.out=args.out or ROOT/'artifacts/benchmark/adapter_audit.json'
     sys.path.insert(0,str(ROOT.parent/'EEG-FM-Benchmark'))
     sys.path.insert(0,str(ROOT.parent/'LEAF'))
