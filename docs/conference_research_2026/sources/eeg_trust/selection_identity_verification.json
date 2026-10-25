@@ -1,0 +1,30 @@
+{
+  "groups": [
+    {
+      "group": "all_five",
+      "recipient_donor_loop_matches": true,
+      "bootstrap_all_20000_recomputed": true,
+      "permutation_moments_agree": true,
+      "person_centered_model_contributions": [
+        0.00273956916099773,
+        0.0,
+        0.003446938775510202,
+        0.008034977324263035,
+        -0.0010100340136054418
+      ]
+    },
+    {
+      "group": "EEGNet_deepConvNet",
+      "recipient_donor_loop_matches": true,
+      "bootstrap_all_20000_recomputed": true,
+      "permutation_moments_agree": true,
+      "person_centered_model_contributions": [
+        0.0006724773242630362,
+        0.0006724773242630408
+      ]
+    }
+  ],
+  "assignment_variance_exhaustive_toy_verified": true,
+  "input_and_script_commit_233bbf1_hashes_verified": true,
+  "scope": "Numerical audit only; original exploratory and exchangeability limitations apply."
+}

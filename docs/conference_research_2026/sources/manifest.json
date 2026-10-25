@@ -66,8 +66,8 @@
   },
   {
     "path": "sources/eeg_trust/current_goal_audit.json",
-    "bytes": 3474,
-    "sha256": "f86b50d2d0c53d1dc940c5021286c0f695f370151f997a6a0b774689362f7963"
+    "bytes": 3699,
+    "sha256": "2fbe80cbd33431fa62605299ebe047ddd8b01a405e36f0241c4c52e3bc203f70"
   },
   {
     "path": "sources/eeg_trust/decision_estimand_checks.json",
@@ -223,6 +223,16 @@
     "path": "sources/eeg_trust/search_log.json",
     "bytes": 568250,
     "sha256": "a470da7c8b3c5166630aa85b70c9280ab381daea44eb9d2a650624cc48d38e1a"
+  },
+  {
+    "path": "sources/eeg_trust/selection_identity_result.json",
+    "bytes": 9635,
+    "sha256": "97813e060dcd605e2de74b358619a58f4251a37ec0ba25cceb1bae01972c6a4b"
+  },
+  {
+    "path": "sources/eeg_trust/selection_identity_verification.json",
+    "bytes": 887,
+    "sha256": "6691f04bc9bc3dede383282a79105d606fb41c11c74b4627332e87e78912d1ff"
   },
   {
     "path": "sources/eeg_trust/selection_precision_plan.json",
