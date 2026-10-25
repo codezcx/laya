@@ -29,7 +29,7 @@ import torch
 
 from eeg_align.benchmark_data import catalog, classification_metrics
 from eeg_align.checkpoint import capture_model, restore_model, seed_rng, tensor_fingerprint
-from eeg_align.leaf_runtime import CONFIG, digest
+from eeg_align.leaf_runtime import CONFIG, UP, digest
 from eeg_align.online_leaf import OnlineLEAF
 from eeg_align.signal_data import ROOT as SIGNAL_ROOT, SignalStore, load_rows
 
@@ -131,13 +131,15 @@ def main():
     parser.add_argument('--checkpoint', type=Path)
     parser.add_argument('--expected-step', type=int)
     parser.add_argument('--source-cv-cache', type=Path)
+    parser.add_argument('--native-candidate-instruction', action='store_true',
+                        help='Initial 2a encoder control: blend task text with all four native candidate texts')
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--datasets', nargs='+', default=[
         'BNCI2014001', 'BNCI2014009', 'Nakanishi2015'])
     parser.add_argument('--batch-size', type=int, default=32)
     args = parser.parse_args()
     if args.source_cv_cache:
-        if args.checkpoint or args.expected_step is not None:
+        if args.checkpoint or args.expected_step is not None or args.native_candidate_instruction:
             parser.error('--source-cv-cache cannot be combined with a checkpoint')
         source_subject_cv(args.source_cv_cache, args.out)
         return
@@ -179,6 +181,38 @@ def main():
         after.st_ino, after.st_size, after.st_mtime_ns), 'Source checkpoint changed while loading'
     del source, state
 
+    source_fingerprints = fingerprints.copy()
+    intervention = dict(mode='task_only')
+    if args.native_candidate_instruction:
+        # Bound this control to the already audited initial encoder and 2a labels.
+        # Every example receives all candidates, never its ground-truth category.
+        assert args.expected_step == 100 and args.datasets == ['BNCI2014001']
+        from load_config import load_targets
+        candidates = load_targets()['MI_BCIC_IV2a']
+        assert candidates == ['Left', 'Right', 'Foot', 'Tongue']
+        assert [c['option'] for c in tasks['BNCI2014001']['classes']] == [
+            'Left hand motor imagery', 'Right hand motor imagery',
+            'Both feet motor imagery', 'Tongue motor imagery']
+        text_path, array_path = UP/'text_embeddings/mpnet-base.txt', UP/'text_embeddings/mpnet-base.npy'
+        texts, vectors = text_path.read_text().splitlines(), np.load(array_path)
+        candidate_vectors = vectors[[texts.index(label) for label in candidates]]
+        assert np.allclose(np.linalg.norm(candidate_vectors, axis=1), 1, atol=1e-6)
+        mean = candidate_vectors.mean(0)
+        mean /= np.linalg.norm(mean)
+        tid = next(i for i,t in enumerate(catalog()) if t['task_id'] == 'BNCI2014001')
+        original = encoder.instructions[tid].cpu().numpy().copy()
+        blended = (original + mean) / 2
+        blended /= np.linalg.norm(blended)
+        encoder.instructions[tid].copy_(torch.from_numpy(blended))
+        intervention = dict(mode='task_plus_all_native_candidates', task='BNCI2014001',
+                            candidates=candidates, formula='normalize(task + normalize(mean(all candidates)))',
+                            original_blended_cosine=float(original @ blended),
+                            text_cache_sha256=digest(text_path), array_cache_sha256=digest(array_path),
+                            true_class_used=False, same_instruction_for_every_example=True)
+        restored = capture_model(encoder)
+        fingerprints = {kind: tensor_fingerprint(restored[kind]) for kind in ['trainable','buffers']}
+        assert fingerprints['trainable'] == source_fingerprints['trainable']
+
     rows = {split: [r for r in load_rows(split, CONFIG['fold']) if r['dataset'] in args.datasets]
             for split in ['train', 'validation']}
     assert not {r['id'] for r in rows['train']} & {r['id'] for r in rows['validation']}
@@ -190,6 +224,7 @@ def main():
     del restored
     plan = dict(
         checkpoint=str(args.checkpoint.resolve()), step=args.expected_step, bn_policy='frozen',
+        source_encoder_sha256=source_fingerprints, instruction_intervention=intervention,
         encoder_sha256=fingerprints, snapshot_sha256=digest(args.out / 'encoder.pt'),
         script_sha256=digest(__file__), git_commit=subprocess.check_output(
             ['git', 'rev-parse', 'HEAD'], text=True).strip(),
