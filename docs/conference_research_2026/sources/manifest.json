@@ -55,6 +55,21 @@
     "sha256": "e7e0c25acdcf45b324dc3c5d65051e84e31f34e0647148360b1c0116faf6b610"
   },
   {
+    "path": "sources/eeg_trust/cross_session_selection.json",
+    "bytes": 77719,
+    "sha256": "9d1009e7ffa6f0dc534055d845106e0d8713a1c20cba0cedcb79b92b40abf8c2"
+  },
+  {
+    "path": "sources/eeg_trust/current_goal_audit.json",
+    "bytes": 982,
+    "sha256": "938af0250c7ba66340ba2e8ba9699304ae505e70db30749f71b577084c40fd39"
+  },
+  {
+    "path": "sources/eeg_trust/graft.json",
+    "bytes": 108482,
+    "sha256": "3536f262b9672e0f550f80ab2cec02cb45672774029a2724f4f8072800565c9e"
+  },
+  {
     "path": "sources/eeg_trust/iclr_worth.json",
     "bytes": 3624,
     "sha256": "0d9d9ecdf0cab6e28e81123a9a9031c3fc563354d4f01e1d2f19697c47ff4357"
@@ -68,6 +83,11 @@
     "path": "sources/eeg_trust/icml_let_eeg.json",
     "bytes": 4676,
     "sha256": "89b2863f7eaff2849762e6880474bf2c15af99f7b22df02daa5c0b43a1db00d7"
+  },
+  {
+    "path": "sources/eeg_trust/independent_review.json",
+    "bytes": 4247,
+    "sha256": "104cff8f3e48476bab3a84fc38feb0567651f13ff4f450b54a4b80162611950b"
   },
   {
     "path": "sources/eeg_trust/input_factor_result.json",
@@ -103,6 +123,11 @@
     "path": "sources/eeg_trust/moabb_tables.json",
     "bytes": 17104,
     "sha256": "de30dc1bf788066e564e9fd1a81d8cb0339c87b847d87c739b190422635a0cf2"
+  },
+  {
+    "path": "sources/eeg_trust/multi_day_metadata.json",
+    "bytes": 1355,
+    "sha256": "d4fd88bd6f9f5920dfb92880950c3c8586059b090e381c171ff39d2a09816113"
   },
   {
     "path": "sources/eeg_trust/multiverse.json",
@@ -150,9 +175,34 @@
     "sha256": "b99d9373973d8f102980ee3b2a88147f73cce953756cc2a93ed7e6716eeca6cf"
   },
   {
+    "path": "sources/eeg_trust/repeatability_prior_matrix.json",
+    "bytes": 1470,
+    "sha256": "1f7cf71a31a52e11e73450c77e9fbdfe26ad70a217e7ec3c686e6ace14d06f41"
+  },
+  {
+    "path": "sources/eeg_trust/repeatability_search_log.json",
+    "bytes": 139241,
+    "sha256": "97d5ec3a8e6eb3035138a6ab141ccb790a6907dff2fdc868de28b9e9f05d2106"
+  },
+  {
     "path": "sources/eeg_trust/search_log.json",
     "bytes": 568250,
     "sha256": "a470da7c8b3c5166630aa85b70c9280ab381daea44eb9d2a650624cc48d38e1a"
+  },
+  {
+    "path": "sources/eeg_trust/session_feasibility.json",
+    "bytes": 1243,
+    "sha256": "8ff78bbdee558ef0e50ab194af43e6ab7a4a4e1d4f3eb5e9f336cae6af23492c"
+  },
+  {
+    "path": "sources/eeg_trust/shu_loader.json",
+    "bytes": 27560,
+    "sha256": "0705af56796302cf95312fd7b3f03deaa1824836f660d4f8eb7755ed2a1f5f50"
+  },
+  {
+    "path": "sources/eeg_trust/subject_optimality.json",
+    "bytes": 48679,
+    "sha256": "c12831fb9598b00129bd78186e698190bc56aa13f1b85349e88cf3d2e1f88439"
   },
   {
     "path": "sources/eeg_trust/thinknet.json",

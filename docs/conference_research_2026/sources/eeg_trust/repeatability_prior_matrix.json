@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-25",
+  "status": "bounded search; plausible empirical gap, not proof of firstness",
+  "priors": [
+    {
+      "url": "https://arxiv.org/html/2606.24394",
+      "sections": [
+        "2.5"
+      ],
+      "coverage": "one within-session participant/pipeline/band accuracy; not longitudinal preference repeatability"
+    },
+    {
+      "url": "https://arxiv.org/pdf/2607.22778",
+      "sections": [
+        "methods pp7-8",
+        "limitations p29"
+      ],
+      "coverage": "within-session portfolio; explicitly excludes cross-session and long-term nonstationarity; prospective selection deferred"
+    },
+    {
+      "url": "https://www.frontiersin.org/journals/human-neuroscience/articles/10.3389/fnhum.2026.1895016/full",
+      "sections": [
+        "2.8"
+      ],
+      "coverage": "true cross-session selection, configurations averaged over target sessions for individual summaries; not stable versus session-specific relative advantage decomposition"
+    },
+    {
+      "url": "https://www.mdpi.com/2073-431X/13/7/158",
+      "sections": [
+        "3.1",
+        "3.2.3",
+        "5.1"
+      ],
+      "coverage": "PhysioNet runs merged per person; best-classifier labels from CV, not separate recording days",
+      "verified_by": "statistics reviewer primary full text"
+    },
+    {
+      "url": "https://arxiv.org/abs/2609.33967",
+      "coverage": "validation-to-held-out-person selection; not same-person longitudinal contrast"
+    }
+  ]
+}

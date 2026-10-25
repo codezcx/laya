@@ -1,0 +1,60 @@
+{
+  "B03T.mat": {
+    "bytes": 35581243,
+    "sha256": "4ae1b23b4b4359151787a1a61d3acea128719677c49bfaf0113748cffece3b98",
+    "sessions": [
+      {
+        "index": 0,
+        "trials": 120,
+        "label_values": [
+          1,
+          2
+        ],
+        "sampling_rate": 250.0
+      },
+      {
+        "index": 1,
+        "trials": 120,
+        "label_values": [
+          1,
+          2
+        ],
+        "sampling_rate": 250.0
+      },
+      {
+        "index": 2,
+        "trials": 160,
+        "label_values": [
+          1,
+          2
+        ],
+        "sampling_rate": 250.0
+      }
+    ]
+  },
+  "B03E.mat": {
+    "bytes": 19310824,
+    "sha256": "6fca9dd9cbbdbb53dd8fb2798feed8e22669a91d1259fdac6695855756181353",
+    "sessions": [
+      {
+        "index": 0,
+        "trials": 160,
+        "label_values": [
+          1,
+          2
+        ],
+        "sampling_rate": 250.0
+      },
+      {
+        "index": 1,
+        "trials": 160,
+        "label_values": [
+          1,
+          2
+        ],
+        "sampling_rate": 250.0
+      }
+    ]
+  },
+  "scope": "Only B03 inspected for structural feasibility. No session classifier fit or temporal preference estimate. Existing flattened BNCI2014004 cache retains only 3test."
+}

@@ -1,0 +1,6 @@
+{
+  "url": "https://data.nemar.org/nm000348/v1.0.5/dataset_description.json",
+  "status": 200,
+  "retrieved": "2026-10-25",
+  "text": "{\n  \"Name\": \"Yang et al. 2025 — A multi-day and high-quality EEG dataset for motor imagery brain-computer interface\",\n  \"BIDSVersion\": \"1.9.0\",\n  \"HEDVersion\": \"8.4.0\",\n  \"DatasetType\": \"derivative\",\n  \"License\": \"CC-BY-4.0\",\n  \"Authors\": [\n    \"Banghua Yang\",\n    \"Fenqi Rong\",\n    \"Yunlong Xie\",\n    \"Du Li\",\n    \"Jiayang Zhang\",\n    \"Fu Li\",\n    \"Guangming Shi\",\n    \"Xiaorong Gao\"\n  ],\n  \"ReferencesAndLinks\": [\n    \"https://plus.figshare.com/articles/dataset/22671172\"\n  ],\n  \"DatasetDOI\": \"10.82901/nemar.nm000348\",\n  \"GeneratedBy\": [\n    {\n      \"CodeURL\": \"https://github.com/NeuroTechX/moabb\",\n      \"Name\": \"moabb\",\n      \"Description\": \"Mother of All BCI Benchmarks\",\n      \"Version\": \"1.5.0\"\n    }\n  ],\n  \"SourceDatasets\": [\n    {\n      \"DOI\": \"10.1038/s41597-025-04826-y\",\n      \"URL\": \"https://plus.figshare.com/articles/dataset/22671172\"\n    },\n    {\n      \"DOI\": \"doi:10.1038/s41597-025-04826-y\"\n    }\n  ],\n  \"Keywords\": [\n    \"Healthy\",\n    \"Motor\",\n    \"Research\",\n    \"imagery\",\n    \"motor_control\"\n  ],\n  \"PublicationYear\": 2025,\n  \"Version\": \"1.0.5\"\n}"
+}

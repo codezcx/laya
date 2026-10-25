@@ -34,7 +34,7 @@ sources/eeg_trust/search_log.json 保留 14 组搜索工具输出与两组读取
 
 ## 流程
 
-使用 scientific-critical-thinking 技能和此前 literature-review 的来源记录方法。无独立评审者，没有把同一助手的自我质疑称作独立复核。流程参考保留在 REPORT；它不是科研结论证据。
+使用 scientific-critical-thinking 技能和此前 literature-review 的来源记录方法。初轮无独立评审者；后续按 scientific-brainstorming 的独立生成与非提出者复核步骤使用三个 AI 评审，记录于 independent_review.json。它们不是外部专家或独立实证复现。流程参考保留在 REPORT；它不是科研结论证据。
 
 ## 后续查重与否定结果
 
@@ -47,3 +47,9 @@ sources/eeg_trust/search_log.json 保留 14 组搜索工具输出与两组读取
 ## 本地机制初检
 
 2026-10-25 新增 scripts/diagnose_input_factors.py，完成空间参考×归一化范围的四组冻结编码器对照，只使用七名原训练被试。事前约束、逐用户结果及不能支持的结论见 INPUT_FACTOR_DIAGNOSIS.md。四组共 28 个固定配方探针拟合；对匹配/固定分类头的 56 组预测数组独立重算 BA、翻转率和概率合法性。基线特征与已存原管线特征逐元素一致；输入基线与现有加载器一致；参数/buffers、源文件、输入 IDs 与产物哈希均核验。未进行模型/正则选择，不将源集合探索当独立确认或 novelty。资源检查采用 get-available-resources，流程引用已保留在 REPORT。
+
+## 纵向候选的针对性查重
+
+先独立生成六项候选，再查重并交叉复核。参考等价性、通道缺失拒判、通用 cue/伪迹审计等普通版本被排除。对“个体化选择”进行了第二次更细的审查：区分已有统计工具与尚未回答的实证估计量。主代理核对了 2606.24394 §2.5、2607.22778 的方法与 p.29 限制，以及跨会话选择论文 §2.8；2607 HTML 返回 404 后成功使用原始 PDF，而非把失败请求当全文阅读。另由评审追溯 2024 个体分类器选择与较早可靠性研究。
+
+候选结论为 bounded-search plausible empirical gap，不是首创证明；已知近邻、未覆盖之处和仍需追溯的范围写在 repeatability_prior_matrix.json / PROBLEM_DEFINITIONS.md。检索记录见 repeatability_search_log.json。NEMAR Yang2025 的元数据请求成功；SHU 页面与原 Figshare 密码要求已区分，未联系数据作者。只检查本地 B03T/E 会话结构，未运行新的跨日分类/偏好试验。

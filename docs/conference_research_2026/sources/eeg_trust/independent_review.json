@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-25",
+  "workflow": "scientific-brainstorming independent generation, followed by primary-literature checks and non-originator review",
+  "participants": [
+    "physics AI reviewer",
+    "statistics AI reviewer",
+    "representation AI reviewer",
+    "root synthesis"
+  ],
+  "limitations": [
+    "AI reviewers, not external domain experts or independent empirical replication.",
+    "Same underlying model family; agreement is not statistical evidence.",
+    "No quantitative voting or creativity score.",
+    "Initial idea round was sent before agents read our report; later evidence and critiques were shared."
+  ],
+  "criteria": [
+    "real observable mechanism",
+    "clear estimand and information access",
+    "difference from closest primary work",
+    "feasible falsification",
+    "value of null outcome"
+  ],
+  "ideas": [
+    {
+      "id": "P1",
+      "origin": "AI independent",
+      "idea": "Measurement-limited eligibility from sensor mask/geometry",
+      "decision": "reject generic novelty",
+      "reason": "GRAFT and selective risk control overlap; measurement failure itself real"
+    },
+    {
+      "id": "P2",
+      "origin": "AI independent",
+      "idea": "Neural evidence versus ocular/muscular contamination",
+      "decision": "reject generic novelty",
+      "reason": "artifact and cue-confounding studies directly overlap"
+    },
+    {
+      "id": "R1",
+      "origin": "AI independent",
+      "idea": "Prediction invariance under equivalent references",
+      "decision": "reject generic method novelty",
+      "reason": "same-active-set CAR provides exact canonicalization; GRAFT direct prior"
+    },
+    {
+      "id": "R2",
+      "origin": "AI independent",
+      "idea": "Instruction versus response entanglement",
+      "decision": "reject generic novelty",
+      "reason": "visual cue study direct prior; counterbalanced causal dataset not located"
+    },
+    {
+      "id": "S1",
+      "origin": "AI independent",
+      "idea": "Rank reversals as real interactions versus evaluation noise",
+      "decision": "insufficiently distinct in broad form",
+      "reason": "MOABB meta-analysis and individual portfolio studies"
+    },
+    {
+      "id": "S2",
+      "origin": "AI independent",
+      "idea": "Future-session value of personalized model choice under label budget",
+      "decision": "generic selector not novel; refine empirical target",
+      "reason": "algorithm selection exists but does not settle temporal repeatability of centered personal advantage"
+    },
+    {
+      "id": "S2_temporal",
+      "origin": "post-check discussion",
+      "idea": "Repeatability across days of within-person relative decoder advantage and its prospective decision value",
+      "decision": "retain one empirical candidate, novelty provisional",
+      "reason": "checked within-session portfolio and cross-session aggregate selection studies do not report this estimand",
+      "falsifiers": [
+        "no meaningful persistent component with informative uncertainty",
+        "no prospective gain over equally resourced fixed-model adaptation",
+        "direct coverage located in prior work",
+        "apparent persistence explained by preprocessing/protocol/selection leakage"
+      ]
+    }
+  ],
+  "adversarial_review": [
+    {
+      "reviewer": "physics",
+      "target": "R1",
+      "verdict": "CAR identity resolves exact stated reference equivalence; missing sensors are different information"
+    },
+    {
+      "reviewer": "statistics",
+      "target": "P1",
+      "verdict": "exchangeable deployment risk is standard risk control; geometry alone cannot identify classification risk without label-conditional assumptions"
+    },
+    {
+      "reviewer": "representation",
+      "target": "S2",
+      "verdict": "algorithm selection alone not new; first test persistence of relative advantages"
+    },
+    {
+      "reviewer": "statistics and representation, follow-up separately",
+      "target": "S2_temporal",
+      "verdict": "revise earlier broad rejection: standard tools do not imply empirical question already answered; bounded primary search supports candidate"
+    }
+  ],
+  "next_step": "data/version/protocol audit then controlled temporal pilot, not claim of completed finding"
+}
