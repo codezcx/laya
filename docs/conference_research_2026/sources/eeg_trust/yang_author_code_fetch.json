@@ -1,0 +1,192 @@
+{
+  "url": "https://ndownloader.figshare.com/files/51001884",
+  "range": [
+    0,
+    262143
+  ],
+  "download_bytes": 262144,
+  "prefix_sha256": "9d1fc71d874b99c2c3fa6d2e2a5a4b1d317bd7d843686dcd5fee19a57952152f",
+  "files": [
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/baseModel.py",
+      "bytes": 25577,
+      "sha256": "5bbd3a91410430c51bb7e0214d77fa2f38681303c00087e0d780c0ddaf8fc5a4",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/eegDataset.py",
+      "bytes": 6919,
+      "sha256": "cdbfb11aa53543abb892984aa1294434a1fcf1a210a234b995374b26cb4ca6b4",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/networks.py",
+      "bytes": 12354,
+      "sha256": "fb3271d3a54d8c4acaa4691c9bd3da27db8b96ad50a57b4dbe3f4c6dc656f2ad",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/old-networks.py",
+      "bytes": 9739,
+      "sha256": "0f203f15373b20ae031632ab3c759d0be07bf378d4209409ba3348c00eb198de",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/samplers.py",
+      "bytes": 7957,
+      "sha256": "3ee6420c6dcc8998dcec3097af29b192a5bfac9d9607fb6c1be329c4ba15db21",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/saveData.py",
+      "bytes": 24082,
+      "sha256": "c4587fb10efc330202b72e95ebf1acbeb15aa130ae808686b6e62e11e45680e3",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/stopCriteria.py",
+      "bytes": 3833,
+      "sha256": "de8f66624f49367a926c340c3ad3a27774f6ae6c30664e694caae15f9dd4953f",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/testFilterDiff.py",
+      "bytes": 3720,
+      "sha256": "53fe2bfa189630244d56c7994612d693e5d9e2dcf361c30f7991471e951cfe7c",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/centralRepo/transforms.py",
+      "bytes": 9317,
+      "sha256": "0b719004e94d04f6a38e01820b468d65e9ba4c95f8696a1680c6fce638609a48",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/classify/cv.py",
+      "bytes": 19563,
+      "sha256": "a50572e3b008d74dce3b8ed5282bfa76064701024f498599e9ec8f529d397c70",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/classify/ho.py",
+      "bytes": 15176,
+      "sha256": "0de1faa9d0e95694918760941e00c08a637cb615b6fbca6f69106f64c64b8ca9",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/FBCNet/codes/classify/read_res.py",
+      "bytes": 838,
+      "sha256": "3929a439dd28d1ea96c67eec699f682c4950e72ad9a3b82ba6025ea74d0064c2",
+      "crc32_verified": true
+    },
+    {
+      "path": "Deep_learning/README.md",
+      "bytes": 517,
+      "sha256": "c27904386bf7aa695e32b3f0407bb66bc9e1881c6c6a5fb95537fc0134ac46f8",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/CSP/data_preprocess.py",
+      "bytes": 2195,
+      "sha256": "fb28126397f22f712082c7e411a3d51ed816c368face88a499bc2f69513eefc8",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/CSP/main.py",
+      "bytes": 560,
+      "sha256": "3c99ae1926a6d175700d767ccef8f80420efd7ec31c3bd929c4c92ec512aabb2",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/CSP/ws.py",
+      "bytes": 1127,
+      "sha256": "3edffac6ddb7a33cc599ac723711fbfe9943d2ff056a7fdf09c7382d8f2a2bee",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/Classifier.py",
+      "bytes": 4827,
+      "sha256": "251f213836c57789f8e4c528874e3506d8110e43c5c9c89d8e5de565f0ffe752",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/CSP.py",
+      "bytes": 1537,
+      "sha256": "43554fd042720c5c36307b2e1f525d83cf66381a738e5492396d4d95a8fd5b79",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/FBCSP.py",
+      "bytes": 1880,
+      "sha256": "55be6ab21ff3cca5da567dc18d8ec1edccd94f1cdbe8427b082b1f80145303c0",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/LoadData.py",
+      "bytes": 1757,
+      "sha256": "9cdebb8678b84339b66d7791a755a95c60b9845d3a0e5661bd57b38a1b4c87b5",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/MLEngine.py",
+      "bytes": 9077,
+      "sha256": "7c5a3336e40de422f9b91acdc4b0a0d2abd2d173ea96f2e5d8e7cad615a0a5a3",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/bin/Preprocess.py",
+      "bytes": 541,
+      "sha256": "a03c852c7408ee8d149256f03aeed2799ab057a6b43418d4c182ffb65b8e242b",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/extact_label.py",
+      "bytes": 398,
+      "sha256": "58d3d32feb30ce3f79beb684980cfe0226e38027b83ab6b58fc1546ca83eaace",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/FBCSP/main.py",
+      "bytes": 1029,
+      "sha256": "e93f15b41ccf7abb6e3029ada7e217a55e62e22918f8e965d4e59b235d0e2398",
+      "crc32_verified": true
+    },
+    {
+      "path": "Machine_learning/README.md",
+      "bytes": 311,
+      "sha256": "14921d32be1efb60d40e4d22c868c4478e338d53d522a0563ca9a15e990c0f1e",
+      "crc32_verified": true
+    },
+    {
+      "path": "pre-processed/preprocessed.m",
+      "bytes": 1149,
+      "sha256": "3aa23e802ed1c3ed117abfe404ca47fdf756ddabfdfb51c7242abbedabc619d4",
+      "crc32_verified": true
+    },
+    {
+      "path": "pre-processed/README.md",
+      "bytes": 215,
+      "sha256": "ca105f50f0276dcc7de5245019c691c917cc6e6fe4eb5c54b8a411dde0cba51a",
+      "crc32_verified": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 2837,
+      "sha256": "71eae42d6fcd48dc640c1a2990d6bf3d0660706adb1e1035c9ad2d2df6f815bf",
+      "crc32_verified": true
+    },
+    {
+      "path": "result.csv",
+      "bytes": 9409,
+      "sha256": "0ae6792e9a2c33f02238746aafd272c019105e150127343576d16b32cf1e08d9",
+      "crc32_verified": true
+    },
+    {
+      "path": "transform.py",
+      "bytes": 2424,
+      "sha256": "733f6b3fd1f573876157dc3ad8fda4c73c84bcb92af383b6870d24465511c5df",
+      "crc32_verified": true
+    }
+  ],
+  "executed": false
+}

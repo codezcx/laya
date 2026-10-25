@@ -1,0 +1,10 @@
+{
+  "independent_pandas_parse_matches_all_765_scores": true,
+  "all_five_published_means_reproduced_to_two_decimal_percent": true,
+  "all_ten_correlations_recomputed_with_scipy": true,
+  "all_42_selection_gaps_recomputed": true,
+  "all_153_headers_have_matching_partial_response_ranges": true,
+  "input_hashes_and_analysis_commit_b0cda52_verified": true,
+  "only_later_code_change_is_plot_color_correspondence": true,
+  "no_new_model_training": true
+}

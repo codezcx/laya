@@ -1,0 +1,1385 @@
+{
+  "dataset_version": "1.0.5",
+  "requested_header_bytes_per_file": 256,
+  "files": [
+    {
+      "path": "sub-1/ses-0/eeg/sub-1_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/432091146",
+      "date": "20.03.19",
+      "time": "13.53.10",
+      "channels": "65"
+    },
+    {
+      "path": "sub-1/ses-1/eeg/sub-1_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/423065595",
+      "date": "22.03.19",
+      "time": "15.03.13",
+      "channels": "65"
+    },
+    {
+      "path": "sub-1/ses-2/eeg/sub-1_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/422873562",
+      "date": "21.03.19",
+      "time": "15.22.37",
+      "channels": "65"
+    },
+    {
+      "path": "sub-10/ses-0/eeg/sub-10_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/421913397",
+      "date": "24.04.19",
+      "time": "18.17.44",
+      "channels": "65"
+    },
+    {
+      "path": "sub-10/ses-1/eeg/sub-10_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/478947198",
+      "date": "18.04.19",
+      "time": "17.48.38",
+      "channels": "65"
+    },
+    {
+      "path": "sub-10/ses-2/eeg/sub-10_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/428058453",
+      "date": "17.04.19",
+      "time": "14.13.36",
+      "channels": "65"
+    },
+    {
+      "path": "sub-11/ses-0/eeg/sub-11_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/464736756",
+      "date": "17.04.19",
+      "time": "18.13.00",
+      "channels": "65"
+    },
+    {
+      "path": "sub-11/ses-1/eeg/sub-11_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/436891971",
+      "date": "23.04.19",
+      "time": "18.13.38",
+      "channels": "65"
+    },
+    {
+      "path": "sub-11/ses-2/eeg/sub-11_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/428058453",
+      "date": "25.04.19",
+      "time": "18.45.48",
+      "channels": "65"
+    },
+    {
+      "path": "sub-12/ses-0/eeg/sub-12_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/484516155",
+      "date": "23.04.19",
+      "time": "18.21.13",
+      "channels": "65"
+    },
+    {
+      "path": "sub-12/ses-1/eeg/sub-12_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/419993067",
+      "date": "23.04.19",
+      "time": "19.05.48",
+      "channels": "65"
+    },
+    {
+      "path": "sub-12/ses-2/eeg/sub-12_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/433435377",
+      "date": "25.04.19",
+      "time": "19.05.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-13/ses-0/eeg/sub-13_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/429786750",
+      "date": "18.04.19",
+      "time": "09.23.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-13/ses-1/eeg/sub-13_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/421337298",
+      "date": "16.05.19",
+      "time": "17.38.11",
+      "channels": "65"
+    },
+    {
+      "path": "sub-13/ses-2/eeg/sub-13_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/429402684",
+      "date": "21.04.19",
+      "time": "09.25.15",
+      "channels": "65"
+    },
+    {
+      "path": "sub-14/ses-0/eeg/sub-14_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/431899113",
+      "date": "18.04.19",
+      "time": "09.58.24",
+      "channels": "65"
+    },
+    {
+      "path": "sub-14/ses-1/eeg/sub-14_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/436699938",
+      "date": "24.04.19",
+      "time": "09.34.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-14/ses-2/eeg/sub-14_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/437852136",
+      "date": "25.04.19",
+      "time": "09.50.48",
+      "channels": "65"
+    },
+    {
+      "path": "sub-15/ses-0/eeg/sub-15_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/456863403",
+      "date": "19.04.19",
+      "time": "14.55.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-15/ses-1/eeg/sub-15_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/435163674",
+      "date": "23.04.19",
+      "time": "14.32.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-15/ses-2/eeg/sub-15_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/428058453",
+      "date": "26.04.19",
+      "time": "15.36.12",
+      "channels": "65"
+    },
+    {
+      "path": "sub-16/ses-0/eeg/sub-16_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/447261753",
+      "date": "21.04.19",
+      "time": "14.38.45",
+      "channels": "65"
+    },
+    {
+      "path": "sub-16/ses-1/eeg/sub-16_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/468577416",
+      "date": "21.04.19",
+      "time": "15.18.59",
+      "channels": "65"
+    },
+    {
+      "path": "sub-16/ses-2/eeg/sub-16_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/427866420",
+      "date": "22.04.19",
+      "time": "14.32.45",
+      "channels": "65"
+    },
+    {
+      "path": "sub-17/ses-0/eeg/sub-17_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/435931806",
+      "date": "21.04.19",
+      "time": "09.33.44",
+      "channels": "65"
+    },
+    {
+      "path": "sub-17/ses-1/eeg/sub-17_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/448798017",
+      "date": "20.04.19",
+      "time": "09.28.00",
+      "channels": "65"
+    },
+    {
+      "path": "sub-17/ses-2/eeg/sub-17_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/446301588",
+      "date": "27.04.19",
+      "time": "09.36.24",
+      "channels": "65"
+    },
+    {
+      "path": "sub-18/ses-0/eeg/sub-18_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/451678512",
+      "date": "11.05.19",
+      "time": "18.59.19",
+      "channels": "65"
+    },
+    {
+      "path": "sub-18/ses-1/eeg/sub-18_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/426906255",
+      "date": "22.04.19",
+      "time": "18.56.31",
+      "channels": "65"
+    },
+    {
+      "path": "sub-18/ses-2/eeg/sub-18_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/427482354",
+      "date": "28.04.19",
+      "time": "19.04.29",
+      "channels": "65"
+    },
+    {
+      "path": "sub-19/ses-0/eeg/sub-19_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/428442519",
+      "date": "25.04.19",
+      "time": "09.46.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-19/ses-1/eeg/sub-19_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/428634552",
+      "date": "27.04.19",
+      "time": "14.06.32",
+      "channels": "65"
+    },
+    {
+      "path": "sub-19/ses-2/eeg/sub-19_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/430554882",
+      "date": "27.04.19",
+      "time": "14.55.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-2/ses-0/eeg/sub-2_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/440156532",
+      "date": "20.03.19",
+      "time": "15.03.35",
+      "channels": "65"
+    },
+    {
+      "path": "sub-2/ses-1/eeg/sub-2_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/446877687",
+      "date": "21.03.19",
+      "time": "13.45.23",
+      "channels": "65"
+    },
+    {
+      "path": "sub-2/ses-2/eeg/sub-2_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/429978783",
+      "date": "27.03.19",
+      "time": "14.10.17",
+      "channels": "65"
+    },
+    {
+      "path": "sub-20/ses-0/eeg/sub-20_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/452062578",
+      "date": "06.05.19",
+      "time": "15.19.04",
+      "channels": "65"
+    },
+    {
+      "path": "sub-20/ses-1/eeg/sub-20_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/468961482",
+      "date": "07.05.19",
+      "time": "14.21.00",
+      "channels": "65"
+    },
+    {
+      "path": "sub-20/ses-2/eeg/sub-20_ses-2_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/423257628",
+      "date": "08.05.19",
+      "time": "14.17.46",
+      "channels": "65"
+    },
+    {
+      "path": "sub-21/ses-0/eeg/sub-21_ses-0_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/432091146",
+      "date": "08.05.19",
+      "time": "15.14.04",
+      "channels": "65"
+    },
+    {
+      "path": "sub-21/ses-1/eeg/sub-21_ses-1_task-imagery_run-0_eeg.bdf",
+      "status": 206,
+      "content_range": "bytes 0-255/434971641",
+      "date": "08.05.19",
+      "time": "14.28.15",
+      "channels": "65"
+    },
+    {
+      "path": "sub-21/ses-2/eeg/sub-21_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/430938948",
+      "date": "07.05.19",
+      "time": "14.30.28",
+      "channels": "65"
+    },
+    {
+      "path": "sub-22/ses-0/eeg/sub-22_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423641694",
+      "date": "11.05.19",
+      "time": "14.18.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-22/ses-1/eeg/sub-22_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/417304605",
+      "date": "18.05.19",
+      "time": "10.56.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-22/ses-2/eeg/sub-22_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/421721364",
+      "date": "18.05.19",
+      "time": "12.16.32",
+      "channels": "65"
+    },
+    {
+      "path": "sub-23/ses-0/eeg/sub-23_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/421721364",
+      "date": "15.05.19",
+      "time": "14.23.51",
+      "channels": "65"
+    },
+    {
+      "path": "sub-23/ses-1/eeg/sub-23_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/450718347",
+      "date": "13.05.19",
+      "time": "14.20.46",
+      "channels": "65"
+    },
+    {
+      "path": "sub-23/ses-2/eeg/sub-23_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/460127964",
+      "date": "21.05.19",
+      "time": "10.39.39",
+      "channels": "65"
+    },
+    {
+      "path": "sub-24/ses-0/eeg/sub-24_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/472994175",
+      "date": "13.05.19",
+      "time": "18.43.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-24/ses-1/eeg/sub-24_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/431323014",
+      "date": "27.06.19",
+      "time": "18.29.27",
+      "channels": "65"
+    },
+    {
+      "path": "sub-24/ses-2/eeg/sub-24_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429018618",
+      "date": "28.06.19",
+      "time": "18.58.25",
+      "channels": "65"
+    },
+    {
+      "path": "sub-25/ses-0/eeg/sub-25_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/418072737",
+      "date": "19.05.19",
+      "time": "10.49.16",
+      "channels": "65"
+    },
+    {
+      "path": "sub-25/ses-1/eeg/sub-25_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/437852136",
+      "date": "17.05.19",
+      "time": "10.22.53",
+      "channels": "65"
+    },
+    {
+      "path": "sub-25/ses-2/eeg/sub-25_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/457247469",
+      "date": "14.05.19",
+      "time": "09.17.45",
+      "channels": "65"
+    },
+    {
+      "path": "sub-26/ses-0/eeg/sub-26_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423065595",
+      "date": "14.05.19",
+      "time": "09.22.35",
+      "channels": "65"
+    },
+    {
+      "path": "sub-26/ses-1/eeg/sub-26_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429594717",
+      "date": "17.05.19",
+      "time": "10.02.43",
+      "channels": "65"
+    },
+    {
+      "path": "sub-26/ses-2/eeg/sub-26_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/434971641",
+      "date": "19.05.19",
+      "time": "10.20.53",
+      "channels": "65"
+    },
+    {
+      "path": "sub-27/ses-0/eeg/sub-27_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/438044169",
+      "date": "14.05.19",
+      "time": "14.06.39",
+      "channels": "65"
+    },
+    {
+      "path": "sub-27/ses-1/eeg/sub-27_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/465504888",
+      "date": "19.05.19",
+      "time": "14.23.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-27/ses-2/eeg/sub-27_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/446877687",
+      "date": "17.05.19",
+      "time": "13.53.05",
+      "channels": "65"
+    },
+    {
+      "path": "sub-28/ses-0/eeg/sub-28_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/454751040",
+      "date": "14.05.19",
+      "time": "14.18.10",
+      "channels": "65"
+    },
+    {
+      "path": "sub-28/ses-1/eeg/sub-28_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/441884829",
+      "date": "17.05.19",
+      "time": "13.57.30",
+      "channels": "65"
+    },
+    {
+      "path": "sub-28/ses-2/eeg/sub-28_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/442268895",
+      "date": "19.05.19",
+      "time": "14.37.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-29/ses-0/eeg/sub-29_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/437084004",
+      "date": "19.05.19",
+      "time": "18.51.15",
+      "channels": "65"
+    },
+    {
+      "path": "sub-29/ses-1/eeg/sub-29_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/427290321",
+      "date": "20.05.19",
+      "time": "11.30.09",
+      "channels": "65"
+    },
+    {
+      "path": "sub-29/ses-2/eeg/sub-29_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/424985925",
+      "date": "20.05.19",
+      "time": "12.17.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-3/ses-0/eeg/sub-3_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/445341423",
+      "date": "11.04.19",
+      "time": "19.33.16",
+      "channels": "65"
+    },
+    {
+      "path": "sub-3/ses-1/eeg/sub-3_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/432283179",
+      "date": "12.04.19",
+      "time": "18.26.43",
+      "channels": "65"
+    },
+    {
+      "path": "sub-3/ses-2/eeg/sub-3_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/430746915",
+      "date": "27.04.19",
+      "time": "10.29.36",
+      "channels": "65"
+    },
+    {
+      "path": "sub-30/ses-0/eeg/sub-30_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/419801034",
+      "date": "23.05.19",
+      "time": "10.24.03",
+      "channels": "65"
+    },
+    {
+      "path": "sub-30/ses-1/eeg/sub-30_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/422297463",
+      "date": "22.05.19",
+      "time": "18.31.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-30/ses-2/eeg/sub-30_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/439388400",
+      "date": "21.05.19",
+      "time": "19.29.54",
+      "channels": "65"
+    },
+    {
+      "path": "sub-31/ses-0/eeg/sub-31_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/464736756",
+      "date": "21.05.19",
+      "time": "19.20.28",
+      "channels": "65"
+    },
+    {
+      "path": "sub-31/ses-1/eeg/sub-31_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/419993067",
+      "date": "22.05.19",
+      "time": "18.44.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-31/ses-2/eeg/sub-31_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/425754057",
+      "date": "23.05.19",
+      "time": "09.43.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-32/ses-0/eeg/sub-32_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/428826585",
+      "date": "24.05.19",
+      "time": "18.19.34",
+      "channels": "65"
+    },
+    {
+      "path": "sub-32/ses-1/eeg/sub-32_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/433051311",
+      "date": "26.05.19",
+      "time": "18.08.44",
+      "channels": "65"
+    },
+    {
+      "path": "sub-32/ses-2/eeg/sub-32_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/455711205",
+      "date": "29.05.19",
+      "time": "18.19.49",
+      "channels": "65"
+    },
+    {
+      "path": "sub-33/ses-0/eeg/sub-33_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423449661",
+      "date": "29.05.19",
+      "time": "09.29.10",
+      "channels": "65"
+    },
+    {
+      "path": "sub-33/ses-1/eeg/sub-33_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423641694",
+      "date": "28.05.19",
+      "time": "08.36.26",
+      "channels": "65"
+    },
+    {
+      "path": "sub-33/ses-2/eeg/sub-33_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/436123839",
+      "date": "27.05.19",
+      "time": "16.39.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-34/ses-0/eeg/sub-34_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/460896096",
+      "date": "27.05.19",
+      "time": "17.19.15",
+      "channels": "65"
+    },
+    {
+      "path": "sub-34/ses-1/eeg/sub-34_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/442652961",
+      "date": "28.05.19",
+      "time": "08.47.29",
+      "channels": "65"
+    },
+    {
+      "path": "sub-34/ses-2/eeg/sub-34_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/443229060",
+      "date": "29.05.19",
+      "time": "09.43.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-35/ses-0/eeg/sub-35_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/424985925",
+      "date": "27.05.19",
+      "time": "18.19.53",
+      "channels": "65"
+    },
+    {
+      "path": "sub-35/ses-1/eeg/sub-35_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/419993067",
+      "date": "28.05.19",
+      "time": "10.00.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-35/ses-2/eeg/sub-35_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/462240327",
+      "date": "29.05.19",
+      "time": "10.56.30",
+      "channels": "65"
+    },
+    {
+      "path": "sub-36/ses-0/eeg/sub-36_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/437660103",
+      "date": "29.05.19",
+      "time": "10.32.25",
+      "channels": "65"
+    },
+    {
+      "path": "sub-36/ses-1/eeg/sub-36_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/447837852",
+      "date": "28.05.19",
+      "time": "09.36.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-36/ses-2/eeg/sub-36_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/447069720",
+      "date": "27.05.19",
+      "time": "17.45.27",
+      "channels": "65"
+    },
+    {
+      "path": "sub-37/ses-0/eeg/sub-37_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/464352690",
+      "date": "01.06.19",
+      "time": "19.32.32",
+      "channels": "65"
+    },
+    {
+      "path": "sub-37/ses-1/eeg/sub-37_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/458975766",
+      "date": "02.06.19",
+      "time": "18.14.21",
+      "channels": "65"
+    },
+    {
+      "path": "sub-37/ses-2/eeg/sub-37_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/443805159",
+      "date": "03.06.19",
+      "time": "09.55.53",
+      "channels": "65"
+    },
+    {
+      "path": "sub-38/ses-0/eeg/sub-38_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/428058453",
+      "date": "15.06.19",
+      "time": "19.03.16",
+      "channels": "65"
+    },
+    {
+      "path": "sub-38/ses-1/eeg/sub-38_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/421913397",
+      "date": "10.06.19",
+      "time": "19.07.22",
+      "channels": "65"
+    },
+    {
+      "path": "sub-38/ses-2/eeg/sub-38_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/424985925",
+      "date": "04.06.19",
+      "time": "18.56.11",
+      "channels": "65"
+    },
+    {
+      "path": "sub-39/ses-0/eeg/sub-39_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/453214776",
+      "date": "25.06.19",
+      "time": "18.41.36",
+      "channels": "65"
+    },
+    {
+      "path": "sub-39/ses-1/eeg/sub-39_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/426906255",
+      "date": "25.06.19",
+      "time": "12.21.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-39/ses-2/eeg/sub-39_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/466273020",
+      "date": "24.06.19",
+      "time": "19.41.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-4/ses-0/eeg/sub-4_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/427290321",
+      "date": "12.04.19",
+      "time": "14.40.04",
+      "channels": "65"
+    },
+    {
+      "path": "sub-4/ses-1/eeg/sub-4_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429978783",
+      "date": "11.04.19",
+      "time": "18.21.08",
+      "channels": "65"
+    },
+    {
+      "path": "sub-4/ses-2/eeg/sub-4_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/426330156",
+      "date": "08.04.19",
+      "time": "14.32.32",
+      "channels": "65"
+    },
+    {
+      "path": "sub-40/ses-0/eeg/sub-40_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/430746915",
+      "date": "04.06.19",
+      "time": "09.43.38",
+      "channels": "65"
+    },
+    {
+      "path": "sub-40/ses-1/eeg/sub-40_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/552303804",
+      "date": "03.06.19",
+      "time": "09.28.46",
+      "channels": "65"
+    },
+    {
+      "path": "sub-40/ses-2/eeg/sub-40_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/421721364",
+      "date": "05.06.19",
+      "time": "09.47.24",
+      "channels": "65"
+    },
+    {
+      "path": "sub-41/ses-0/eeg/sub-41_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/466080987",
+      "date": "04.06.19",
+      "time": "10.04.56",
+      "channels": "65"
+    },
+    {
+      "path": "sub-41/ses-1/eeg/sub-41_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/453790875",
+      "date": "05.06.19",
+      "time": "09.25.16",
+      "channels": "65"
+    },
+    {
+      "path": "sub-41/ses-2/eeg/sub-41_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/550575507",
+      "date": "05.06.19",
+      "time": "10.07.35",
+      "channels": "65"
+    },
+    {
+      "path": "sub-42/ses-0/eeg/sub-42_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/547310946",
+      "date": "05.06.19",
+      "time": "16.01.31",
+      "channels": "65"
+    },
+    {
+      "path": "sub-42/ses-1/eeg/sub-42_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/626236509",
+      "date": "03.06.19",
+      "time": "15.47.07",
+      "channels": "65"
+    },
+    {
+      "path": "sub-42/ses-2/eeg/sub-42_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/479715330",
+      "date": "04.06.19",
+      "time": "14.28.36",
+      "channels": "65"
+    },
+    {
+      "path": "sub-43/ses-0/eeg/sub-43_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429978783",
+      "date": "03.06.19",
+      "time": "16.19.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-43/ses-1/eeg/sub-43_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/430170816",
+      "date": "04.06.19",
+      "time": "14.18.06",
+      "channels": "65"
+    },
+    {
+      "path": "sub-43/ses-2/eeg/sub-43_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/538285395",
+      "date": "05.06.19",
+      "time": "14.40.57",
+      "channels": "65"
+    },
+    {
+      "path": "sub-44/ses-0/eeg/sub-44_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/420377133",
+      "date": "04.06.19",
+      "time": "17.13.09",
+      "channels": "65"
+    },
+    {
+      "path": "sub-44/ses-1/eeg/sub-44_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/489893079",
+      "date": "05.06.19",
+      "time": "19.16.19",
+      "channels": "65"
+    },
+    {
+      "path": "sub-44/ses-2/eeg/sub-44_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/453982908",
+      "date": "03.06.19",
+      "time": "19.33.48",
+      "channels": "65"
+    },
+    {
+      "path": "sub-45/ses-0/eeg/sub-45_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/593782932",
+      "date": "05.06.19",
+      "time": "18.50.42",
+      "channels": "65"
+    },
+    {
+      "path": "sub-45/ses-1/eeg/sub-45_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/604344747",
+      "date": "04.06.19",
+      "time": "19.00.36",
+      "channels": "65"
+    },
+    {
+      "path": "sub-45/ses-2/eeg/sub-45_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/555376332",
+      "date": "03.06.19",
+      "time": "19.51.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-46/ses-0/eeg/sub-46_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/437660103",
+      "date": "06.06.19",
+      "time": "10.34.30",
+      "channels": "65"
+    },
+    {
+      "path": "sub-46/ses-1/eeg/sub-46_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423065595",
+      "date": "07.06.19",
+      "time": "10.44.53",
+      "channels": "65"
+    },
+    {
+      "path": "sub-46/ses-2/eeg/sub-46_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/417688671",
+      "date": "08.06.19",
+      "time": "11.01.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-47/ses-0/eeg/sub-47_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/422489496",
+      "date": "08.06.19",
+      "time": "14.38.07",
+      "channels": "65"
+    },
+    {
+      "path": "sub-47/ses-1/eeg/sub-47_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/446685654",
+      "date": "06.06.19",
+      "time": "14.50.25",
+      "channels": "65"
+    },
+    {
+      "path": "sub-47/ses-2/eeg/sub-47_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/463200492",
+      "date": "09.06.19",
+      "time": "14.41.24",
+      "channels": "65"
+    },
+    {
+      "path": "sub-48/ses-0/eeg/sub-48_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/426138123",
+      "date": "06.06.19",
+      "time": "14.42.10",
+      "channels": "65"
+    },
+    {
+      "path": "sub-48/ses-1/eeg/sub-48_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/419993067",
+      "date": "07.06.19",
+      "time": "14.55.15",
+      "channels": "65"
+    },
+    {
+      "path": "sub-48/ses-2/eeg/sub-48_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/423641694",
+      "date": "08.06.19",
+      "time": "15.02.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-49/ses-0/eeg/sub-49_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/411351582",
+      "date": "08.06.19",
+      "time": "17.44.25",
+      "channels": "65"
+    },
+    {
+      "path": "sub-49/ses-1/eeg/sub-49_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/439580433",
+      "date": "07.06.19",
+      "time": "16.33.54",
+      "channels": "65"
+    },
+    {
+      "path": "sub-49/ses-2/eeg/sub-49_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/428058453",
+      "date": "06.06.19",
+      "time": "16.30.41",
+      "channels": "65"
+    },
+    {
+      "path": "sub-5/ses-0/eeg/sub-5_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/427674387",
+      "date": "08.04.19",
+      "time": "19.13.33",
+      "channels": "65"
+    },
+    {
+      "path": "sub-5/ses-1/eeg/sub-5_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/438236202",
+      "date": "09.04.19",
+      "time": "09.25.13",
+      "channels": "65"
+    },
+    {
+      "path": "sub-5/ses-2/eeg/sub-5_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/447069720",
+      "date": "10.04.19",
+      "time": "18.20.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-50/ses-0/eeg/sub-50_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/418264770",
+      "date": "07.06.19",
+      "time": "14.34.52",
+      "channels": "65"
+    },
+    {
+      "path": "sub-50/ses-1/eeg/sub-50_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/430170816",
+      "date": "10.06.19",
+      "time": "14.30.50",
+      "channels": "65"
+    },
+    {
+      "path": "sub-50/ses-2/eeg/sub-50_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/424985925",
+      "date": "11.06.19",
+      "time": "14.36.43",
+      "channels": "65"
+    },
+    {
+      "path": "sub-51/ses-0/eeg/sub-51_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/414616143",
+      "date": "11.06.19",
+      "time": "10.41.35",
+      "channels": "65"
+    },
+    {
+      "path": "sub-51/ses-1/eeg/sub-51_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/417496638",
+      "date": "10.06.19",
+      "time": "09.29.32",
+      "channels": "65"
+    },
+    {
+      "path": "sub-51/ses-2/eeg/sub-51_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/417688671",
+      "date": "10.06.19",
+      "time": "10.06.47",
+      "channels": "65"
+    },
+    {
+      "path": "sub-6/ses-0/eeg/sub-6_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/458399667",
+      "date": "10.04.19",
+      "time": "14.24.49",
+      "channels": "65"
+    },
+    {
+      "path": "sub-6/ses-1/eeg/sub-6_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/455135106",
+      "date": "09.04.19",
+      "time": "18.34.09",
+      "channels": "65"
+    },
+    {
+      "path": "sub-6/ses-2/eeg/sub-6_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/435739773",
+      "date": "11.04.19",
+      "time": "14.22.55",
+      "channels": "65"
+    },
+    {
+      "path": "sub-7/ses-0/eeg/sub-7_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/436507905",
+      "date": "12.04.19",
+      "time": "19.42.30",
+      "channels": "65"
+    },
+    {
+      "path": "sub-7/ses-1/eeg/sub-7_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/435547740",
+      "date": "10.04.19",
+      "time": "09.27.25",
+      "channels": "65"
+    },
+    {
+      "path": "sub-7/ses-2/eeg/sub-7_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429594717",
+      "date": "11.04.19",
+      "time": "09.19.12",
+      "channels": "65"
+    },
+    {
+      "path": "sub-8/ses-0/eeg/sub-8_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/431707080",
+      "date": "17.04.19",
+      "time": "09.59.09",
+      "channels": "65"
+    },
+    {
+      "path": "sub-8/ses-1/eeg/sub-8_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/420953232",
+      "date": "24.04.19",
+      "time": "14.38.23",
+      "channels": "65"
+    },
+    {
+      "path": "sub-8/ses-2/eeg/sub-8_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/429018618",
+      "date": "19.04.19",
+      "time": "10.08.05",
+      "channels": "65"
+    },
+    {
+      "path": "sub-9/ses-0/eeg/sub-9_ses-0_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/456863403",
+      "date": "16.04.19",
+      "time": "18.34.48",
+      "channels": "65"
+    },
+    {
+      "path": "sub-9/ses-1/eeg/sub-9_ses-1_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "retry_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/452830710",
+      "date": "18.04.19",
+      "time": "18.30.54",
+      "channels": "65"
+    },
+    {
+      "path": "sub-9/ses-2/eeg/sub-9_ses-2_task-imagery_run-0_eeg.bdf",
+      "prior_error": "SSLError",
+      "status": 206,
+      "content_range": "bytes 0-255/486436485",
+      "date": "19.04.19",
+      "time": "18.21.12",
+      "channels": "65"
+    }
+  ]
+}

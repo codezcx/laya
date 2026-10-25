@@ -130,9 +130,9 @@ def main():
                title=f'{n} people; Pearson r = {primary["pearson_r"]:.2f}')
     for i in np.flatnonzero((abs(x) > 10) | (abs(y) > 7)):
         axs[0].annotate(str(eligible[i]+1), (x[i], y[i]), fontsize=8)
-    for a, label in [(2, 'EEGNet'), (3, 'deepConvNet')]:
-        axs[1].plot([1, 2, 3], scores[:, :, a].mean(0)*100, marker='o', label=label)
-        axs[1].plot([1, 2, 3], matrix[eligible, :, a].mean(0)*100, linestyle='--', alpha=.45)
+    for a, label, color in [(2, 'EEGNet', '#2166ac'), (3, 'deepConvNet', '#d95f02')]:
+        axs[1].plot([1, 2, 3], scores[:, :, a].mean(0)*100, marker='o', label=label, color=color)
+        axs[1].plot([1, 2, 3], matrix[eligible, :, a].mean(0)*100, linestyle='--', alpha=.55, color=color)
     axs[1].set(xlabel='Day rank / original session number', ylabel='Mean author accuracy (%)',
                title='Solid: date order; dashed: session number', xticks=[1, 2, 3])
     axs[1].legend()

@@ -1,0 +1,17 @@
+{
+  "url": "https://api.figshare.com/v2/articles/22671172",
+  "title": "WBCIC-SHU Motor Imagery Dataset",
+  "version": 5,
+  "files": [
+    {
+      "id": 51001884,
+      "name": "WBCIC_SHU Motor Imagery dataset.zip",
+      "size": 65630556299,
+      "is_link_only": false,
+      "download_url": "https://ndownloader.figshare.com/files/51001884",
+      "supplied_md5": "e5384a58ac51b0d0c78a28a500185479",
+      "computed_md5": "e5384a58ac51b0d0c78a28a500185479",
+      "mimetype": "undefined"
+    }
+  ]
+}

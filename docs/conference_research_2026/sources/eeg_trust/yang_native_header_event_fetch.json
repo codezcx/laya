@@ -1,0 +1,56 @@
+[
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-01/eeg/data.bdf",
+    "download_bytes": 65536,
+    "extracted_bytes": 256,
+    "header_date": "20.03.19",
+    "header_time": "13.53.10",
+    "full_entry_crc_checked": false,
+    "sha256_extracted": "f3dac9b0ae00388a3da9df98a89d09f333284ff925869c7a8c06a8045e6e3005"
+  },
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-01/eeg/evt.bdf",
+    "download_bytes": 2728,
+    "extracted_bytes": 63186,
+    "header_date": "20.03.19",
+    "header_time": "13.53.10",
+    "full_entry_crc_checked": true,
+    "sha256_extracted": "b12154047ed2587adb6f04ac9282576f42246f681e7e777a5ede01253420d80a"
+  },
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-02/eeg/data.bdf",
+    "download_bytes": 65536,
+    "extracted_bytes": 256,
+    "header_date": "22.03.19",
+    "header_time": "15.03.13",
+    "full_entry_crc_checked": false,
+    "sha256_extracted": "32f074dbdd83310543f475d179cce5f4254e937670bcf800617ddd46e89b7005"
+  },
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-02/eeg/evt.bdf",
+    "download_bytes": 2764,
+    "extracted_bytes": 63186,
+    "header_date": "22.03.19",
+    "header_time": "15.03.12",
+    "full_entry_crc_checked": true,
+    "sha256_extracted": "bde96107208aec97eee0b2f5acb2e3f24114412f0c6fa54bfcc236e280a0184a"
+  },
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-03/eeg/data.bdf",
+    "download_bytes": 65536,
+    "extracted_bytes": 256,
+    "header_date": "21.03.19",
+    "header_time": "15.22.37",
+    "full_entry_crc_checked": false,
+    "sha256_extracted": "b3e951cafeb5829babb9635d2cada3c5ca60b256f74011a003cac1e42aca46cd"
+  },
+  {
+    "path": "WBCIC_SHU Motor Imagery dataset/sourcedata/2C dataset/sub-001/ses-03/eeg/evt.bdf",
+    "download_bytes": 2759,
+    "extracted_bytes": 63186,
+    "header_date": "21.03.19",
+    "header_time": "15.22.37",
+    "full_entry_crc_checked": true,
+    "sha256_extracted": "6235439fe7ed8e2484cb1b393b4ba562c023717352480eab896c9ab710d03a41"
+  }
+]

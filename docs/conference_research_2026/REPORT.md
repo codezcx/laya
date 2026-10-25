@@ -1,6 +1,6 @@
 # EEG 可信性选题：现实证据、问题定义与新颖性审查
 
-更新：2026-10-25。状态：**当前收敛到一个实证候选：个体解码优势的跨日重复性。定向查重支持潜在差别，七人三会话经典管线先导已完成，证据不足以确认稳定性或个体化收益，尚未证明首创。** 不训练基模、不做 VLM；已增加现有输入诊断的冻结编码器匹配控制，原训练代码不变。旧“边界不确定性”为优先方向的推荐已撤回，相关草案与数学例子存于 Git 提交 fae0972，不再作为当前研究路线。
+更新：2026-10-25。状态：**当前收敛到一个实证候选：个体解码优势的跨日重复性。定向查重支持潜在差别，七人经典先导和 42 人作者分数复核已完成，观测重复性依赖模型对；测量噪声分解与同预算未来收益仍未完成，尚未证明首创。** 不训练基模、不做 VLM；已增加现有输入诊断的冻结编码器匹配控制，原训练代码不变。旧“边界不确定性”为优先方向的推荐已撤回，相关草案与数学例子存于 Git 提交 fae0972，不再作为当前研究路线。
 
 ## 1. 先纠正任务来源
 
@@ -91,8 +91,10 @@ EEG-Arena 的原始摘要报告覆盖 30 个 EEG 基模、25 个监督基线、5
 
 现实场景由多日 MI 数据和现有个体化选择研究支持，但“个人优势不稳定”尚非本项目结果。本地 2b 单会话缓存不适合直接作纵向分析；原始 B03T/E 已验证 3+2 会话结构，随后使用 B03–B09 的后三次反馈会话完成经典管线先导。早期与后期相对优势的相关为 0.345，按人 bootstrap 区间约 [−0.334, 0.937]。七人首次会话全部选择 CSP，因此个人与全局策略完全相同，不能把零收益当作个体化无效的证据。细节及核验见 [先导结果](TEMPORAL_PILOT_RESULTS.md)。SHU/多日 Yang2025 提供更大队列的候选来源，完整信号和数据版本尚待验收。详细输入、输出、估计量、信息权限、近邻工作、可证伪条件见 [PROBLEM_DEFINITIONS.md](PROBLEM_DEFINITIONS.md)。
 
+新增的 [作者分数复核](AUTHOR_SCORE_RESULTS.md) 重现了 Yang2025 五个模型的论文均值。核对 153 个物理文件头后，在三日完整的 42 人中，EEGNet−deepConvNet 的差值重复性 r=0.050（探索性区间 [−0.237,0.336]），一些经典−深度模型差值则约 0.6–0.7。不能据此预设个人优势总不稳定，也不能忽略测量噪声。已有 FALCON 2024 还明确研究了侵入式神经解码的跨会话模型排序，因此不声称首次研究一般神经解码排名稳定性。[FALCON §4.2](https://papers.neurips.cc/paper_files/paper/2024/file/8c2e6bb15be1894b8fb4e0f9bcad1739-Paper-Datasets_and_Benchmarks_Track.pdf)
+
 本轮使用科学头脑风暴技能的独立生成和非提出者复核步骤，由三个 AI 评审分别生成并交叉批评；它不是外部专家审稿或独立实证验证。复核纠正了一个过强否定：已有算法选择工具，并不意味着个人相对优势的纵向重复性已经被测量。保留这一有条件的实证候选，而非宣布方法首创。[评审记录](sources/eeg_trust/independent_review.json)、[直接文献覆盖矩阵](sources/eeg_trust/repeatability_prior_matrix.json)
 
 旧边界和受损率候选已归档于 fae0972 / a3b0280；输入诊断保留为必要的混杂证据。原训练代码未改变。原始 54 篇会议条目仍是背景索引，不能替代本轮新增文献。[背景索引](PAPERS.md)
 
-流程使用 scientific-critical-thinking、scientific-brainstorming 与 experimental-design 技能；本地推理前使用 get-available-resources 检查资源，流程参考已记入：[Kassis et al., Scientific Agent Skills (2026)](https://doi.org/10.48550/arXiv.2609.00065)。工具流程不是科研结论证据。
+流程使用 scientific-critical-thinking、scientific-brainstorming 、experimental-design 与 statistical-analysis 技能；本地推理前使用 get-available-resources 检查资源，流程参考已记入：[Kassis et al., Scientific Agent Skills (2026)](https://doi.org/10.48550/arXiv.2609.00065)。工具流程不是科研结论证据。

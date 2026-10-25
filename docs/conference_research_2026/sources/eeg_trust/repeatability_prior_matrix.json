@@ -37,6 +37,22 @@
     {
       "url": "https://arxiv.org/abs/2609.33967",
       "coverage": "validation-to-held-out-person selection; not same-person longitudinal contrast"
+    },
+    {
+      "url": "https://doi.org/10.1038/s41597-025-04826-y",
+      "sections": [
+        "Technical Validation: Classification performance",
+        "Fig 8 and Table 2",
+        "Usage Notes"
+      ],
+      "coverage": "Multiple model aggregate benchmark plus within-person EEGNet score changes across nominal sessions; does not report relative-pair repeatability decomposition. Published author score matrix now independently reanalysed, with chronology/mapping caveats."
+    },
+    {
+      "url": "https://papers.neurips.cc/paper_files/paper/2024/file/8c2e6bb15be1894b8fb4e0f9bcad1739-Paper-Datasets_and_Benchmarks_Track.pdf",
+      "sections": [
+        "4.2"
+      ],
+      "coverage": "Explicit cross-session model-ranking stability in invasive M1-A; excludes generic neural-decoder rank-stability novelty. Not EEG multi-person relative-preference variance decomposition or equal-information longitudinal selection value."
     }
   ]
 }

@@ -1,0 +1,41 @@
+[
+  {
+    "url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-0/eeg/sub-1_ses-0_task-imagery_run-0_eeg.bdf",
+    "status": 206,
+    "content_range": "bytes 0-16383/432091146",
+    "bytes_read": 16384,
+    "sha256": "703bbeaa2c1fdc288d9601a1c35f0976cc54695b5e0d145626fdf64786505dfb",
+    "date": "20.03.19",
+    "time": "13.53.10",
+    "header_bytes": "16896",
+    "records": "2250",
+    "record_seconds": "1",
+    "channels": "65"
+  },
+  {
+    "url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-1/eeg/sub-1_ses-1_task-imagery_run-0_eeg.bdf",
+    "status": 206,
+    "content_range": "bytes 0-16383/423065595",
+    "bytes_read": 16384,
+    "sha256": "dbe25acec424ac6239e6b36e241fc8825dcbf4594b161a700b4ee11524c7dc27",
+    "date": "22.03.19",
+    "time": "15.03.13",
+    "header_bytes": "16896",
+    "records": "2203",
+    "record_seconds": "1",
+    "channels": "65"
+  },
+  {
+    "url": "https://data.nemar.org/nm000348/v1.0.5/sub-1/ses-2/eeg/sub-1_ses-2_task-imagery_run-0_eeg.bdf",
+    "status": 206,
+    "content_range": "bytes 0-16383/422873562",
+    "bytes_read": 16384,
+    "sha256": "1e6d55b59cf05931b5fd5f74f9207b71f62c73162d4195c196f8e8b69f7ee868",
+    "date": "21.03.19",
+    "time": "15.22.37",
+    "header_bytes": "16896",
+    "records": "2202",
+    "record_seconds": "1",
+    "channels": "65"
+  }
+]

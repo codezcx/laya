@@ -61,8 +61,13 @@
   },
   {
     "path": "sources/eeg_trust/current_goal_audit.json",
-    "bytes": 1714,
-    "sha256": "3b03a61a1647ab3edad84facaf43472e277623ff464cbe6dc106662577dfdbe2"
+    "bytes": 1846,
+    "sha256": "716e9ce29831d564664f94bea7bb6476b33e97fc840522db8640a74acdec2f49"
+  },
+  {
+    "path": "sources/eeg_trust/falcon_primary_review.json",
+    "bytes": 13750,
+    "sha256": "f0baf7c3bbe4d6b3a0dfe0453e6c0b241f34b008e740a389710954b3f57f47c4"
   },
   {
     "path": "sources/eeg_trust/graft.json",
@@ -181,8 +186,8 @@
   },
   {
     "path": "sources/eeg_trust/repeatability_prior_matrix.json",
-    "bytes": 1470,
-    "sha256": "1f7cf71a31a52e11e73450c77e9fbdfe26ad70a217e7ec3c686e6ace14d06f41"
+    "bytes": 2409,
+    "sha256": "f333295227189d2de73a71cc9248fdc45655b9bd3da6de21cc3549b705ae289f"
   },
   {
     "path": "sources/eeg_trust/repeatability_search_log.json",
@@ -228,6 +233,71 @@
     "path": "sources/eeg_trust/visual_cues.json",
     "bytes": 95118,
     "sha256": "d8022b5d24e8f043d3e1003b77e972672b9f14637e669d19f9ddc21f7802ab02"
+  },
+  {
+    "path": "sources/eeg_trust/yang_all_session_headers.json",
+    "bytes": 40496,
+    "sha256": "51d47be31b8e7edf49c46d84e7375d7b7ec486faf3c65632bb2b51e696afdd6d"
+  },
+  {
+    "path": "sources/eeg_trust/yang_archive_inventory.json",
+    "bytes": 425570,
+    "sha256": "00ca78713470661cc7bf1ccf103f895c4218778696bf486a2ba8801eb88a5406"
+  },
+  {
+    "path": "sources/eeg_trust/yang_author_code_fetch.json",
+    "bytes": 6314,
+    "sha256": "37ee04c4746cc2556ad476a5959d0f5d616e2210ee9e6e6bd065474058f5bd41"
+  },
+  {
+    "path": "sources/eeg_trust/yang_author_files.json",
+    "bytes": 503,
+    "sha256": "9fc4ce88127215cc5b3db10191289de19bcefe8ad9c4adda487e56b19376e2ed"
+  },
+  {
+    "path": "sources/eeg_trust/yang_author_score_diagnostics.json",
+    "bytes": 2726,
+    "sha256": "ff77f532c742c86f02a86f6ca41c1123ab18161f026d5021e96afd2e92f7fffd"
+  },
+  {
+    "path": "sources/eeg_trust/yang_author_score_result.json",
+    "bytes": 52963,
+    "sha256": "2b439d91daad44670a85185be0c5319b950e5f9eb2a8d06b3de9d53a776ea2a5"
+  },
+  {
+    "path": "sources/eeg_trust/yang_author_score_verification.json",
+    "bytes": 452,
+    "sha256": "77737d238835687f1d77cd0d61dafe68938ce5895cec15267e6e2e774aab2a6d"
+  },
+  {
+    "path": "sources/eeg_trust/yang_chronology_summary.json",
+    "bytes": 752,
+    "sha256": "bf31dc93a60347ed11c210bced4e6c365679944d06cbe7fdc0d0dfe297ff5b83"
+  },
+  {
+    "path": "sources/eeg_trust/yang_event_audit.json",
+    "bytes": 1107,
+    "sha256": "7c527996bf4fafaa171c8eb8aeb3c0cdcb8ed05b9dfb362e30c851e64dff5a27"
+  },
+  {
+    "path": "sources/eeg_trust/yang_header_audit.json",
+    "bytes": 1320,
+    "sha256": "72ea5ca78d24fa341d3c08f5f9c863c44314d926e83815ca6bd6fdd80ac2afb2"
+  },
+  {
+    "path": "sources/eeg_trust/yang_loader_source.json",
+    "bytes": 14630,
+    "sha256": "893bf192b14973ac07cf768533363e465b1eb13b48a673955ddc7f5efb40dd54"
+  },
+  {
+    "path": "sources/eeg_trust/yang_native_header_event_fetch.json",
+    "bytes": 2118,
+    "sha256": "385f45e63aa64ab26ad08cc044598a8fcd2296a320d36e6555c8d282ecc845c2"
+  },
+  {
+    "path": "sources/eeg_trust/yang_primary_sections.json",
+    "bytes": 48952,
+    "sha256": "51da231824ee328c4e2b2dd1cffffb056fc06a603ea25dfde7d8c22c304c28fb"
   },
   {
     "path": "sources/eeg_trust/yang_session_metadata.json",

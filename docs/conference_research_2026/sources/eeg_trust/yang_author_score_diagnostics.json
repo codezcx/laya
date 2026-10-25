@@ -1,0 +1,78 @@
+{
+  "diagnostics": {
+    "early_delta": {
+      "n": 42,
+      "mean": 0.00821428571428571,
+      "sd": 0.0326066996813768,
+      "median": 0.0050000000000000044,
+      "normality": {
+        "test": "Shapiro-Wilk",
+        "statistic": 0.8905232477524658,
+        "p_value": 0.0007583773946428415,
+        "is_normal": false,
+        "interpretation": "Data do not appear normally distributed (W = 0.891, p = 0.001)",
+        "n": 42,
+        "recommendation": "Consider non-parametric alternative or transformation"
+      },
+      "outlier_diagnostic": {
+        "method": "iqr",
+        "threshold": 1.5,
+        "n_outliers": 5,
+        "pct_outliers": 11.904761904761903,
+        "outlier_indices": [
+          3,
+          23,
+          33,
+          35,
+          41
+        ],
+        "outlier_values": [
+          0.05499999999999994,
+          0.09999999999999998,
+          -0.05499999999999994,
+          0.05499999999999994,
+          0.12
+        ],
+        "lower_bound": -0.04750000000000004,
+        "upper_bound": 0.05250000000000005,
+        "interpretation": "Found 5 outliers (11.9% of data)",
+        "recommendation": "Investigate outliers for data entry errors. Consider: (1) removing if errors, (2) winsorizing, (3) keeping if legitimate, (4) using robust methods"
+      }
+    },
+    "mean_later_delta": {
+      "n": 42,
+      "mean": 0.009999999999999995,
+      "sd": 0.027337323722205917,
+      "median": 0.009999999999999953,
+      "normality": {
+        "test": "Shapiro-Wilk",
+        "statistic": 0.9764572943917463,
+        "p_value": 0.5288382269251752,
+        "is_normal": true,
+        "interpretation": "Data appear normally distributed (W = 0.976, p = 0.529)",
+        "n": 42,
+        "recommendation": "Proceed with parametric test"
+      },
+      "outlier_diagnostic": {
+        "method": "iqr",
+        "threshold": 1.5,
+        "n_outliers": 1,
+        "pct_outliers": 2.380952380952381,
+        "outlier_indices": [
+          13
+        ],
+        "outlier_values": [
+          0.09249999999999997
+        ],
+        "lower_bound": -0.05774999999999999,
+        "upper_bound": 0.07124999999999995,
+        "interpretation": "Found 1 outliers (2.4% of data)",
+        "recommendation": "Investigate outliers for data entry errors. Consider: (1) removing if errors, (2) winsorizing, (3) keeping if legitimate, (4) using robust methods"
+      }
+    }
+  },
+  "helper_sha256": "3fabf359ab0128bbfc498dadb53a4782431cde473c0a6681ea7298a605757018",
+  "no_people_removed": true,
+  "plot_colors_corrected_after_analysis": true,
+  "interpretation": "Descriptive bootstrap does not require marginal normality. All 42 eligible people retained; Spearman and leave-one-person-out also reported."
+}

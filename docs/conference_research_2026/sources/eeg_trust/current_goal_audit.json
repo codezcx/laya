@@ -5,11 +5,11 @@
     "real_cropping_label_mechanism": "verified against local code and original BCI protocol; speculative temporal boundary recommendation withdrawn",
     "real_reliability_variation": "official dataset rank examples plus completed matched input pilot; not a universal distrust conclusion",
     "clear_current_question": "same-person cross-day repeatability of relative decoder advantage and equal-budget prospective personalization value",
-    "closest_prior_comparison": "within-session portfolio and actual cross-session selector methods checked; scoped empirical gap plausible",
-    "new_empirical_effect": "Seven-source-user classical-pipeline pilot completed: repeatability interval broad; every early personal choice equals global A, so decision contrast is structurally zero. Foundation-model and independent-cohort evidence missing.",
+    "closest_prior_comparison": "Expanded with original Yang2025 validation and FALCON NeurIPS 2024 section 4.2; generic neural decoder cross-session rankings are already studied.",
+    "new_empirical_effect": "Exploratory author-score evidence in 42 three-date users: observed pair-relative repeatability ranges from about .05 for EEGNet/deepConvNet to .70 for CSP/EEGNet; source means reproduced. No deattenuated stability, new frozen-encoder fits, or same-budget historical-adaptation test.",
     "novelty": "conditional bounded-search assessment, not firstness proof",
-    "data_for_full_question": "Yang file tree and sub-1 BIDS metadata accessible; raw signals not validated; chronological session numbering disproved by scans metadata, must reconcile with headers."
+    "data_for_full_question": "All 153 converted BDF physical headers fetched; 25 nonchronological IDs and 9 two-date people; native sub-1 dates agree. BIDS events already offset +1.5s. Raw/processed waveform mapping and other-user event offsets still need validation."
   },
-  "next_action": "Verify Yang2025 BDF header dates against scans: sub-1 ses-1 is later than ses-2. Audit event onset offset and reference before extraction; then lock classical/frozen-encoder portfolio on independent development users with measurement-error replication. SHU nm000288 endpoints currently 404. Do not retune the completed classical pilot to manufacture diversity.",
-  "previous_goal_turn_classification": "no progress: boundary clarification restated prior evidence; this turn executed locked pilot"
+  "next_action": "Resolve raw-to-processed mapping and event offsets on prespecified development users; lock classical/frozen-encoder equal-budget experiment with repeated-fit/query-block error estimates and history-adaptation baseline. Stop generic brainstorming and do not present published-score illustration as prospective V(m).",
+  "previous_goal_turn_classification": "progress: committed locked classical pilot, verified numerical outcomes, found chronology and access issues"
 }
