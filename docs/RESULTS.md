@@ -1,17 +1,22 @@
-# Joint cross-subject learning-rate experiment
+# Joint cross-subject BatchNorm comparison
 
-Current run: `artifacts/benchmark/cross_subject_fold0_lr_cosine/`. Launched on 2026-10-25 on two H200 GPUs, fresh initialization with 90-update LR warmup and cosine decay to 2% of peak; the LEAF encoder remains frozen for the first 100 updates and warms up separately for updates 101–190. Same initialization, seed, data, sampler and global batch 88 as the retained constant-LR control. Implementation commit: `441a8fa`. See [protocol](PROTOCOL.md) for the world-size/microbatch reproducibility limitation. No new formal validation result yet.
+Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). No new paired validation result yet.
 
-- Status: `artifacts/benchmark/cross_subject_fold0_lr_cosine/pipeline.json`.
-- Per-step loss, sampled training accuracy and learning rates: `artifacts/benchmark/cross_subject_fold0_lr_cosine/jev/metrics.jsonl`.
-- Validation every 200 updates on the same 9,748 rows; last checkpoint every 100 updates.
-- Planned 3,000 updates, followed by full validation/test using the best validation-selected checkpoint.
+- Live summaries: `LIVE.md`, `monitor.json` under the current root.
+- Per-step metrics: `{updating,frozen}/metrics.jsonl`.
+- Fixed monitor validation: 9,748 rows, every 200 global updates.
+- Last checkpoint: every 100 updates; best: validation-selected dataset-macro BA.
+- Historical artifact index: [ARCHIVE.md](ARCHIVE.md).
 
-Pre-launch checks: 18 focused tests passed (schedule endpoints and delayed encoder warmup, optimizer/scheduler restoration, distributed accumulation, data adapters and choice masking). Read-only comparison confirmed all 9,748 monitor validation IDs/labels match the old run, 476,032 training epochs remain available, and two-/four-rank partitioning preserves the same 88 global sample IDs with eight per dataset per step. The two-GPU smoke test passed with production microbatch 22/rank, both option orders and all 11 datasets: encoder gradient norm 0 while frozen and 6.8471 after unfreezing, with the tokenizer parameter-update assertions passing. Peak rank-0 allocated GPU memory was 59.23 GiB; smoke execution took 91.83 seconds excluding model loading. Smoke uses a shortened two-update LR schedule and does not count as benchmark validation. The controller has advanced to formal production SFT.
+## Checkpoint correction and initialization
+
+The previous trainer saved trainable parameters but omitted LEAF SyncBatchNorm running statistics. Online in-process validation scores remain evidence for the live models, but later reloads cannot reproduce those models exactly. This implementation now saves all buffers, optimizer/scheduler and RNG state; unit tests require identical restored predictions, next updates and random draws. Real-model round-trip checks run on held-out examples for every task/class.
+
+The interrupted cosine run's last saved update is 100, during the encoder freeze. All 381 saved trainable encoder tensors exactly matched the released LEAF weights, so its original BN statistics are recoverable. Both branches use the same new seed 142 because the old checkpoint did not save RNG state. This is a matched branch initialization, not an exact continuation of the original random stream. Source run logs and old artifacts are retained in the external archive; compact metrics are in `reference_cosine_partial/`.
 
 ## Retained constant-LR control
 
-Archived implementation: `d11b0bf`. User stopped training on 2026-10-24 at logged step 1,087. Preserved `last.pt`: step 1,000; `best.pt`: step 600, dataset-macro BA 50.0512%. No final full validation/test was run. Artifacts remain under `artifacts/benchmark/cross_subject_fold0/`. The prior 100-update encoder freeze was not LR warmup; rates were constant.
+Archived implementation: `d11b0bf`. User stopped training on 2026-10-24 at logged step 1,087. Preserved archived `last.pt`: step 1,000; archived `best.pt`: step 600, dataset-macro BA 50.0512%. No final full validation/test was run. Compact metrics/predictions remain under `artifacts/benchmark/reference_constant_lr/`. The prior 100-update encoder freeze was not LR warmup; rates were constant.
 
 Dataset-macro BA at updates 200/400/600/800/1000: 45.3003% / 48.2431% / 50.0512% / 49.6711% / 46.0625%. All monitor sample IDs and labels are identical across these checkpoints.
 
@@ -30,14 +35,6 @@ Dataset-macro BA at updates 200/400/600/800/1000: 45.3003% / 48.2431% / 50.0512%
 | Nakanishi2015 | 8.33% / 8.33% | 6.67% / 6.67% | 7.78% / 7.78% |
 
 CHB-MIT seizure recall fell from 73.81% at step 600 to 30.95% at step 1000 despite rising overall accuracy. BNCI2014009 target recall was zero at step 1000. Learning-rate scheduling is one candidate explanation to test; these observations do not establish its causal role. Training accuracy in the JSONL is sampled, per-update accuracy, not fixed-checkpoint full-training-set evaluation.
-
-## Implementation audit: BatchNorm state (2026-10-25)
-
-The cosine run was stopped under user authorization for the matched BN experiment. Its last saved checkpoint is update 100, before encoder unfreezing. All 381 saved trainable LEAF tensors exactly match the released checkpoint, confirming that its missing BN buffers can be recovered from the release. Logged unsaved updates after 100 are not reused. The old checkpoint lacks RNG state; the two comparison branches will use an explicitly identical new RNG seed rather than claiming exact continuation of the interrupted dropout stream.
-
-Read-only audit found a checkpoint correctness omission shared by both online runs: LEAF's tokenizer contains `SyncBatchNorm` with `running_mean`, `running_var`, and `num_batches_tracked` buffers, while `train_joint.py` saves/restores only trainable named parameters. The preserved step-600 checkpoint contains this layer's affine weight/bias but none of the running-statistic buffers. Fresh checkpoint evaluation consequently restores the released LEAF statistics rather than the statistics used by the in-memory model. This does not invalidate the recorded in-process validation scores or explain their fluctuations by itself, but reloaded-checkpoint evaluation is not an exact reproduction until buffer handling is corrected. The live run's training implementation has not been modified during this audit.
-
-Separate untested hypothesis: after encoder unfreezing, shared BatchNorm running statistics are updated on successive task-specific microbatches, while validation uses their accumulated values. These updates are not controlled by the learning-rate scheduler. Microbatch changes can affect them: the old four-rank/microbatch-4 layout processes eight CHB windows in one synchronized BN call per step; the new two-rank/microbatch-22 layout splits CHB into two calls of four global windows. Therefore even equal global sample IDs do not isolate the LR effect from BatchNorm behavior. An exact attribution needs a matched execution configuration and a separate BN-statistics control. Checkpoint buffer preservation and an in-memory versus reload prediction check are required before reporting final checkpoint-based results.
 
 ## Unchanged fold-0 data
 

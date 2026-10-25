@@ -6,12 +6,13 @@ import torch
 import torch.nn.functional as F
 from .leaf_runtime import CONFIG,UP
 from .benchmark_data import catalog
+from .normalization import apply_bn_policy
 from LEAF import LEAF
 from load_config import build_model_config,load_yaml
 
 
 class OnlineLEAF(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, bn_policy='updating'):
         super().__init__()
         self.leaf=LEAF(build_model_config(load_yaml(UP/'configs/LEAF_mpnet.yaml')))
         self.leaf.load_state_dict(torch.load(CONFIG['checkpoint'],map_location='cpu',weights_only=True),strict=True)
@@ -22,9 +23,11 @@ class OnlineLEAF(torch.nn.Module):
         info=json.loads(Path('artifacts/benchmark/instructions.json').read_text());vectors=np.load('artifacts/benchmark/instructions.npy')
         self.register_buffer('instructions',torch.from_numpy(np.stack([vectors[info['texts'].index(t['instruction'])] for t in catalog()])))
         self.unfrozen=False
+        self.bn_policy=bn_policy
 
     def forward(self,batch,count,unfrozen):
         self.unfrozen=bool(unfrozen);self.leaf.train(self.training and self.unfrozen)
+        apply_bn_policy(self.leaf,self.bn_policy)
         outputs=[None]*count;lengths=[None]*count
         for tid,indices,pieces in batch:
             inst=self.instructions[tid:tid+1].expand(len(indices),-1);qq=[]

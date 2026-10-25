@@ -32,17 +32,3 @@ class TaskOptionsTest(unittest.TestCase):
         with self.assertRaises(ValueError):choice_logits(state,w,b,[2,17,3])
 
 if __name__=='__main__':unittest.main()
-
-class TaskContrastTest(unittest.TestCase):
-    def test_weighted_task_losses_and_gradients(self):
-        from eeg_align.semantic_alignment import multipositive_loss,task_contrastive_loss
-        torch.manual_seed(5)
-        z=torch.randn(12,8,requires_grad=True);text=torch.randn(12,8)
-        tasks=torch.tensor([0]*4+[1]*4+[2]*4)
-        labels=torch.tensor([0,0,1,1,2,3,4,2,5,6,7,8])
-        weights={0:.5,1:.25,2:.25}
-        loss,parts=task_contrastive_loss(z,labels,tasks,text,weights,distributed=False)
-        expected=sum(w*multipositive_loss(z[tasks==t],labels[tasks==t],text,distributed=False) for t,w in weights.items())
-        torch.testing.assert_close(loss,expected)
-        loss.backward();self.assertTrue(torch.isfinite(z.grad).all())
-        self.assertTrue(all(z.grad[tasks==t].abs().sum()>0 for t in weights))

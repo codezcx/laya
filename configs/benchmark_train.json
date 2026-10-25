@@ -6,7 +6,7 @@
   "global_batch": 88,
   "microbatch": 22,
   "eval_microbatch": 32,
-  "run_name": "cross_subject_fold0_lr_cosine",
+  "run_name": "cross_subject_fold0_bn_control",
   "lr_schedule": {
     "kind": "warmup_cosine",
     "warmup_ratio": 0.03,
@@ -20,10 +20,17 @@
   "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
   "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
   "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
-  "world_size": 2,
+  "world_size": 1,
   "validation_cap_per_dataset": 2048,
   "backend": "online_signal",
   "fold": 0,
   "encoder_warmup_steps": 100,
-  "encoder_learning_rate": 1e-06
+  "encoder_learning_rate": 1e-06,
+  "stop_step": 1200,
+  "branch_seed": 142,
+  "bn_policies": [
+    "updating",
+    "frozen"
+  ],
+  "resume_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/benchmark/cross_subject_fold0_bn_control/common/warmup_step0100.pt"
 }

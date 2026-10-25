@@ -1,6 +1,6 @@
 # Online EEG → text-conditioned LEAF → JEV: joint cross-subject fold
 
-Current implementation trains one shared model on 11 classification datasets from EEG-FM-Benchmark. The current experiment adds learning-rate warmup and cosine decay to the stopped constant-LR run, archived at `d11b0bf`. Task catalog: `configs/benchmark_tasks.json`; training settings: `configs/benchmark_train.json`. Ignored datasets, checkpoints and logs are retained. No frozen-query cache is used by this run.
+Current implementation trains one shared model on 11 classification datasets from EEG-FM-Benchmark. The current experiment tests updating versus fixed BatchNorm statistics under the same warmup/cosine schedule. Task catalog: `configs/benchmark_tasks.json`; training settings: `configs/benchmark_train.json`. Ignored datasets, checkpoints and logs are retained. No frozen-query cache is used by this run.
 
 ## Cross-subject protocol
 
@@ -24,29 +24,41 @@ CHB-MIT/SleepEDF bipolar leads use a minimum-norm incidence-matrix inverse with 
 
 ## Model and objective
 
-Original released LEAF checkpoint plus native `laya/JEV-27B-VL`, not previous2a/SEED adapters. Task text alone conditions LEAF's FiLM/QFormer; target labels never enter the signal encoder. Task instruction vectors use released MPNet's mean-pooling/L2 recipe, verified against existing vectors (cosine>0.9999).
+Released LEAF plus native `laya/JEV-27B-VL`. LEAF FiLM/QFormer is conditioned on task text only; true labels never enter its input. Each <=10-second segment emits 8 final-normalized 256-dimensional query tokens (24 for 30-second sleep epochs). Project 256→5120, concatenate with question/option embeddings, and apply JEV's native 16-position choice head. Random option permutation and answer-position cross entropy are unchanged; unused choices are masked.
 
-Each segment emits8final-normalized256-dimensional query tokens. Sleep has24tokens; variable query padding is masked in JEV. Project256→5120, concatenate with text embeddings, and use the native16-position choice head. Text specifies task and candidate semantics; label-independent option permutations are regenerated per training step. Mask unused choices and train with answer-position cross entropy.
+LEAF is frozen through update 100, then its tokenizer, Transformer branches and QFormer are trained. Native Qwen base weights stay frozen; the original JEV LoRA is always active. Unused LEAF reconstruction heads, mask token and text-output projection remain frozen. The optimizer is AdamW with weight decay 0.01 and gradient norm clipping at 1.
 
-Steps 1–100: LEAF eval mode and no gradient, train connector/JEV LoRA/choice head. Step 101 onward: enable gradients and training mode in LEAF's tokenizer, both Transformer branches and FiLM/QFormer. This frozen-encoder interval is distinct from learning-rate warmup. Unused reconstruction heads, mask token and final text-embedding output head remain frozen because they do not lie on the query-to-JEV path. Native language-base weights remain frozen; JEV LoRA is always active. A two-step smoke run uses a one-step encoder freeze and one-step LR warmup, and explicitly checks no encoder change while frozen, then nonzero encoder gradient and parameter change after unfreezing.
+## Current matched BatchNorm experiment
 
-### Learning-rate experiment
+Two independent single-H200 branches run concurrently. Both start from the same saved update-100 checkpoint of the interrupted cosine run. All 381 trainable LEAF tensors were checked equal to the released checkpoint; because its encoder was never unfrozen, original BN buffers can be recovered exactly. Its old RNG state was not saved, so both branches explicitly reset Python, NumPy, CPU/CUDA torch RNGs to branch seed 142. This is a matched new continuation, not bitwise continuation of the original run.
 
-Fresh initialization from the same released LEAF and native JEV weights and seed 42; do not resume the old step-600/1000 model. Retain the old optimizer, weight decay, clipping, loss, dataset catalog, input processing, training/validation splits, balanced sampler and option permutations. Peak LRs remain connector `1e-4`, JEV LoRA `5e-6`, choice head `1e-5`, LEAF `1e-6`.
+- `updating`: ordinary training behavior, BatchNorm uses current minibatch statistics and updates running statistics.
+- `frozen`: BatchNorm uses the released running mean/variance during training and evaluation. Its affine weight/bias and all other active encoder parameters still receive gradients. Other dropout remains active.
 
-`eeg_align/lr_schedule.py` sets rates BEFORE each numbered optimizer update. Connector/LoRA/head rise linearly over updates 1–90 (3% of 3,000), then decay with a cosine to 2% of their peak at update 3,000. LEAF LR is zero through update 100, warms up independently over updates 101–190, then decays to 2% at update 3,000. Thus final LRs are `2e-6`, `1e-7`, `2e-7`, `2e-8`. Each metric row records the actual four rates used for that update; checkpoints include scheduler settings, last update and optimizer state. A `constant` scheduler mode exists as a matched control in the same implementation; it is not a separately maintained training script. The current launcher starts only the configured cosine run.
+Both branches use world size 1, global batch 88, microbatch 22 (four accumulation passes), eval microbatch 32, identical sample IDs and option permutations. Each step samples 8 examples per dataset with class/subject balancing and replacement. The only branch setting difference is BN policy. Compared with historical runs, world-size/microbatch and stochastic execution differ; historical scores are context, not the matched BN control.
 
-Compare fixed validation subsets at the same update numbers against the retained constant-LR run `artifacts/benchmark/cross_subject_fold0/`. The old run stopped at logged update 1,087, last saved update 1,000, best update 600; it provides no later-step control. World size changes from 4 to 2 and microbatch from 4 to 22 on the new node, but global batch and sample IDs/options at each step remain the same. Dropout RNG and floating-point reduction order may differ, so this is a useful first schedule comparison, not a bitwise-controlled causal proof or a multi-seed result. Warmup and cosine are changed together; this does not separately identify their effects.
+Peak LRs are connector 1e-4, JEV LoRA 5e-6, choice head 1e-5, encoder 1e-6. Scheduler retains a 3,000-update horizon, 90-update linear warmup then cosine decay to 2% of peak. Encoder is zero through update 100, warms up independently at 101–190, then decays. Initial diagnostic stage stops at update 1,200; it does not compress the LR schedule to 1,200. Select later improvements only after examining the paired validation results.
 
-Global batch 88, dataset/class/subject-balanced sampling with replacement: 8 examples from each dataset each step, split over 2 GPUs. Microbatch 22/rank with two accumulation microbatches per update; eval 32/rank. 3,000 steps is an initial SFT budget, not a full pass over every large dataset. Logs include per-dataset batch losses/accuracy, encoder gradient norm and all group learning rates. Validation uses the same fixed class-stratified subset capped at 2,048 epochs/dataset (9,748 total) every 200 steps; choose best by unweighted dataset mean BA. Save last weights every 100 steps. Final best-checkpoint evaluation uses FULL validation and FULL test. Report epoch accuracy/BA, per-subject metrics, confusion matrices and semantic consistency under option reversal. SEED parent-trial accuracy is unavailable from these caches and is not invented.
+## Complete state and validation
 
-## Entry points and outputs
+Version-2 checkpoints save all trainable named parameters, all model buffers (including BN running mean/variance/count), AdamW state, scheduler state, and per-rank Python/NumPy/torch RNG state. Frozen pretrained parameter weights remain supplied by the recorded releases. Missing-buffer legacy checkpoints are rejected except for explicitly verified frozen-warmup recovery. Post-unfreeze legacy checkpoints cannot silently borrow release statistics.
 
-Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`: verify/reuse existing raw exports → split audit → configured two-GPU two-step smoke → fresh production SFT → full validation/test on best checkpoint. Source hashes prevent changes between stages. `--resume-preparation` reuses completed exports and appends logs; it does not resume optimizer training. Existing training outputs are never silently overwritten. `run_name` selects the isolated ignored artifact directory, and GPU count comes from `world_size` rather than hard-coded four-GPU launch arguments.
+Each branch writes `initial.pt` and fingerprints its parameters/buffers. The controller verifies that both initial states match. A reload test destroys BN statistics and changes a head parameter, restores the checkpoint, and requires bitwise-identical logits on fixed held-out examples covering every dataset/class. This test runs at initialization and every validation checkpoint. Unit tests additionally require identical next optimizer updates and RNG draws after restoration.
 
-- Data: `datasets/benchmark/signals/<dataset>/signals.npy`, `rows.jsonl`, `complete.json`.
-- Split: `datasets/benchmark/signals/fold0/{train,validation,test}.jsonl`, `complete.json`.
-- Status: `artifacts/benchmark/cross_subject_fold0_lr_cosine/pipeline.json`.
-- Metrics: `artifacts/benchmark/cross_subject_fold0_lr_cosine/jev/metrics.jsonl`.
-- Best/last weights: same `jev/` folder (include trained LEAF parameters).
-- Full eval: `final_validation/complete.json`, `final_test/complete.json`.
+Validation every 200 global updates uses the same fixed 9,748 rows as earlier runs (cap 2,048/dataset). Report normal/reversed option accuracy, balanced accuracy, per-subject metrics, confusion matrices and semantic consistency. Save last weights every 100 updates, plus initial/first/final and validation-selected best. No test-set selection or automatic test evaluation in this diagnostic stage.
+
+`monitor.json` stores each branch's per-dataset 100-update training averages, full validation history and alerts. `LIVE.md` provides the latest human-readable summary. Flags include zero class recall, >95% predictions in one class, or >=10-point BA decline from the previous validation; these trigger investigation, not an automatic claim of cause. Nonfinite losses/gradients, failed reload checks or mismatched starting states stop the run. Training batch accuracy is not fixed-checkpoint full-training-set accuracy.
+
+## Entry points, outputs and archival
+
+Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. The controller runs two independent one-GPU smoke tests, then the two branches from the common checkpoint. The smoke tests shorten freezing/scheduling to two updates and cover all tasks/options; their scores are not scientific results. Existing output directories are never overwritten. Source hashes prevent edits to the active implementation between stages and during monitoring. SIGTERM requests a checkpoint at the next update boundary.
+
+- Current root: `artifacts/benchmark/cross_subject_fold0_bn_control/`.
+- Initial checkpoint: `common/warmup_step0100.pt`.
+- Branch metrics: `{updating,frozen}/metrics.jsonl`.
+- Branch weights: `initial.pt`, `last.pt`, `best.pt` within each branch.
+- Controller: `pipeline.json`; summaries: `monitor.json`, `LIVE.md`.
+- Compact historical comparisons: `artifacts/benchmark/reference_constant_lr/`, `reference_cosine_partial/`.
+- Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
+
+Superseded tracked implementations are in Git (`521f865` before this replacement). Old artifacts are moved outside the repository, not deleted. See [ARCHIVE.md](ARCHIVE.md) for the inventory. Unrelated ECG-R1 working files, shared models, datasets, environments and third-party installations are retained.

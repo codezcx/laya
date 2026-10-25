@@ -1,16 +1,17 @@
 # Task-conditioned EEG → LEAF → JEV
 
-当前实验：EEG-FM-Benchmark 的11个分类数据集混合训练，文本指定任务和选项。先跑跨被试联合第0折：普通数据集留一位测试被试、一位验证被试；TUAB/SleepEDF按被试分10组，分别留测试组和验证组。不是已完成的全折 Benchmark 复现。
+当前保留一套 EEG-FM-Benchmark 联合训练代码，11 个分类数据集，文本指定任务与选项，采用被试隔离的第 0 折。当前实验比较 BatchNorm 正常更新与固定统计量：两组各用一张 H200，从同一个 step 100 checkpoint 开始，其余配置一致。
 
-训练实时输入 EEG：前100步冻结 LEAF，随后解冻，与 JEV LoRA、投影器、选择头联合训练。当前做学习率对照：从相同初始权重重训，加入90步学习率预热和余弦衰减，最低为峰值的2%；LEAF在解冻后单独预热90步。两张H200，每卡microbatch22、累积2次，有效batch仍为88。旧固定学习率实验停在日志step1087，权重和日志保留。SEED-VIG、ThingsEEG2仍待数据和输出协议。
+LEAF 解冻训练、JEV LoRA 始终开启；AdamW 加预热和余弦学习率衰减。有效 batch 88、microbatch 22。先比较到 step 1200，保持原 3000 步学习率曲线。完整保存参数、BN buffers、优化器、scheduler 和随机状态，并在保存后检查预测可复现。
 
-- [训练协议和数据划分](docs/PROTOCOL.md)
-- [结果与日志位置](docs/RESULTS.md)
+- [当前训练协议](docs/PROTOCOL.md)
+- [结果与指标说明](docs/RESULTS.md)
+- [历史记录归档位置](docs/ARCHIVE.md)
 - [任务、问题与选项](configs/benchmark_tasks.json)
 
 ```sh
 laya/.venv-eeg/bin/python scripts/run_benchmark.py
 ```
 
-入口复用原始数组、检查被试隔离，完成双卡冒烟测试、联合训练、最佳 checkpoint 完整评估。状态：`artifacts/benchmark/cross_subject_fold0_lr_cosine/pipeline.json`；指标（含各参数组实际学习率）：`artifacts/benchmark/cross_subject_fold0_lr_cosine/jev/metrics.jsonl`。原始信号缓存与划分在忽略目录 `datasets/benchmark/signals/`。
+当前输出：`artifacts/benchmark/cross_subject_fold0_bn_control/`。`LIVE.md` 和 `monitor.json` 汇总两组变化；每组的 `metrics.jsonl` 保存 loss、准确率、学习率和 BN 状态。原始信号缓存与划分在 `datasets/benchmark/signals/`。旧代码通过 Git 恢复，旧实验权重和日志已移到仓库外归档。
 
