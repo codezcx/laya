@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-25",
+  "artifact_dir": "artifacts/benchmark/cross_subject_fold0_bn_control/preprocessing_control_2a/input_factor_control",
+  "complete_sha256": "50cc325d40e0c7787fefb4fecec1802c7255b7966e863d115dea96845d3c26d8",
+  "script_sha256": "bbabad99c47b26307e0e38f0750ffe3baa0651292deba2b96a87f9ef530daa52",
+  "source_subjects": [
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
+  ],
+  "n": 2016,
+  "outer_validation_test_used": false,
+  "encoder_updated": false,
+  "encoder_parameters_buffers_unchanged": true,
+  "source_only_probe_C": 1.0,
+  "baseline_features_bitwise_equal_previous_run": true,
+  "verified_prediction_arrays": 56,
+  "results": {
+    "original_trial": {
+      "matched_mean_BA": 0.34573412698412703,
+      "fixed_head_mean_BA": 0.34573412698412703,
+      "fixed_head_prediction_flip_rate": 0.0,
+      "per_subject_matched_BA": {
+        "3": 0.38541666666666663,
+        "4": 0.2916666666666667,
+        "5": 0.31597222222222227,
+        "6": 0.2777777777777778,
+        "7": 0.38888888888888884,
+        "8": 0.4270833333333333,
+        "9": 0.33333333333333337
+      }
+    },
+    "original_subject": {
+      "matched_mean_BA": 0.36061507936507936,
+      "fixed_head_mean_BA": 0.3412698412698413,
+      "fixed_head_prediction_flip_rate": 0.15972222222222224,
+      "per_subject_matched_BA": {
+        "3": 0.3506944444444444,
+        "4": 0.2916666666666667,
+        "5": 0.3576388888888889,
+        "6": 0.31250000000000006,
+        "7": 0.3645833333333333,
+        "8": 0.5,
+        "9": 0.3472222222222222
+      }
+    },
+    "car_trial": {
+      "matched_mean_BA": 0.41666666666666663,
+      "fixed_head_mean_BA": 0.2772817460317461,
+      "fixed_head_prediction_flip_rate": 0.7698412698412698,
+      "per_subject_matched_BA": {
+        "3": 0.3680555555555556,
+        "4": 0.3472222222222222,
+        "5": 0.42708333333333337,
+        "6": 0.34722222222222227,
+        "7": 0.42361111111111116,
+        "8": 0.5555555555555556,
+        "9": 0.44791666666666663
+      }
+    },
+    "car_subject": {
+      "matched_mean_BA": 0.43353174603174605,
+      "fixed_head_mean_BA": 0.27827380952380953,
+      "fixed_head_prediction_flip_rate": 0.7718253968253966,
+      "per_subject_matched_BA": {
+        "3": 0.35416666666666663,
+        "4": 0.3958333333333333,
+        "5": 0.4375,
+        "6": 0.3159722222222222,
+        "7": 0.4791666666666667,
+        "8": 0.545138888888889,
+        "9": 0.5069444444444444
+      }
+    }
+  },
+  "contrasts": {
+    "CAR_with_trial_normalization": 0.0709325396825396,
+    "subject_normalization_without_CAR": 0.014880952380952328,
+    "interaction": 0.001984126984127088
+  },
+  "limitations": [
+    "Exploratory source data only, not an independent generalization estimate.",
+    "Pretraining exposure to these subjects is not excluded.",
+    "No claim that CAR removes only noise or preserves all task information.",
+    "Does not isolate frequency band or six-second FIR context.",
+    "Not a new algorithm or novelty claim.",
+    "Only one encoder and one fixed regularization recipe.",
+    "Overlapping inner-fold training sets; no independent-subject confirmatory inference."
+  ],
+  "interpretation": "Spatial reference has the larger descriptive matched-probe contrast here; changing reference without adapting the readout hurts. This is real input/readout dependence, not a novel problem or cross-dataset rank reversal."
+}

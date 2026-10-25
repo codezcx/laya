@@ -70,6 +70,11 @@
     "sha256": "89b2863f7eaff2849762e6880474bf2c15af99f7b22df02daa5c0b43a1db00d7"
   },
   {
+    "path": "sources/eeg_trust/input_factor_result.json",
+    "bytes": 3410,
+    "sha256": "87345711ea3aef0a91cb6ae948938dee8c1af3cf26e30a03d76611ae2e5d8dcc"
+  },
+  {
     "path": "sources/eeg_trust/latent_alignment.json",
     "bytes": 46983,
     "sha256": "6294da2394a3cdcedf18ba5218ae7205b2053a46ed537ec249adf003b61e76d1"

@@ -43,3 +43,7 @@ sources/eeg_trust/search_log.json 保留 14 组搜索工具输出与两组读取
 - 核验 EEG-Arena 原始摘要；全文 HTML 因长度限制失败。不得把摘要核验升级为全文审阅。
 - 本轮搜索记录在 sources/eeg_trust/novelty_followup_search.json；其中第三方页面与 gauge/reference 检索命中仅用于导航，不据此认定方法有效或 novelty 穷尽。逐项判断见 sources/eeg_trust/novelty_audit.json。
 - 归约是本次分析；未启动新训练，也没有把初步文献审查说成已取得新的科研贡献。
+
+## 本地机制初检
+
+2026-10-25 新增 scripts/diagnose_input_factors.py，完成空间参考×归一化范围的四组冻结编码器对照，只使用七名原训练被试。事前约束、逐用户结果及不能支持的结论见 INPUT_FACTOR_DIAGNOSIS.md。四组共 28 个固定配方探针拟合；对匹配/固定分类头的 56 组预测数组独立重算 BA、翻转率和概率合法性。基线特征与已存原管线特征逐元素一致；输入基线与现有加载器一致；参数/buffers、源文件、输入 IDs 与产物哈希均核验。未进行模型/正则选择，不将源集合探索当独立确认或 novelty。资源检查采用 get-available-resources，流程引用已保留在 REPORT。
