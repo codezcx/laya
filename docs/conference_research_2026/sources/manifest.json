@@ -61,8 +61,8 @@
   },
   {
     "path": "sources/eeg_trust/current_goal_audit.json",
-    "bytes": 982,
-    "sha256": "938af0250c7ba66340ba2e8ba9699304ae505e70db30749f71b577084c40fd39"
+    "bytes": 1714,
+    "sha256": "3b03a61a1647ab3edad84facaf43472e277623ff464cbe6dc106662577dfdbe2"
   },
   {
     "path": "sources/eeg_trust/graft.json",
@@ -108,6 +108,11 @@
     "path": "sources/eeg_trust/local_code_evidence.json",
     "bytes": 6642,
     "sha256": "fbfa474246c4421d526132b6ba5be9c33a74cf1e0ee9e2408e06233715ae5aa7"
+  },
+  {
+    "path": "sources/eeg_trust/longitudinal_access_check.json",
+    "bytes": 211226,
+    "sha256": "f420eeddd35ac456c2d8a4b7c15d697b4380e91b131811767bde738a492e19c6"
   },
   {
     "path": "sources/eeg_trust/matched_input.json",
@@ -205,6 +210,16 @@
     "sha256": "c12831fb9598b00129bd78186e698190bc56aa13f1b85349e88cf3d2e1f88439"
   },
   {
+    "path": "sources/eeg_trust/temporal_pilot_result.json",
+    "bytes": 18599,
+    "sha256": "63db3c766ef2bfc67fce4497e8fef2cc1636b0cea37ce48ab4dd32af9fbdcf7b"
+  },
+  {
+    "path": "sources/eeg_trust/temporal_pilot_verification.json",
+    "bytes": 379,
+    "sha256": "6c7a613021735f7106a2186ed8c007767fe0cf5d843c36c11cb6355caf1f7eb8"
+  },
+  {
     "path": "sources/eeg_trust/thinknet.json",
     "bytes": 42231,
     "sha256": "5aae8e598a99999566fda01056e1d9a1fab4fd313175f09ecb15906393d3709f"
@@ -213,6 +228,11 @@
     "path": "sources/eeg_trust/visual_cues.json",
     "bytes": 95118,
     "sha256": "d8022b5d24e8f043d3e1003b77e972672b9f14637e669d19f9ddc21f7802ab02"
+  },
+  {
+    "path": "sources/eeg_trust/yang_session_metadata.json",
+    "bytes": 14450,
+    "sha256": "23bc77c9df4c5761189dfdc65adafa3ca25011acb7030a4083105d1615dd7d0a"
   },
   {
     "path": "sources/fulltext/aistats_errandonea26a.pdf",

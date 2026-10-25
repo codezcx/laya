@@ -1,0 +1,928 @@
+{
+  "subjects": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "sessions": [
+    "03T",
+    "04E",
+    "05E"
+  ],
+  "arms": [
+    "CSP_LDA",
+    "ChannelPower_LDA"
+  ],
+  "matched_refit_BA": [
+    [
+      [
+        0.45,
+        0.4
+      ],
+      [
+        0.575,
+        0.5375
+      ],
+      [
+        0.5625,
+        0.525
+      ]
+    ],
+    [
+      [
+        0.925,
+        0.9125
+      ],
+      [
+        0.9624999999999999,
+        1.0
+      ],
+      [
+        0.9624999999999999,
+        0.9624999999999999
+      ]
+    ],
+    [
+      [
+        0.95,
+        0.9375
+      ],
+      [
+        0.9,
+        0.8125
+      ],
+      [
+        0.7625,
+        0.6875
+      ]
+    ],
+    [
+      [
+        0.8625,
+        0.8625
+      ],
+      [
+        0.9125,
+        0.8999999999999999
+      ],
+      [
+        0.875,
+        0.8999999999999999
+      ]
+    ],
+    [
+      [
+        0.775,
+        0.75
+      ],
+      [
+        0.75,
+        0.7
+      ],
+      [
+        0.775,
+        0.6875
+      ]
+    ],
+    [
+      [
+        0.9375,
+        0.925
+      ],
+      [
+        0.8125,
+        0.8
+      ],
+      [
+        0.9375,
+        0.9375
+      ]
+    ],
+    [
+      [
+        0.8875,
+        0.8625
+      ],
+      [
+        0.925,
+        0.9125000000000001
+      ],
+      [
+        0.8625,
+        0.8375
+      ]
+    ]
+  ],
+  "delta_A_minus_B": [
+    [
+      0.04999999999999999,
+      0.03749999999999998,
+      0.03749999999999998
+    ],
+    [
+      0.012500000000000067,
+      -0.03750000000000009,
+      0.0
+    ],
+    [
+      0.012499999999999956,
+      0.08750000000000002,
+      0.07499999999999996
+    ],
+    [
+      0.0,
+      0.012500000000000067,
+      -0.02499999999999991
+    ],
+    [
+      0.025000000000000022,
+      0.050000000000000044,
+      0.08750000000000002
+    ],
+    [
+      0.012499999999999956,
+      0.012499999999999956,
+      0.0
+    ],
+    [
+      0.02499999999999991,
+      0.012499999999999956,
+      0.025000000000000022
+    ]
+  ],
+  "repeatability": {
+    "early_vs_mean_later_r": 0.3450334464263091,
+    "pairwise_r": {
+      "0_1": 0.21064471689212425,
+      "0_2": 0.43065192905282246,
+      "1_2": 0.7629571409034676
+    },
+    "bootstrap_percentile_95": [
+      -0.33425160871869053,
+      0.9373849950855577
+    ],
+    "bootstrap_degenerate": 5,
+    "exact_person_permutation_two_sided_p": 0.48333333333333334,
+    "permutation_n": 5040
+  },
+  "decisions": [
+    {
+      "subject": 3,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.55,
+      "global_choice": 0.55,
+      "fixed_A": 0.55,
+      "fixed_B": 0.5625,
+      "ensemble": 0.5625,
+      "retrospective_oracle": 0.5625
+    },
+    {
+      "subject": 3,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.525,
+      "global_choice": 0.525,
+      "fixed_A": 0.525,
+      "fixed_B": 0.48750000000000004,
+      "ensemble": 0.5375,
+      "retrospective_oracle": 0.525
+    },
+    {
+      "subject": 4,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.975,
+      "global_choice": 0.975,
+      "fixed_A": 0.975,
+      "fixed_B": 0.9875,
+      "ensemble": 0.9875,
+      "retrospective_oracle": 0.9875
+    },
+    {
+      "subject": 4,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.925,
+      "global_choice": 0.925,
+      "fixed_A": 0.925,
+      "fixed_B": 0.9624999999999999,
+      "ensemble": 0.95,
+      "retrospective_oracle": 0.9624999999999999
+    },
+    {
+      "subject": 5,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.8625,
+      "global_choice": 0.8625,
+      "fixed_A": 0.8625,
+      "fixed_B": 0.8374999999999999,
+      "ensemble": 0.8625,
+      "retrospective_oracle": 0.8625
+    },
+    {
+      "subject": 5,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.7875000000000001,
+      "global_choice": 0.7875000000000001,
+      "fixed_A": 0.7875000000000001,
+      "fixed_B": 0.7124999999999999,
+      "ensemble": 0.7875000000000001,
+      "retrospective_oracle": 0.7875000000000001
+    },
+    {
+      "subject": 6,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.8999999999999999,
+      "global_choice": 0.8999999999999999,
+      "fixed_A": 0.8999999999999999,
+      "fixed_B": 0.9125,
+      "ensemble": 0.9125,
+      "retrospective_oracle": 0.9125
+    },
+    {
+      "subject": 6,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.8875,
+      "global_choice": 0.8875,
+      "fixed_A": 0.8875,
+      "fixed_B": 0.875,
+      "ensemble": 0.8875,
+      "retrospective_oracle": 0.8875
+    },
+    {
+      "subject": 7,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.725,
+      "global_choice": 0.725,
+      "fixed_A": 0.725,
+      "fixed_B": 0.7124999999999999,
+      "ensemble": 0.75,
+      "retrospective_oracle": 0.725
+    },
+    {
+      "subject": 7,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.7625,
+      "global_choice": 0.7625,
+      "fixed_A": 0.7625,
+      "fixed_B": 0.7250000000000001,
+      "ensemble": 0.7375,
+      "retrospective_oracle": 0.7625
+    },
+    {
+      "subject": 8,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.85,
+      "global_choice": 0.85,
+      "fixed_A": 0.85,
+      "fixed_B": 0.8375,
+      "ensemble": 0.825,
+      "retrospective_oracle": 0.85
+    },
+    {
+      "subject": 8,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.9375,
+      "global_choice": 0.9375,
+      "fixed_A": 0.9375,
+      "fixed_B": 0.925,
+      "ensemble": 0.925,
+      "retrospective_oracle": 0.9375
+    },
+    {
+      "subject": 9,
+      "session": "04E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.925,
+      "global_choice": 0.925,
+      "fixed_A": 0.925,
+      "fixed_B": 0.9,
+      "ensemble": 0.9125000000000001,
+      "retrospective_oracle": 0.925
+    },
+    {
+      "subject": 9,
+      "session": "05E",
+      "personal_arm": 0,
+      "global_arm": 0,
+      "personal": 0.8125,
+      "global_choice": 0.8125,
+      "fixed_A": 0.8125,
+      "fixed_B": 0.75,
+      "ensemble": 0.7875,
+      "retrospective_oracle": 0.8125
+    }
+  ],
+  "decision_value": {
+    "per_person_gain": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "mean_gain": 0.0,
+    "bootstrap_percentile_95": [
+      0.0,
+      0.0
+    ],
+    "mean_BA": {
+      "personal": 0.8160714285714287,
+      "global_choice": 0.8160714285714287,
+      "fixed_A": 0.8160714285714287,
+      "fixed_B": 0.799107142857143,
+      "ensemble": 0.8160714285714287,
+      "retrospective_oracle": 0.8214285714285714
+    }
+  },
+  "limits": [
+    "Seven source users, classical pipelines only; exploratory not confirmatory.",
+    "No separation of transient session effects and measurement error.",
+    "No foundation-model trust, causal neural trait, or new-method claim.",
+    "Feedback protocol and stable artifacts remain possible explanations.",
+    "Small-sample bootstrap coverage is not guaranteed."
+  ],
+  "block_diagnostics": [
+    {
+      "subject": 9,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8125,
+        0.9583333333333333,
+        0.898989898989899,
+        0.8888888888888888
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 9,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.7708333333333333,
+        1.0,
+        0.8434343434343434,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 3,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.4949494949494949,
+        0.6161616161616161,
+        0.5833333333333333,
+        0.5238095238095238
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 3,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.606060606060606,
+        0.5606060606060606,
+        0.4642857142857143,
+        0.35714285714285715
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 8,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8888888888888888,
+        0.9444444444444444,
+        0.9,
+        1.0
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 8,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8888888888888888,
+        0.898989898989899,
+        0.95,
+        0.95
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 3,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.44999999999999996,
+        0.5,
+        0.6875,
+        0.625
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 3,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.5,
+        0.45,
+        0.6041666666666667,
+        0.5833333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 6,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.95,
+        0.8500000000000001,
+        0.9375,
+        0.875
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 6,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.9,
+        0.9,
+        0.9375,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 8,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8535353535353536,
+        0.9090909090909092,
+        0.8214285714285714,
+        0.6785714285714286
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 8,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8535353535353536,
+        0.8636363636363636,
+        0.7857142857142857,
+        0.7619047619047619
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 7,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.7424242424242424,
+        0.8535353535353536,
+        0.7525252525252526,
+        0.7626262626262625
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 7,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.7878787878787878,
+        0.7070707070707071,
+        0.6515151515151515,
+        0.6262626262626263
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 6,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.7424242424242424,
+        0.8535353535353536,
+        0.95,
+        0.9
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 6,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.797979797979798,
+        0.8535353535353536,
+        0.9,
+        0.9
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 5,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.9444444444444444,
+        0.9444444444444444,
+        1.0,
+        0.875
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 5,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8888888888888888,
+        1.0,
+        1.0,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 5,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8500000000000001,
+        0.8500000000000001,
+        1.0,
+        0.8901098901098901
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 5,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8500000000000001,
+        0.75,
+        0.8846153846153846,
+        0.7802197802197802
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 3,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.5,
+        0.4,
+        0.4583333333333333,
+        0.41666666666666663
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 3,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.3,
+        0.5,
+        0.3541666666666667,
+        0.4375
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 7,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.7626262626262625,
+        0.8080808080808081,
+        0.7272727272727273,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 7,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.6616161616161615,
+        0.7626262626262625,
+        0.7626262626262625,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 8,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8500000000000001,
+        0.9,
+        1.0,
+        1.0
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 8,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8500000000000001,
+        0.9,
+        1.0,
+        1.0
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 9,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.9444444444444444,
+        0.8636363636363636,
+        0.7272727272727273,
+        0.9444444444444444
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 9,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8535353535353536,
+        0.8636363636363636,
+        0.7727272727272727,
+        0.898989898989899
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 4,
+      "session": "03T",
+      "arm": 0,
+      "local_query_block_BA": [
+        1.0,
+        0.9,
+        0.8928571428571428,
+        0.9166666666666667
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 4,
+      "session": "03T",
+      "arm": 1,
+      "local_query_block_BA": [
+        1.0,
+        0.9,
+        0.8571428571428572,
+        0.9166666666666667
+      ],
+      "local_train_n": 80,
+      "history_train_n": 80
+    },
+    {
+      "subject": 7,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.8888888888888888,
+        0.7272727272727273,
+        0.6767676767676767,
+        0.7070707070707071
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 7,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.8434343434343434,
+        0.6818181818181819,
+        0.6212121212121212,
+        0.6515151515151515
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 5,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.9615384615384616,
+        0.8461538461538461,
+        0.7,
+        0.6
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 5,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.6373626373626373,
+        0.8131868131868132,
+        0.6499999999999999,
+        0.6
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 4,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.898989898989899,
+        1.0,
+        0.9375,
+        1.0
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 4,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 9,
+      "session": "04E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.9166666666666667,
+        1.0,
+        1.0,
+        0.7708333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 9,
+      "session": "04E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.9583333333333333,
+        0.9583333333333333,
+        1.0,
+        0.7291666666666667
+      ],
+      "local_train_n": 80,
+      "history_train_n": 240
+    },
+    {
+      "subject": 4,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        1.0,
+        1.0,
+        1.0,
+        0.8500000000000001
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 4,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        1.0,
+        1.0,
+        1.0,
+        0.8500000000000001
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 6,
+      "session": "05E",
+      "arm": 0,
+      "local_query_block_BA": [
+        0.9583333333333333,
+        0.8333333333333333,
+        0.875,
+        0.8333333333333333
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    },
+    {
+      "subject": 6,
+      "session": "05E",
+      "arm": 1,
+      "local_query_block_BA": [
+        0.9583333333333333,
+        0.8958333333333333,
+        0.875,
+        0.875
+      ],
+      "local_train_n": 80,
+      "history_train_n": 400
+    }
+  ],
+  "elapsed_seconds": 9.18647462798981,
+  "artifact_sha256": {
+    "plan.json": "6d588598b16c18b7870e216c8262c50b81d540186e1c4994bdbe32c36c90e86c",
+    "predictions.npz": "05e4fdda2217ed807a372d10368fe051b2147854bf28fcb61acb8036155a5402",
+    "input_hashes.json": "bf7d912f261c3e6407d71c4e83ababff69c5ffc5a9a96b2c7c06f1a089e9c396",
+    "structure.json": "d2f14584e9089434fc9885be445563cb12b00c3bee767ca6b41d5070b9fc0a41"
+  }
+}
