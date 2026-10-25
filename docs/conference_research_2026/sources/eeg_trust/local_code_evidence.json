@@ -1,0 +1,144 @@
+[
+  {
+    "key": "mi_builder",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/BNCI2014001/Preprocess_Dataset.py",
+    "sha256": "c26ea50b7fe7750642132643e5935c683a93c7990815c2ee997c1828006b93b6",
+    "excerpts": [
+      {
+        "line": 1,
+        "text": "from moabb.paradigms import MotorImagery"
+      },
+      {
+        "line": 18,
+        "text": "    # MotorImagery paradigm and preprocessing params"
+      },
+      {
+        "line": 19,
+        "text": "    paradigm = MotorImagery(fmin=0.1, fmax=75)"
+      },
+      {
+        "line": 30,
+        "text": "    data = data[:, :, :1000]"
+      },
+      {
+        "line": 41,
+        "text": "    label_map = {"
+      },
+      {
+        "line": 49,
+        "text": "    labels = np.array([label_map[label] for label in labels_string])"
+      }
+    ]
+  },
+  {
+    "key": "chb_builder",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/CHB_MIT/Preprocess_Dataset.py",
+    "sha256": "ab31f85843c03fa3814f8bdbe087d89e2f30274d9da9c7a5c280ede4efa90449",
+    "excerpts": [
+      {
+        "line": 271,
+        "text": "            ictal_raw = extract_segment_data(patient_id, sz.start, sz.end, files_info)"
+      },
+      {
+        "line": 272,
+        "text": "            ictal_trails = segment_into_trails(ictal_raw)"
+      },
+      {
+        "line": 282,
+        "text": "            start_pre = sz.start - interictal_duration_delta"
+      },
+      {
+        "line": 283,
+        "text": "            interictal_raw = extract_segment_data(patient_id, start_pre, sz.start, files_info)"
+      },
+      {
+        "line": 287,
+        "text": "                interictal_raw = extract_segment_data(patient_id, start_post, end_post, files_info)"
+      }
+    ]
+  },
+  {
+    "key": "current_raw_2a",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/eeg_align/leaf_preprocessing.py",
+    "sha256": "f01580c8a8ece835456deef5a5c46fff87edcb206eb79ca3b5a498ac692219f6",
+    "excerpts": [
+      {
+        "line": 25,
+        "text": "        for event, label in zip(starts, targets):"
+      },
+      {
+        "line": 27,
+        "text": "            sample = raw[int(event):int(event) + 1500].T.copy()"
+      },
+      {
+        "line": 62,
+        "text": "        normalization='Upstream pipeline over all 288 unlabeled trials of each subject separately; '"
+      }
+    ]
+  },
+  {
+    "key": "upstream_scaler",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/leaf_datasets/shared.py",
+    "sha256": "eefed06232cd22eec7c69c953c2b8abc20cbcc6e4c720e103ba77161d4d04f98",
+    "excerpts": [
+      {
+        "line": 40,
+        "text": "    r1, r2 = np.percentile(X, [0.1, 99.9]).astype(X.dtype)"
+      },
+      {
+        "line": 44,
+        "text": "    q25, median, q75 = np.percentile(X, [25, 50, 75]).astype(X.dtype)"
+      },
+      {
+        "line": 46,
+        "text": "    X = (X - median) / iqr "
+      }
+    ]
+  },
+  {
+    "key": "current_protocol",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/docs/PROTOCOL.md",
+    "sha256": "069c32b56786e727f4a4a04b109213c04313f0329ba20c1721534af8ea8ff6f1",
+    "excerpts": [
+      {
+        "line": 5,
+        "text": "The prior BN comparison completed step 1200; its best frozen-BN checkpoint (step 600, macro BA 55.59%) initializes the current short paired continuation. See [RESULTS.md](RESULTS.md) for the completed comparison and preprocessing probe evidence."
+      },
+      {
+        "line": 35,
+        "text": "The current run is `cross_subject_fold0_leaf_preprocessing`. Two one-H200 branches, `baseline` and `leaf_raw`, restore the identical version-2 `cross_subject_fold0_bn_control/frozen/best.pt` checkpoint at global step 600, including optimizer, scheduler and RNG states. Both freeze BN statistics while leaving LEAF parameters and JEV LoRA trainable. The baseline retains the online adapter for all tasks; `leaf_raw` overrides only BNCI2014001 with the verified raw LEAF cache. Other tasks retain identical inputs and grouping order. The full 11-dataset sampler, all labels and splits, batch 88, microbatch 22, eval microbatch 32 and learning rates are unchanged."
+      },
+      {
+        "line": 37,
+        "text": "Run 200 additional optimizer updates, 601–800. Preserve the original 3000-step learning-rate horizon and the existing encoder warmup history; do not reset optimizer moments or reinitialize a projection/head. Validate the same 9,748 rows before any update (step 600) and at 700 and 800. The first validation establishes whether the input replacement changes predictions before adaptation. Within each new branch, reset only the best-score bookkeeping, select by the existing dataset-macro BA rule and retain the initial/best/final state. The comparison of interest is the 2a accuracy change between matched branches; also report every other dataset to expose interference. This is a short diagnostic, not a claim of convergence or an independent test result."
+      },
+      {
+        "line": 51,
+        "text": "Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. It runs matched two-update smoke tests first, then restores the shared step-600 checkpoint for the two real branches. Source hashes guard the active code, configs and TensorBoard exporter. Existing output directories are rejected. SIGTERM requests a checkpoint at the next update boundary."
+      },
+      {
+        "line": 84,
+        "text": "LEAF robust scaling pools all unlabeled T-session epochs of each subject separately. This includes validation-subject statistics and is a transductive/batch preprocessing convention, not single-trial deployment; no labels enter normalization. Because only T trials are retained, its normalization pool differs from upstream's combined E+T pool. Raw preprocessing also has the upstream six-second filter context that the four-second benchmark cache no longer contains. Keep these limitations explicit when interpreting a change."
+      }
+    ]
+  },
+  {
+    "key": "current_results",
+    "path": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/docs/RESULTS.md",
+    "sha256": "4562e10136375fc90d165022d590f62f3897db0b52aa08f8c9a4195a6573ab61",
+    "excerpts": [
+      {
+        "line": 16,
+        "text": "| Source-subject-CV-selected probe validation accuracy | 29.51% | 36.11% |"
+      },
+      {
+        "line": 79,
+        "text": "| Source-subject-selected probe | 29.51% (C=0.01) | 32.64% (C=0.1) |"
+      },
+      {
+        "line": 243,
+        "text": "| BNCI2014001 | 0.01 | 29.51% / 29.51% | 0.01 | 29.86% / 29.86% |"
+      }
+    ]
+  }
+]

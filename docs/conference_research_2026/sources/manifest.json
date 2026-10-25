@@ -45,6 +45,96 @@
     "sha256": "f08fc443218ddad4041675a57c494a8a4fd3bffb3695680e659777577f9f2053"
   },
   {
+    "path": "sources/eeg_trust/conformal_eeg.json",
+    "bytes": 12947,
+    "sha256": "e7e0c25acdcf45b324dc3c5d65051e84e31f34e0647148360b1c0116faf6b610"
+  },
+  {
+    "path": "sources/eeg_trust/iclr_worth.json",
+    "bytes": 3624,
+    "sha256": "0d9d9ecdf0cab6e28e81123a9a9031c3fc563354d4f01e1d2f19697c47ff4357"
+  },
+  {
+    "path": "sources/eeg_trust/icml_bench.json",
+    "bytes": 4874,
+    "sha256": "5d585eb971dd3aa8b9346e373a91bce23123cfd287d5499980c9d718ada00963"
+  },
+  {
+    "path": "sources/eeg_trust/icml_let_eeg.json",
+    "bytes": 4676,
+    "sha256": "89b2863f7eaff2849762e6880474bf2c15af99f7b22df02daa5c0b43a1db00d7"
+  },
+  {
+    "path": "sources/eeg_trust/latent_alignment.json",
+    "bytes": 46983,
+    "sha256": "6294da2394a3cdcedf18ba5218ae7205b2053a46ed537ec249adf003b61e76d1"
+  },
+  {
+    "path": "sources/eeg_trust/local_code_evidence.json",
+    "bytes": 6642,
+    "sha256": "fbfa474246c4421d526132b6ba5be9c33a74cf1e0ee9e2408e06233715ae5aa7"
+  },
+  {
+    "path": "sources/eeg_trust/moabb_results.json",
+    "bytes": 11912,
+    "sha256": "1145e2b299801d232389300e1cbf7b8fbd685598c79c244639b856a467ed52eb"
+  },
+  {
+    "path": "sources/eeg_trust/moabb_tables.json",
+    "bytes": 17104,
+    "sha256": "de30dc1bf788066e564e9fd1a81d8cb0339c87b847d87c739b190422635a0cf2"
+  },
+  {
+    "path": "sources/eeg_trust/multiverse.json",
+    "bytes": 648,
+    "sha256": "4631c70b66c0afeef2acb7f5f18c7781594cebea0d0794dc09b40cba1ff99cd5"
+  },
+  {
+    "path": "sources/eeg_trust/neurips_evidence.json",
+    "bytes": 4197,
+    "sha256": "67df6b26a1fdef5c6b84ed2deae67c90f840e3f76fe757b24740156aa9a1cfe2"
+  },
+  {
+    "path": "sources/eeg_trust/neurips_interpretability.json",
+    "bytes": 3712,
+    "sha256": "404ee7ff23148b092cdf3ab52103a803ad68f83adff871cf5c19a2afb3d7a55f"
+  },
+  {
+    "path": "sources/eeg_trust/neurips_task_specification.json",
+    "bytes": 3895,
+    "sha256": "6039ee8a261cc3a3ebffa1e86841fd69e329afaa17174047b2a2c76e40d3fdee"
+  },
+  {
+    "path": "sources/eeg_trust/neurips_what_capture.json",
+    "bytes": 3806,
+    "sha256": "8df0fa788074e2aaaaebd4aa12192a33a63715dedfbab3d78131866f2eb7ca1e"
+  },
+  {
+    "path": "sources/eeg_trust/ospdim.json",
+    "bytes": 32459,
+    "sha256": "2c5c7fdbb1f55701de14be5451d5c8b387e751e14a0e5b7fb3248954e8613c85"
+  },
+  {
+    "path": "sources/eeg_trust/ranking_evidence.json",
+    "bytes": 844,
+    "sha256": "b99d9373973d8f102980ee3b2a88147f73cce953756cc2a93ed7e6716eeca6cf"
+  },
+  {
+    "path": "sources/eeg_trust/search_log.json",
+    "bytes": 568250,
+    "sha256": "a470da7c8b3c5166630aa85b70c9280ab381daea44eb9d2a650624cc48d38e1a"
+  },
+  {
+    "path": "sources/eeg_trust/thinknet.json",
+    "bytes": 42231,
+    "sha256": "5aae8e598a99999566fda01056e1d9a1fab4fd313175f09ecb15906393d3709f"
+  },
+  {
+    "path": "sources/eeg_trust/visual_cues.json",
+    "bytes": 95118,
+    "sha256": "d8022b5d24e8f043d3e1003b77e972672b9f14637e669d19f9ddc21f7802ab02"
+  },
+  {
     "path": "sources/fulltext/aistats_errandonea26a.pdf",
     "bytes": 594264,
     "sha256": "868c647e7b9ca1edb468a6cf3daf5f748b6537a76a8728ca016e91f2335a50c6"

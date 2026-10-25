@@ -1,0 +1,23 @@
+{
+  "url": "https://iclr.cc/virtual/2026/poster/10011450",
+  "status": 200,
+  "text": "ICLR Poster Are EEG Foundation Models Worth It? Comparative Evaluation with Traditional Decoders in Diverse BCI Tasks ICLR 2026 Skip to yearly menu bar Skip to main content Main Navigation ICLR Help/FAQ Contact ICLR Create Profile Code of Conduct Journal To Conference Track Diversity & Inclusion Proceedings at OpenReview Future Meetings Press Exhibitor Information ICLR Blog ICLR Twitter About ICLR Downloads Privacy Policy Reset Password My Stuff Login Select Year: (2026) 2027 2026 2025 2024 2023 2022 2021 2020 2019 2018 2017 2016 2015 2014 2013 Getting Started Schedule Main Conference Invited Talks Awards Papers Orals Blog Track Posters Journal Track Posters Workshops Community Town Hall Socials Sponsors Organizers HelpDesk Poster Sat, Apr 25, 2026 • 10:30 AM – 1:00 PM -03 Are EEG Foundation Models Worth It? Comparative Evaluation with Traditional Decoders in Diverse BCI Tasks Liuyin Yang ⋅ Qiang Sun ⋅ Ang Li ⋅ Marc Van Hulle Project Page [ Poster ] [ OpenReview ] Abstract Foundation models have recently emerged as a promising approach for learning generalizable EEG representations for brain–computer interfaces (BCIs). Yet, their true advantages over traditional methods—particularly classical non-neural approaches—remain unclear. In this work, we present a comprehensive benchmark of state-of-the-art EEG foundation models, evaluated across diverse datasets, decoding tasks, and six evaluation protocols, with rigorous statistical testing. We introduce spatiotemporal EEGFormer (ST-EEGFormer), a simple yet effective Vision Transformer (ViT)-based baseline, pre-trained solely with masked autoencoding (MAE) on over 8M EEG segments. Our results show that while fine-tuned foundation models perform well in data-rich, population-level settings, they often fail to significantly outperform compact neural networks or even classical non-neural decoders in data-scarce scenarios. Furthermore, linear probing remains consistently weak, and performance varies greatly across downstream tasks, with no clear scaling law observed among neural network decoders. These findings expose a substantial gap between pre-training and downstream fine-tuning, often diminishing the benefits of complex pre-training tasks. We further identify hidden architectural factors that affect performance and emphasize the need for transparent, statistically rigorous evaluation. Overall, this study calls for community-wide efforts to construct large-scale EEG datasets and for fair, reproducible benchmarks to advance EEG foundation models. Show more Video Chat is not available. Successful Page Load ICLR uses cookies for essential functions only. We do not sell your personal\n                        information. Our Privacy Policy » Accept The ICLR Logo above may be used on presentations. Right-click and choose\n                            download. It is a vector graphic and may be used at any scale. Useful links About ICLR Sponsor / Exhibitor Information Press Contact 2710 E Corridor Dr, Appleton WI 54913 Email Phone: +1-920-268-4789 ICLR Proceedings at OpenReview",
+  "links": [
+    {
+      "text": "Proceedings at OpenReview",
+      "url": "https://openreview.net/group?id=ICLR.cc"
+    },
+    {
+      "text": "Project Page",
+      "url": "https://github.com/LiuyinYang1101/STEEGFormer"
+    },
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=5Xwm8e6vbh"
+    },
+    {
+      "text": "ICLR Proceedings at OpenReview",
+      "url": "https://openreview.net/group?id=ICLR.cc"
+    }
+  ]
+}

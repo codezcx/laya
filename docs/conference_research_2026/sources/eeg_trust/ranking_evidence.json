@@ -1,0 +1,22 @@
+{
+  "source": "https://moabb.neurotechx.com/docs/paper_results.html",
+  "task": "Left versus right hand motor imagery",
+  "evaluation": "Within-session 5-fold CV; pipelines fitted per evaluation, not a frozen checkpoint transferred between datasets",
+  "metric": "ROC-AUC multiplied by 100",
+  "uncertainty": "Published ± values are SD across subject-session pairs, not confidence intervals",
+  "examples": [
+    {
+      "dataset": "BNCI2014_001",
+      "ShallowConvNet": "86.17±13.74",
+      "CSP+LDA": "82.34±17.26",
+      "difference_percentage_points": 3.83
+    },
+    {
+      "dataset": "BNCI2014_004",
+      "ShallowConvNet": "72.36±18.05",
+      "CSP+LDA": "80.10±14.93",
+      "difference_percentage_points": -7.74
+    }
+  ],
+  "inference": "Descriptive mean ordering reverses. No significance or universal unreliability claim."
+}
