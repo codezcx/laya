@@ -59,6 +59,7 @@ Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. The controller runs tw
 - Branch weights: `initial.pt`, `last.pt`, `best.pt` within each branch.
 - Controller: `pipeline.json`; summaries: `monitor.json`, `LIVE.md`.
 - Compact historical comparisons: `artifacts/benchmark/reference_constant_lr/`, `reference_cosine_partial/`.
+- Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
 
 ## Frozen representation diagnostic
 
@@ -73,6 +74,13 @@ The fixed frequency positive control can also be applied to validation with `scr
 To check whether the fixed-C probe's generalization gap is explained by weak regularization, the same helper accepts `--source-cv-cache <representation_probe_0200> --out <representation_probe_0200/source_cv>`. On CPU, it selects C from `[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]` using leave-one-training-subject-out BA, averaged equally across subjects. Refit the scaler and classifier inside each fold; break ties toward stronger regularization. Save all selections before reading outer validation arrays, then refit each selected model on all source rows and evaluate the fixed validation set once. No test data or JEV updates. The encoder was already trained using all source subjects, so inner-fold scores diagnose the readout and are not unbiased end-to-end unseen-subject estimates. This follow-up also does not turn the repeatedly inspected outer validation set into independent test evidence.
 
 A matched initial-encoder control uses `frozen/initial.pt` (step 100, before any encoder update) with the identical extraction, fixed-C and source-subject-CV procedures. Its encoder matches the release weights and original BN statistics. Store it under `representation_probe_0200/initial_encoder_control/`; this is a diagnostic control within the current experiment, not a new training approach. It separates limitations already present in the initial query representation from changes after joint fine-tuning.
-- Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
+
+## Known-answer option-binding diagnostic
+
+`scripts/diagnose_option_binding.py` checks all 38 task/classes with cyclic option rotations (222 cases per condition). Select exactly one deterministic **training** example per class. In the oracle conditions, the true category is deliberately stated in text, without revealing its letter. These scores measure following known categories and option positions, never EEG accuracy or generalization.
+
+First evaluate the native JEV adapter/head on its documented bare text template and on the EEG wrapper with no signal tokens. Then restore the frozen-BN step-400 model and repeat those two controls, plus actual EEG without a hint and actual EEG with the known-category hint. The signal-only control also has only 38 distinct source examples and is not a full-training-set metric. All six conditions use the same label-independent cyclic orders, covering every answer position for every class. Positive shared temperature calibration is omitted because it cannot change argmax.
+
+This diagnostic uses a separate inference process, no optimizer, and does not mutate either live model. Require at least 65 GiB of spare GPU memory before loading it. Save prompts, probabilities, the restored model state, and state-immutability checks under `cross_subject_fold0_bn_control/option_binding_0400/`. Its GPU work may affect a branch's wall time but does not alter that branch's training semantics.
 
 Superseded tracked implementations are in Git (`521f865` before this replacement). Old artifacts are moved outside the repository, not deleted. See [ARCHIVE.md](ARCHIVE.md) for the inventory. Unrelated ECG-R1 working files, shared models, datasets, environments and third-party installations are retained.
