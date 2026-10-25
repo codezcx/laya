@@ -60,8 +60,71 @@ def frequency_check_train(out,online=False):
     print(json.dumps({k:v for k,v in report.items() if k not in ['predictions','confusion_matrix']},indent=2))
 
 
+def bn_input_check_train(out):
+    """CPU-only profile before BN, using fixed released CNN weights and train rows."""
+    import torch
+    from eeg_align.leaf_runtime import CONFIG,UP,digest
+    from eeg_align.signal_data import load_rows,SignalStore
+    from eeg_align.benchmark_data import BalancedSampler
+    from LEAF import Tokenizer
+    torch.set_num_threads(3)
+    tokenizer=Tokenizer(n_channels=65,dim_cnn=64,dim_token=256,window_len=100)
+    state=torch.load(CONFIG['checkpoint'],map_location='cpu',weights_only=True,mmap=True)
+    prefix='tower.tokenizer.'
+    tokenizer.load_state_dict({k[len(prefix):]:v for k,v in state.items() if k.startswith(prefix)},strict=True)
+    tokenizer.eval().requires_grad_(False)
+    rows=load_rows('train',CONFIG['fold']);sampler=BalancedSampler(rows);store=SignalStore()
+    records=[]
+    with torch.no_grad():
+        for step in [101,120,140]:
+            ids=sampler(rows,step,CONFIG['seed'],CONFIG['global_batch'])
+            for offset in range(0,len(ids),CONFIG['microbatch']):
+                batch_rows=[rows[i] for i in ids[offset:offset+CONFIG['microbatch']]]
+                for task,indices,pieces in store.batch(batch_rows):
+                    for piece_index,piece in enumerate(pieces):
+                        x=torch.from_numpy(piece);patches=x.unfold(-1,100,100).permute(0,2,1,3).reshape(-1,1,65,100)
+                        activation=tokenizer.enc_conv[:2](patches)
+                        mean=activation.mean((0,2,3));var=activation.var((0,2,3),unbiased=True)
+                        records.append(dict(step=step,dataset=catalog()[task]['task_id'],examples=len(indices),piece=piece_index,
+                                            sample_ids=[batch_rows[i]['id'] for i in indices],
+                                            input_rms=float(x.square().mean().sqrt()),input_abs_max=float(x.abs().max()),
+                                            pre_bn_mean_norm=float(mean.norm()),pre_bn_variance_mean=float(var.mean())))
+    summary={t['task_id']:dict(calls=sum(r['dataset']==t['task_id'] for r in records),
+                              pre_bn_variance_mean=float(np.mean([r['pre_bn_variance_mean'] for r in records if r['dataset']==t['task_id']])),
+                              input_rms_mean=float(np.mean([r['input_rms'] for r in records if r['dataset']==t['task_id']]))) for t in catalog()}
+    report=dict(split='train',sample_steps=[101,120,140],model='released LEAF tokenizer, two convolutions before SyncBatchNorm',
+                dtype='CPU float32; actual SFT uses bfloat16 autocast and updated weights',
+                release_bn_variance_mean=float(tokenizer.enc_conv[2].running_var.mean()),
+                source_checkpoint=CONFIG['checkpoint'],checkpoint_sha256=digest(CONFIG['checkpoint']),
+                summary=summary,records=records,
+                limitation='Descriptive sampled-input diagnostic; not a fitted model, validation score or causal test.')
+    live_metrics=out.parent/'updating/metrics.jsonl'
+    if live_metrics.exists():
+        observations={}
+        for line in live_metrics.read_text().splitlines():
+            try:row=json.loads(line)
+            except json.JSONDecodeError:continue  # Writer may have a partial last row.
+            if 'bn_state' in row:observations[row['step']]=row
+        comparison=[]
+        for step in report['sample_steps']:
+            if step not in observations or step!=101 and step-1 not in observations:continue
+            previous=report['release_bn_variance_mean'] if step==101 else next(iter(observations[step-1]['bn_state'].values()))['running_var_mean']
+            predicted=previous
+            for row in records:
+                if row['step']==step:predicted=.9*predicted+.1*row['pre_bn_variance_mean']
+            observed=next(iter(observations[step]['bn_state'].values()))['running_var_mean']
+            comparison.append(dict(step=step,previous_mean_variance=previous,predicted_from_fixed_CNN_inputs=predicted,
+                                   observed_updating_BN_variance=observed,relative_error=abs(predicted-observed)/observed))
+        report.update(comparison_metrics_file=str(live_metrics),running_variance_reconstruction=comparison)
+    out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(report,indent=2))
+    print(json.dumps({k:v for k,v in report.items() if k!='records'},indent=2))
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path);parser.add_argument('--frequency-check-train',action='store_true');parser.add_argument('--online-input',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path);parser.add_argument('--frequency-check-train',action='store_true');parser.add_argument('--online-input',action='store_true');parser.add_argument('--bn-input-check-train',action='store_true');args=parser.parse_args()
+    if args.bn_input_check_train:
+        if args.frequency_check_train or args.online_input:parser.error('Choose one audit mode')
+        bn_input_check_train(args.out or ROOT/'artifacts/benchmark/bn_input_train.json');return
     if args.frequency_check_train:
         suffix='online_' if args.online_input else ''
         frequency_check_train(args.out or ROOT/f'artifacts/benchmark/nakanishi_frequency_{suffix}train.json',args.online_input);return
