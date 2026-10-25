@@ -1,6 +1,6 @@
 # Joint cross-subject BatchNorm comparison
 
-Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). First paired validation at update 200 is complete; both checkpoint reload checks passed.
+Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Paired validation at update 400 is complete: macro BA is **47.40% updating / 55.38% frozen**. Both checkpoint reload checks passed and training continues.
 
 - Live summaries: `LIVE.md`, `monitor.json` under the current root.
 - Per-step metrics: `{updating,frozen}/metrics.jsonl`.
@@ -13,6 +13,35 @@ Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two s
 Implementation `55008f1`: 22 focused tests passed. Both one-GPU real-model smoke tests completed successfully. The frozen branch retained BN count 32,365 and mean variance 26.5335 while encoder gradients remained nonzero (norm 2.1252); the updating branch advanced BN count to 32,381 and mean variance 29.5483 (encoder gradient norm 1.9542). Both had a peak allocated memory of 58.71 GiB. These two-update checks are functional validation, not evidence of classification superiority.
 
 Checkpoint round trips covered all 11 tasks and 38 task/class examples. Both branches saved nine named buffers and reproduced logits exactly after deliberately perturbing the head and BN state (maximum difference 0, prediction agreement 100%). Smoke metrics/reload proof files remain under the current run; consumed smoke weights were moved into the external archive. Formal training has passed update 102 in both branches with finite loss/gradients. Initial comparison checked 3,624 tensor pairs and confirmed identical trainable weights, buffers, AdamW state, scheduler, RNG states and predictions; evidence: `initial_comparison.json`. At update 102 the updating branch BN count was 32,397; the frozen branch remained 32,365 with nonzero encoder gradients, confirming the intervention. Paired update-200 validation is recorded below; early batch scores were not used to select a winner.
+
+## Paired validation: update 400
+
+All 9,748 validation IDs and labels match update 200 and match across branches. Metrics were recomputed from the saved per-example probabilities; both models reproduced logits exactly on the 38-example reload check covering every task/class. Both branches now select update 400 as their best saved checkpoint. Dataset-macro BA is **47.4038% updating / 55.3783% frozen**, a **7.9744-point** paired difference. From update 200, these changed by +1.1519 / +0.8514 points. This supports a continued aggregate benefit from freezing BN over these two checkpoints, not a universal per-task improvement.
+
+| Dataset | Updating accuracy / BA | Frozen accuracy / BA | Frozen semantic consistency under reversal |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 | 24.31% / 24.31% | 26.04% / 26.04% | 9.72% |
+| BNCI2014004 | 53.33% / 53.33% | 50.00% / 50.00% | 0.00% |
+| BNCI2015001 | 51.50% / 51.50% | 90.00% / 90.00% | 98.50% |
+| BNCI2014008 | 45.24% / 50.34% | 47.51% / 52.08% | 73.96% |
+| BNCI2014009 | 51.91% / 45.73% | 54.69% / 49.06% | 76.74% |
+| CHB_MIT | 65.78% / 75.90% | 79.84% / 68.47% | 98.17% |
+| TUAB | 58.25% / 58.25% | 61.23% / 61.23% | 97.75% |
+| SleepEDF | 40.88% / 40.88% | 56.63% / 56.63% | 93.55% |
+| SEED | 60.65% / 60.65% | 57.87% / 57.87% | 98.63% |
+| EEGMAT | 53.33% / 53.33% | 90.00% / 90.00% | 96.67% |
+| Nakanishi2015 | 7.22% / 7.22% | 7.78% / 7.78% | 0.00% |
+
+The main unresolved observations are specific, not hidden by the aggregate score:
+
+- Frozen 2b selects **slot A for all 120 examples in both option orders**, so its semantic consistency is 0% even though normal-order accuracy is 50%. Frozen 2a has zero feet/tongue recall and only 9.72% semantic consistency. Nakanishi remains near chance with zero consistency.
+- Frozen CHB-MIT accuracy increased from 78.00% to 79.84%, but seizure recall decreased from 66.67% to 54.76%; BA fell from 72.87% to 68.47%. Overall accuracy alone would miss this deterioration.
+- Frozen SleepEDF aggregate BA is almost unchanged (56.92% to 56.63%), while REM recall fell from 50.61% to 16.38% and N1 recall rose from 11.98% to 34.72%. Frozen SEED accuracy fell from 60.95% to 57.87%.
+- Updating EEGMAT fell from 86.67% to 53.33%, with arithmetic recall dropping to 6.67%; its 30-example validation set is small. Frozen EEGMAT reached 90%, also on only 30 examples.
+
+Thus BN freezing mitigates one failure mechanism, while class-specific drift and weak signal-to-option binding remain. Those declines also occur with fixed BN statistics, so BN drift cannot be the sole explanation. These are one-seed validation observations, not independent test results. Keep the planned matched runs unchanged while investigating the option-binding failure separately.
+
+Training updates 301–400: updating mean loss / sampled accuracy **0.93779 / 52.1818%**; frozen **0.91114 / 53.9205%**, each over exactly 100 updates. Evidence: [paired comparison and class-recall changes](../artifacts/benchmark/cross_subject_fold0_bn_control/comparison_0400.json), branch `validation_0400.json`, `reload_check_0400.json`, and the continuously updated `metrics.jsonl` files. Updating BN mean running variance at validation was 87.6562; frozen remained 26.5335.
 
 ## Paired validation: update 200
 
@@ -38,7 +67,7 @@ This is not simply a model always choosing the same letter: frozen 2a predominan
 
 Training updates 101–200: updating mean loss 1.00035 and sampled accuracy 46.7841%; frozen mean loss 0.95501 and sampled accuracy 50.2841%. Mean BN running variance ranged 33.67–913.82 for the updating branch versus a constant 26.5335 for the frozen branch. This is training-batch evidence, not full-training-set evaluation.
 
-The next complete block, updates 201–300, has mean loss / sampled accuracy **0.96114 / 50.0682%** for updating and **0.93282 / 52.2727%** for frozen. Exactly 100 updates contribute to each mean; per-dataset values are in `training_block_0300.json`. These are new training observations, not a new validation result. The next fixed validation is update 400.
+The next complete block, updates 201–300, has mean loss / sampled accuracy **0.96114 / 50.0682%** for updating and **0.93282 / 52.2727%** for frozen. Exactly 100 updates contribute to each mean; per-dataset values are in `training_block_0300.json`. These are training observations, not a validation result; the subsequent update-400 validation is recorded above.
 
 ## Read-only diagnostic evidence while paired training runs
 
@@ -78,7 +107,7 @@ The follow-up selects C using only leave-one-training-subject-out BA, with the s
 
 For the step-200 encoder, selected-C training accuracy is 71.33% / 83.18% / 26.67%, respectively. Stronger regularization reduces the near-perfect training fit but does not recover 2a or Nakanishi validation performance. Initial and step-200 selected-C source-subject CV BA are 38.00% / 37.85% for 2a, 62.02% / 62.07% for P300 and 11.67% / 12.01% for Nakanishi. At fixed C=1, initial validation BA is 30.21% / 53.85% / 11.11%, versus step-200 28.47% / 54.48% / 11.11%. Thus these low 2a/SSVEP scores were already present in the initial query representation under this readout; this is not evidence of a new collapse caused solely by the first 100 encoder updates. The P300 selected-C comparison changes C as well as encoder weights, so it does not isolate an encoder-only effect.
 
-There were 138 inner-fold fits per encoder, all without convergence warnings. Reloaded probe probabilities match exactly on all saved examples. Evidence: `representation_probe_0200/source_cv_comparison.json`, `encoder_comparison.json`, and the `source_cv/{plan,selection,metrics,verification}.json` files under both the diagnostic root and `initial_encoder_control/`. The fixed encoder had already seen all source subjects during its training history; these inner scores evaluate the readout, not a fully held-out end-to-end model. Outer validation has also been inspected repeatedly. No independent test claim is made. The matched BN training branches remain unchanged; update 400 will test whether the normalization benefit persists.
+There were 138 inner-fold fits per encoder, all without convergence warnings. Reloaded probe probabilities match exactly on all saved examples. Evidence: `representation_probe_0200/source_cv_comparison.json`, `encoder_comparison.json`, and the `source_cv/{plan,selection,metrics,verification}.json` files under both the diagnostic root and `initial_encoder_control/`. The fixed encoder had already seen all source subjects during its training history; these inner scores evaluate the readout, not a fully held-out end-to-end model. Outer validation has also been inspected repeatedly. No independent test claim is made. The matched BN training branches remain unchanged; their subsequent update-400 comparison is recorded above.
 
 ## Checkpoint correction and initialization
 
