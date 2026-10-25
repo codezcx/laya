@@ -1,6 +1,6 @@
 # Joint cross-subject BatchNorm comparison
 
-Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). No new paired validation result yet.
+Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). First paired validation at update 200 is complete; both checkpoint reload checks passed.
 
 - Live summaries: `LIVE.md`, `monitor.json` under the current root.
 - Per-step metrics: `{updating,frozen}/metrics.jsonl`.
@@ -12,7 +12,29 @@ Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two s
 
 Implementation `55008f1`: 22 focused tests passed. Both one-GPU real-model smoke tests completed successfully. The frozen branch retained BN count 32,365 and mean variance 26.5335 while encoder gradients remained nonzero (norm 2.1252); the updating branch advanced BN count to 32,381 and mean variance 29.5483 (encoder gradient norm 1.9542). Both had a peak allocated memory of 58.71 GiB. These two-update checks are functional validation, not evidence of classification superiority.
 
-Checkpoint round trips covered all 11 tasks and 38 task/class examples. Both branches saved nine named buffers and reproduced logits exactly after deliberately perturbing the head and BN state (maximum difference 0, prediction agreement 100%). Smoke metrics/reload proof files remain under the current run; consumed smoke weights were moved into the external archive. Formal training has passed update 102 in both branches with finite loss/gradients. Initial comparison checked 3,624 tensor pairs and confirmed identical trainable weights, buffers, AdamW state, scheduler, RNG states and predictions; evidence: `initial_comparison.json`. At update 102 the updating branch BN count was 32,397; the frozen branch remained 32,365 with nonzero encoder gradients, confirming the intervention. Paired validation is pending update 200; early batch scores are not used to select a winner.
+Checkpoint round trips covered all 11 tasks and 38 task/class examples. Both branches saved nine named buffers and reproduced logits exactly after deliberately perturbing the head and BN state (maximum difference 0, prediction agreement 100%). Smoke metrics/reload proof files remain under the current run; consumed smoke weights were moved into the external archive. Formal training has passed update 102 in both branches with finite loss/gradients. Initial comparison checked 3,624 tensor pairs and confirmed identical trainable weights, buffers, AdamW state, scheduler, RNG states and predictions; evidence: `initial_comparison.json`. At update 102 the updating branch BN count was 32,397; the frozen branch remained 32,365 with nonzero encoder gradients, confirming the intervention. Paired update-200 validation is recorded below; early batch scores were not used to select a winner.
+
+## Paired validation: update 200
+
+Exact same 9,748 validation IDs/labels in both branches, also matching the historical monitor subset. Dataset-macro BA: updating BN **46.2519%**, frozen BN **54.5269%** (+8.2749 percentage points). Both saved models reproduce logits exactly on all 38 task/class diagnostic examples. This is one seed and the first checkpoint; later checkpoints are still required to assess stability.
+
+| Dataset | Updating accuracy / BA | Frozen accuracy / BA | Frozen semantic consistency under reversal |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 | 26.04% / 26.04% | 25.35% / 25.35% | 1.74% |
+| BNCI2014004 | 52.50% / 52.50% | 50.00% / 50.00% | 100.00% |
+| BNCI2015001 | 50.00% / 50.00% | 81.00% / 81.00% | 81.50% |
+| BNCI2014008 | 52.38% / 51.10% | 54.99% / 51.67% | 51.22% |
+| BNCI2014009 | 61.81% / 43.33% | 64.24% / 44.79% | 50.00% |
+| CHB_MIT | 17.92% / 55.12% | 78.00% / 72.87% | 95.93% |
+| TUAB | 57.86% / 57.86% | 59.03% / 59.03% | 97.56% |
+| SleepEDF | 18.29% / 18.29% | 56.92% / 56.92% | 93.01% |
+| SEED | 61.19% / 61.19% | 60.95% / 60.95% | 96.53% |
+| EEGMAT | 86.67% / 86.67% | 86.67% / 86.67% | 100.00% |
+| Nakanishi2015 | 6.67% / 6.67% | 10.56% / 10.56% | 0.00% |
+
+BN freezing substantially improves BNCI2015001, CHB-MIT and SleepEDF at this checkpoint, but does not resolve 2a, P300 or SSVEP. Frozen 2a accuracy is near chance and its semantic consistency is only 1.74%; Nakanishi consistency is 0%. These are unresolved answer-position/semantic-binding failures, not evidence that the full 11-task model is working. Detailed normal/reversed slot counts, confusion matrices and paired metrics are in `comparison_0200.json`. Keep the matched branches running unchanged to subsequent checks before selecting an intervention.
+
+Training updates 101–200: updating mean loss 1.00035 and sampled accuracy 46.7841%; frozen mean loss 0.95501 and sampled accuracy 50.2841%. Mean BN running variance ranged 33.67–913.82 for the updating branch versus a constant 26.5335 for the frozen branch. This is training-batch evidence, not full-training-set evaluation.
 
 ## Read-only diagnostic evidence while paired training runs
 
