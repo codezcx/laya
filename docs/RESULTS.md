@@ -31,6 +31,12 @@ Dataset-macro BA at updates 200/400/600/800/1000: 45.3003% / 48.2431% / 50.0512%
 
 CHB-MIT seizure recall fell from 73.81% at step 600 to 30.95% at step 1000 despite rising overall accuracy. BNCI2014009 target recall was zero at step 1000. Learning-rate scheduling is one candidate explanation to test; these observations do not establish its causal role. Training accuracy in the JSONL is sampled, per-update accuracy, not fixed-checkpoint full-training-set evaluation.
 
+## Implementation audit: BatchNorm state (2026-10-25)
+
+Read-only audit found a checkpoint correctness omission shared by both online runs: LEAF's tokenizer contains `SyncBatchNorm` with `running_mean`, `running_var`, and `num_batches_tracked` buffers, while `train_joint.py` saves/restores only trainable named parameters. The preserved step-600 checkpoint contains this layer's affine weight/bias but none of the running-statistic buffers. Fresh checkpoint evaluation consequently restores the released LEAF statistics rather than the statistics used by the in-memory model. This does not invalidate the recorded in-process validation scores or explain their fluctuations by itself, but reloaded-checkpoint evaluation is not an exact reproduction until buffer handling is corrected. The live run's training implementation has not been modified during this audit.
+
+Separate untested hypothesis: after encoder unfreezing, shared BatchNorm running statistics are updated on successive task-specific microbatches, while validation uses their accumulated values. These updates are not controlled by the learning-rate scheduler. Microbatch changes can affect them: the old four-rank/microbatch-4 layout processes eight CHB windows in one synchronized BN call per step; the new two-rank/microbatch-22 layout splits CHB into two calls of four global windows. Therefore even equal global sample IDs do not isolate the LR effect from BatchNorm behavior. An exact attribution needs a matched execution configuration and a separate BN-statistics control. Checkpoint buffer preservation and an in-memory versus reload prediction check are required before reporting final checkpoint-based results.
+
 ## Unchanged fold-0 data
 
 476,032 training epochs, 58,362 full validation epochs and 60,275 test epochs. One joint subject-disjoint fold; not full benchmark LOSO/10-fold evaluation. Released LEAF pretraining exposure is not excluded. Source: `datasets/benchmark/signals/fold0/complete.json`.
