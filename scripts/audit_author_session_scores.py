@@ -60,40 +60,47 @@ def main():
         assert (subject, session) not in dates
         dates[subject, session] = datetime.strptime(h['date']+' '+h['time'], '%d.%m.%y %H.%M.%S')
     orders = np.array([sorted(range(3), key=lambda d: dates[i, d]) for i in range(51)])
-    scores = np.stack([matrix[i, order] for i, order in enumerate(orders)])
-    assert all(len({dates[i, d].date() for d in range(3)}) == 3 for i in range(51))
+    eligible = np.array([i for i in range(51) if len({dates[i, d].date() for d in range(3)}) == 3])
+    excluded = [i+1 for i in range(51) if i not in eligible]
+    # Metadata-only eligibility amendment, recorded before any score statistic.
+    assert excluded == [12, 16, 19, 21, 22, 29, 39, 41, 51]
+    scores = np.stack([matrix[i, orders[i]] for i in eligible])
+    n = len(eligible)
+    assert n == 42
     args.out.mkdir(parents=True, exist_ok=False)
     rng = np.random.default_rng(20261025)
-    draws = rng.integers(0, 51, size=(20000, 51))
+    draws = rng.integers(0, n, size=(20000, n))
     pairs = []
     for a, b in itertools.combinations(range(5), 2):
         delta = scores[:, :, a]-scores[:, :, b]
         early, later = delta[:, 0], delta[:, 1:].mean(1)
         boot = corr(early[draws], later[draws])
         assert np.isfinite(boot).all()
-        loo = [float(corr(np.delete(early, i), np.delete(later, i))) for i in range(51)]
+        loo = [float(corr(np.delete(early, i), np.delete(later, i))) for i in range(n)]
         pairs.append(dict(arms=[ARMS[a], ARMS[b]], pearson_r=float(corr(early, later)),
                           spearman_r=float(spearmanr(early, later).statistic),
                           bootstrap_percentile_95=np.quantile(boot, [.025, .975]).tolist(),
                           leave_one_person_out_range=[min(loo), max(loo)],
                           early_delta=early.tolist(), mean_later_delta=later.tolist(),
-                          original_number_order_r=float(corr(matrix[:, 0, a]-matrix[:, 0, b],
-                              (matrix[:, 1:, a]-matrix[:, 1:, b]).mean(1)))))
+                          original_number_order_r=float(corr(matrix[eligible, 0, a]-matrix[eligible, 0, b],
+                              (matrix[eligible, 1:, a]-matrix[eligible, 1:, b]).mean(1)))))
     # Retrospective score-selection illustration. Not history-adapted V(m).
     personal = scores[:, 0].argmax(-1)
-    global_choice = np.array([scores[np.arange(51) != i, 0].mean(0).argmax() for i in range(51)])
-    personal_later = np.array([scores[i, 1:, personal[i]].mean() for i in range(51)])
-    global_later = np.array([scores[i, 1:, global_choice[i]].mean() for i in range(51)])
+    global_choice = np.array([scores[np.arange(n) != i, 0].mean(0).argmax() for i in range(n)])
+    personal_later = np.array([scores[i, 1:, personal[i]].mean() for i in range(n)])
+    global_later = np.array([scores[i, 1:, global_choice[i]].mean() for i in range(n)])
     gap = personal_later-global_later
     result = dict(
         kind='exploratory_author_score_reanalysis_not_new_model_experiment',
         input_sha256={str(p): digest(p) for p in [args.csv, args.headers, Path(__file__)]},
-        n_people=51, n_sessions=153, arms=ARMS, original_number_order_scores=matrix.tolist(),
+        n_source_people=51, n_source_sessions=153, n_analysis_people=n,
+        analysis_subjects=(eligible+1).tolist(), excluded_repeated_date_subjects=excluded,
+        arms=ARMS, original_number_order_scores=matrix.tolist(),
         chronological_session_indices=orders.tolist(),
         chronological_dates=[[dates[i, d].isoformat() for d in orders[i]] for i in range(51)],
         subjects_with_nonchronological_numbering=[i+1 for i in range(51) if list(orders[i]) != [0, 1, 2]],
         source_means=matrix.mean((0, 1)).tolist(),
-        original_number_order_day_means=matrix.mean(0).tolist(),
+        original_number_order_day_means=matrix[eligible].mean(0).tolist(),
         chronological_day_means=scores.mean(0).tolist(),
         fraction_at_least_95_percent=(scores >= .95).mean((0, 1)).tolist(),
         per_model_min=scores.min((0, 1)).tolist(), per_model_max=scores.max((0, 1)).tolist(),
@@ -120,12 +127,12 @@ def main():
     axs[0].axhline(0, color='gray', linewidth=.7); axs[0].axvline(0, color='gray', linewidth=.7)
     axs[0].set(xlabel='Earliest day: EEGNet − deepConvNet (pp)',
                ylabel='Mean later days: EEGNet − deepConvNet (pp)',
-               title=f'51 people; Pearson r = {primary["pearson_r"]:.2f}')
+               title=f'{n} people; Pearson r = {primary["pearson_r"]:.2f}')
     for i in np.flatnonzero((abs(x) > 10) | (abs(y) > 7)):
-        axs[0].annotate(str(i+1), (x[i], y[i]), fontsize=8)
+        axs[0].annotate(str(eligible[i]+1), (x[i], y[i]), fontsize=8)
     for a, label in [(2, 'EEGNet'), (3, 'deepConvNet')]:
         axs[1].plot([1, 2, 3], scores[:, :, a].mean(0)*100, marker='o', label=label)
-        axs[1].plot([1, 2, 3], matrix[:, :, a].mean(0)*100, linestyle='--', alpha=.45)
+        axs[1].plot([1, 2, 3], matrix[eligible, :, a].mean(0)*100, linestyle='--', alpha=.45)
     axs[1].set(xlabel='Day rank / original session number', ylabel='Mean author accuracy (%)',
                title='Solid: date order; dashed: session number', xticks=[1, 2, 3])
     axs[1].legend()
