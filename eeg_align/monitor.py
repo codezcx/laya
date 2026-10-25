@@ -1,4 +1,4 @@
-"""Read-only, reproducible summaries and anomaly flags for the current BN comparison."""
+"""Read-only, reproducible summaries and anomaly flags for matched joint runs."""
 import json
 from pathlib import Path
 import numpy as np
@@ -60,8 +60,9 @@ def update_monitor(root,policies):
         if not all(checks.values()):raise RuntimeError(f'Branch initial states differ: {checks}')
     result=dict(initial_state_match=checks,branches=report)
     tmp=root/'monitor.tmp';tmp.write_text(json.dumps(result,indent=2));tmp.replace(root/'monitor.json')
-    lines=['# Current BN comparison','',
-           'Updating vs frozen BN; same initial checkpoint, optimizer, LR schedule, data and batch. '
+    pipeline=root/'pipeline.json'
+    description=json.loads(pipeline.read_text()).get('comparison','Matched model, data and optimization controls.') if pipeline.exists() else 'Matched model, data and optimization controls.'
+    lines=['# Current matched training comparison','',description+' '+
            'Training numbers are sampled batch averages. Validation uses the fixed held-out subjects. '
            'Alerts are diagnostic flags, not proof of their cause.','',
            '| Branch | Last update | Latest 100-update block accuracy | Loss | Latest validation macro BA |',

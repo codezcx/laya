@@ -144,8 +144,32 @@ class PreparedSignalStore:
         assert rows and {r['dataset'] for r in rows} == {'BNCI2014001'}
         indices = []
         for row in rows:
+            if row['id'] not in self.rows:
+                raise ValueError(f"Prepared control cache does not include {row['id']}; only its declared train/validation rows are supported")
             saved = self.rows[row['id']]
             assert all(saved[key] == row[key] for key in ['label','subject','split','source_index','task'])
             indices.append(saved['prepared_index'])
         values = np.asarray(self.signals[indices], dtype=np.float32)
         return [(rows[0]['task'], list(range(len(rows))), [values])]
+
+
+class OverrideSignalStore:
+    """Replace only 2a inputs; preserve every other task's adapter and call order."""
+    def __init__(self, prepared_folder):
+        from .signal_data import SignalStore
+        self.base = SignalStore()
+        self.prepared = PreparedSignalStore(prepared_folder)
+
+    def batch(self, rows):
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for i,row in enumerate(rows): grouped[row['task']].append(i)
+        result = []
+        for task, indices in grouped.items():
+            selected = [rows[i] for i in indices]
+            store = self.prepared if selected[0]['dataset'] == 'BNCI2014001' else self.base
+            parts = store.batch(selected)
+            assert len(parts) == 1 and parts[0][0] == task
+            assert parts[0][1] == list(range(len(selected)))
+            result.append((task,indices,parts[0][2]))
+        return result

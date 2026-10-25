@@ -1,5 +1,7 @@
 # Joint cross-subject LEAF/JEV results
 
+Current paired continuation: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`. Both branches restore the same frozen-BN best checkpoint at step 600 and run 200 further updates to step 800; only the `leaf_raw` branch replaces 2a preprocessing. The other ten tasks, weights/optimizer/RNG initialization and schedule are matched. Initial validation at step 600 and follow-ups at 700/800 distinguish input replacement from subsequent adaptation. TensorBoard records overall/per-dataset accuracy and loss under the new root's `tensorboard/`. See [PROTOCOL.md](PROTOCOL.md). Results below establish the motivation; they are not yet evidence of a JEV improvement from the new pipeline.
+
 ## Raw LEAF preprocessing control on 2a
 
 The same frozen initial encoder, 2,016 training trials and 288 validation trials were evaluated with the original online adapter versus the raw LEAF 2a pipeline. Encoder parameters, buffers, instruction text, IDs and labels match exactly. The native pipeline uses T-session MAT files only; selecting labeled runs preserves 96 A04T trials that upstream's fixed skip would drop. This is a bundled input-pipeline intervention, including subject-level unlabeled normalization; it is not an isolated CAR effect or a JEV training result.

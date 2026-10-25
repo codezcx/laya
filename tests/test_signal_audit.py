@@ -38,3 +38,21 @@ def test_leaf_2a_rejects_incomplete_raw_epoch():
     run[0,0]=(np.zeros((1000,25)),np.array([[0]]),np.array([[1]]))
     data=np.empty((1,1),dtype=object);data[0,0]=run
     with pytest.raises(AssertionError):raw_2a_epochs({'data':data})
+
+
+def test_prepared_override_preserves_mixed_batch_positions_and_other_tasks():
+    from eeg_align.leaf_preprocessing import OverrideSignalStore
+    class Store:
+        def __init__(self, offset):self.offset=offset;self.seen=[]
+        def batch(self, rows):
+            self.seen.extend(r['id'] for r in rows)
+            return [(rows[0]['task'],list(range(len(rows))),[np.array([r['id']+self.offset for r in rows])])]
+    store=OverrideSignalStore.__new__(OverrideSignalStore)
+    store.base=Store(0);store.prepared=Store(100)
+    rows=[dict(id=10,task=1,dataset='other'),dict(id=20,task=0,dataset='BNCI2014001'),
+          dict(id=30,task=1,dataset='other'),dict(id=40,task=0,dataset='BNCI2014001')]
+    result=store.batch(rows)
+    assert [(t,i) for t,i,_ in result]==[(1,[0,2]),(0,[1,3])]
+    np.testing.assert_array_equal(result[0][2][0],[10,30])
+    np.testing.assert_array_equal(result[1][2][0],[120,140])
+    assert store.base.seen==[10,30] and store.prepared.seen==[20,40]

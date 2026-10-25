@@ -1,4 +1,4 @@
-"""Online EEG → LEAF → JEV with matched BN controls and complete checkpoints."""
+"""Online EEG → LEAF → JEV with matched input controls and complete checkpoints."""
 import argparse,json,os,time,subprocess,math,signal
 from pathlib import Path
 from datetime import timedelta
@@ -36,6 +36,7 @@ def main():
     parser.add_argument('--resume',type=Path)
     parser.add_argument('--recover-warmup',action='store_true')
     parser.add_argument('--evaluate-checkpoint',type=Path)
+    parser.add_argument('--prepared-signals',type=Path)
     parser.add_argument('--split',choices=['validation','test'],default='validation')
     a=parser.parse_args()
     if a.resume and (a.smoke or a.evaluate_checkpoint):parser.error('Resume is only for production training')
@@ -54,7 +55,11 @@ def main():
     signal.signal(signal.SIGINT,request_stop)
     train=load_rows('train',CONFIG['fold'])
     val=load_rows(a.split,CONFIG['fold'],None if a.evaluate_checkpoint else CONFIG['validation_cap_per_dataset'])
-    sampler=BalancedSampler(train);signals=SignalStore()
+    sampler=BalancedSampler(train)
+    if a.prepared_signals:
+        from .leaf_preprocessing import OverrideSignalStore
+        signals=OverrideSignalStore(a.prepared_signals)
+    else:signals=SignalStore()
     text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16,input_dim=256)
     model.add_module('eeg_encoder',OnlineLEAF(a.bn_policy).cuda())
     groups=[dict(name='connector',params=list(model.connector.parameters()),lr=CONFIG['learning_rates'][0]),
@@ -74,6 +79,9 @@ def main():
                 git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
                 code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},
                 trainable_parameters=sum(p.numel() for p in active),train_epochs_available=len(train),validation_epochs=len(val))
+    config['prepared_signals']=None if a.prepared_signals is None else dict(
+        path=str(a.prepared_signals.resolve()),complete_sha256=digest(a.prepared_signals/'complete.json'),
+        overridden_dataset='BNCI2014001')
     start_step=0;best=-1;resume_info=None
     if a.resume:
         restored=torch.load(a.resume,map_location='cpu',mmap=True,weights_only=False)
@@ -91,6 +99,7 @@ def main():
         opt.load_state_dict(restored['optimizer']);schedule.load_state_dict(restored['scheduler'])
         assert schedule.last_step==start_step
         best=float(restored['best_score'])
+        if CONFIG.get('reset_selection_on_resume',False):best=-1.
         config.update(resume_checkpoint=str(a.resume.resolve()),resume_checkpoint_sha256=digest(a.resume),
                       resume_step=start_step,resume_info=resume_info)
         del restored
@@ -192,6 +201,13 @@ def main():
         save(start_step,initial=True)
         checked=reload_check(start_step,a.out/'initial.pt')
         if rank==0:log.write(json.dumps(dict(step=start_step,checkpoint_check=checked))+'\n')
+        if CONFIG.get('validate_at_start',False):
+            report=evaluate(start_step);best=report['selection_score']
+            save(start_step,improved=True)
+            if rank==0:
+                log.write(json.dumps(dict(step=start_step,validation=report,checkpoint_check=checked))+'\n')
+                (a.out/'best.json').write_text(json.dumps(dict(step=start_step,metrics=report),indent=2))
+                print('INITIAL_VALIDATION',start_step,best,flush=True)
     probe=next(model.eeg_encoder.leaf.tower.tokenizer.parameters())
     for step in range(start_step+1,stop_step+1):
         learning_rates=schedule.set_step(step);model.train();opt.zero_grad(set_to_none=True)

@@ -1,8 +1,8 @@
 # Online EEG → text-conditioned LEAF → JEV: joint cross-subject fold
 
-Current implementation trains one shared model on 11 classification datasets from EEG-FM-Benchmark. The current experiment tests updating versus fixed BatchNorm statistics under the same warmup/cosine schedule. Task catalog: `configs/benchmark_tasks.json`; training settings: `configs/benchmark_train.json`. Ignored datasets, checkpoints and logs are retained. No frozen-query cache is used by this run.
+Current implementation trains one shared model on 11 classification datasets from EEG-FM-Benchmark. The current experiment compares the existing 2a input adapter with raw LEAF preprocessing, using the same step-600 checkpoint and frozen BN statistics. Task catalog: `configs/benchmark_tasks.json`; training settings: `configs/benchmark_train.json`. Ignored datasets, checkpoints and logs are retained. No frozen-query cache is used by this run.
 
-Status: both matched branches completed the planned step-1200 diagnostic stop on 2026-10-25. Best validation macro BA is 51.85% for updating BN (step 1200) and 55.59% for frozen BN (step 600). The 3000-step setting remains the LR horizon, not a claim that 3000 updates were run. No test evaluation or further training was started automatically. See [RESULTS.md](RESULTS.md) for all six validations and the saved checkpoint audit.
+The prior BN comparison completed step 1200; its best frozen-BN checkpoint (step 600, macro BA 55.59%) initializes the current short paired continuation. See [RESULTS.md](RESULTS.md) for the completed comparison and preprocessing probe evidence.
 
 ## Cross-subject protocol
 
@@ -30,40 +30,36 @@ Released LEAF plus native `laya/JEV-27B-VL`. LEAF FiLM/QFormer is conditioned on
 
 LEAF is frozen through update 100, then its tokenizer, Transformer branches and QFormer are trained. Native Qwen base weights stay frozen; the original JEV LoRA is always active. Unused LEAF reconstruction heads, mask token and text-output projection remain frozen. The optimizer is AdamW with weight decay 0.01 and gradient norm clipping at 1.
 
-## Current matched BatchNorm experiment
+## Current matched preprocessing experiment
 
-Two independent single-H200 branches run concurrently. Both start from the same saved update-100 checkpoint of the interrupted cosine run. All 381 trainable LEAF tensors were checked equal to the released checkpoint; because its encoder was never unfrozen, original BN buffers can be recovered exactly. Its old RNG state was not saved, so both branches explicitly reset Python, NumPy, CPU/CUDA torch RNGs to branch seed 142. This is a matched new continuation, not bitwise continuation of the original run.
+The current run is `cross_subject_fold0_leaf_preprocessing`. Two one-H200 branches, `baseline` and `leaf_raw`, restore the identical version-2 `cross_subject_fold0_bn_control/frozen/best.pt` checkpoint at global step 600, including optimizer, scheduler and RNG states. Both freeze BN statistics while leaving LEAF parameters and JEV LoRA trainable. The baseline retains the online adapter for all tasks; `leaf_raw` overrides only BNCI2014001 with the verified raw LEAF cache. Other tasks retain identical inputs and grouping order. The full 11-dataset sampler, all labels and splits, batch 88, microbatch 22, eval microbatch 32 and learning rates are unchanged.
 
-- `updating`: ordinary training behavior, BatchNorm uses current minibatch statistics and updates running statistics.
-- `frozen`: BatchNorm uses the released running mean/variance during training and evaluation. Its affine weight/bias and all other active encoder parameters still receive gradients. Other dropout remains active.
+Run 200 additional optimizer updates, 601–800. Preserve the original 3000-step learning-rate horizon and the existing encoder warmup history; do not reset optimizer moments or reinitialize a projection/head. Validate the same 9,748 rows before any update (step 600) and at 700 and 800. The first validation establishes whether the input replacement changes predictions before adaptation. Within each new branch, reset only the best-score bookkeeping, select by the existing dataset-macro BA rule and retain the initial/best/final state. The comparison of interest is the 2a accuracy change between matched branches; also report every other dataset to expose interference. This is a short diagnostic, not a claim of convergence or an independent test result.
 
-Both branches use world size 1, global batch 88, microbatch 22 (four accumulation passes), eval microbatch 32, identical sample IDs and option permutations. Each step samples 8 examples per dataset with class/subject balancing and replacement. The only branch setting difference is BN policy. Compared with historical runs, world-size/microbatch and stochastic execution differ; historical scores are context, not the matched BN control.
+The completed BN comparison (1200 steps) selected frozen BN; its full metrics/checkpoints remain as the source and reference. Its source state is archived in Git at `be96b7c` before this paired continuation. Do not overwrite historical outputs or delete ignored data/checkpoints.
 
-Peak LRs are connector 1e-4, JEV LoRA 5e-6, choice head 1e-5, encoder 1e-6. Scheduler retains a 3,000-update horizon, 90-update linear warmup then cosine decay to 2% of peak. Encoder is zero through update 100, warms up independently at 101–190, then decays. Initial diagnostic stage stops at update 1,200; it does not compress the LR schedule to 1,200. Select later improvements only after examining the paired validation results.
+## Complete state, validation and monitoring
 
-## Complete state and validation
+Version-2 checkpoints retain all trainable named parameters, all model buffers (including BN mean/variance/count), optimizer/scheduler state and Python/NumPy/torch RNG states. Both branches save initial states and verify matching parameters/buffers/source fingerprints. Reload tests destroy the head/BN state, restore it, and require identical logits on 38 fixed examples covering every task/class. The prepared-cache manifest and hashes are saved in the new checkpoint configuration. Input preprocessing intentionally differs for 2a, so initial prediction equality across branches is not required; equality of their initial model/optimizer/RNG states is required.
 
-Version-2 checkpoints save all trainable named parameters, all model buffers (including BN running mean/variance/count), AdamW state, scheduler state, and per-rank Python/NumPy/torch RNG state. Frozen pretrained parameter weights remain supplied by the recorded releases. Missing-buffer legacy checkpoints are rejected except for explicitly verified frozen-warmup recovery. Post-unfreeze legacy checkpoints cannot silently borrow release statistics.
+Validation reports normal/reversed option accuracy, BA, confusion matrices, per-subject scores and semantic consistency. Save initial, last (every 100 updates, plus first update), and validation-selected best weights. No test-set access or automatic extension beyond step 800. `monitor.json` / `LIVE.md` summarize training and validation and flag collapsed classes or >=10-point BA declines. These are diagnostic flags, not proof of causes.
 
-Each branch writes `initial.pt` and fingerprints its parameters/buffers. The controller verifies that both initial states match. A reload test destroys BN statistics and changes a head parameter, restores the checkpoint, and requires bitwise-identical logits on fixed held-out examples covering every dataset/class. This test runs at initialization and every validation checkpoint. Unit tests additionally require identical next optimizer updates and RNG draws after restoration.
+The launcher starts an independent TensorBoard exporter alongside training. `tensorboard/baseline` and `tensorboard/leaf_raw` record per-step overall and per-dataset training accuracy/loss, learning rates and gradient norms. Validation records per-dataset accuracy/BA/loss and overall dataset-macro accuracy/BA/loss; `*_pooled` metrics weight examples instead. All accuracy values are fractions. Validation loss is cross entropy reconstructed from the true semantic-class probability. Both option orders are recorded. JSON/JSONL remains authoritative, and export can be resumed without duplicating already indexed rows after a clean stop.
 
-Validation every 200 global updates uses the same fixed 9,748 rows as earlier runs (cap 2,048/dataset). Report normal/reversed option accuracy, balanced accuracy, per-subject metrics, confusion matrices and semantic consistency. Save last weights every 100 updates, plus initial/first/final and validation-selected best. No test-set selection or automatic test evaluation in this diagnostic stage.
+## Entry points and files
 
-`monitor.json` stores each branch's per-dataset 100-update training averages, full validation history and alerts. `LIVE.md` provides the latest human-readable summary. Flags include zero class recall, >95% predictions in one class, or >=10-point BA decline from the previous validation; these trigger investigation, not an automatic claim of cause. Nonfinite losses/gradients, failed reload checks or mismatched starting states stop the run. Training batch accuracy is not fixed-checkpoint full-training-set accuracy.
+Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. It runs matched two-update smoke tests first, then restores the shared step-600 checkpoint for the two real branches. Source hashes guard the active code, configs and TensorBoard exporter. Existing output directories are rejected. SIGTERM requests a checkpoint at the next update boundary.
 
-## Entry points, outputs and archival
+- Run root: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`.
+- Branch logs and weights: `{baseline,leaf_raw}/metrics.jsonl`, `initial.pt`, `last.pt`, `best.pt`.
+- TensorBoard: `<run root>/tensorboard/`; open with `laya/.venv-eeg/bin/tensorboard --logdir <run root>/tensorboard --port 6006`.
+- Shared original signals/splits: `datasets/benchmark/signals/`, fold 0.
+- 2a override: `datasets/benchmark/leaf_2a_preprocessing/`; only its declared training/validation rows are supported.
+- Historical paired BN metrics and frozen probes: `artifacts/benchmark/cross_subject_fold0_bn_control/`.
 
-Run `laya/.venv-eeg/bin/python scripts/run_benchmark.py`. The controller runs two independent one-GPU smoke tests, then the two branches from the common checkpoint. The smoke tests shorten freezing/scheduling to two updates and cover all tasks/options; their scores are not scientific results. Existing output directories are never overwritten. Source hashes prevent edits to the active implementation between stages and during monitoring. SIGTERM requests a checkpoint at the next update boundary.
+## Supporting frozen-representation diagnostics
 
-- Current root: `artifacts/benchmark/cross_subject_fold0_bn_control/`.
-- Initial checkpoint: `common/warmup_step0100.pt`.
-- Branch metrics: `{updating,frozen}/metrics.jsonl`.
-- Branch weights: `initial.pt`, `last.pt`, `best.pt` within each branch.
-- Controller: `pipeline.json`; summaries: `monitor.json`, `LIVE.md`.
-- Compact historical comparisons: `artifacts/benchmark/reference_constant_lr/`, `reference_cosine_partial/`.
-- Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
-
-## Frozen representation diagnostic
+The completed source probes below used the pre-continuation code at `be96b7c`; use an isolated worktree at that commit to reproduce checkpoint extraction with its strict source checks. Existing feature-cache CV remains usable without re-extracting.
 
 While the matched branches run, `scripts/diagnose_representation.py` freezes the saved frozen-BN step-200 LEAF encoder, including its BN buffers, and extracts the exact eight query tokens used as JEV input. Flattening produces 2,048 features per example. Three unresolved datasets are checked: BNCI2014001, BNCI2014009 and Nakanishi2015. Use all their existing training rows and the same held-out validation subjects; no test access or split changes.
 

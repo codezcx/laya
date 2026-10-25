@@ -1,12 +1,12 @@
 {
   "seed": 42,
   "steps": 3000,
-  "validation_every": 200,
+  "validation_every": 100,
   "checkpoint_every": 100,
   "global_batch": 88,
   "microbatch": 22,
   "eval_microbatch": 32,
-  "run_name": "cross_subject_fold0_bn_control",
+  "run_name": "cross_subject_fold0_leaf_preprocessing",
   "lr_schedule": {
     "kind": "warmup_cosine",
     "warmup_ratio": 0.03,
@@ -26,11 +26,21 @@
   "fold": 0,
   "encoder_warmup_steps": 100,
   "encoder_learning_rate": 1e-06,
-  "stop_step": 1200,
+  "stop_step": 800,
   "branch_seed": 142,
-  "bn_policies": [
-    "updating",
-    "frozen"
-  ],
-  "resume_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/benchmark/cross_subject_fold0_bn_control/common/warmup_step0100.pt"
+  "resume_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/benchmark/cross_subject_fold0_bn_control/frozen/best.pt",
+  "validate_at_start": true,
+  "reset_selection_on_resume": true,
+  "comparison": "Same step-600 model and optimizer; frozen BN in both branches; only 2a signal preprocessing differs",
+  "branches": [
+    {
+      "name": "baseline",
+      "bn_policy": "frozen"
+    },
+    {
+      "name": "leaf_raw",
+      "bn_policy": "frozen",
+      "prepared_signals": "datasets/benchmark/leaf_2a_preprocessing"
+    }
+  ]
 }

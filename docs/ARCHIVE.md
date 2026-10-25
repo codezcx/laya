@@ -10,7 +10,8 @@ The archive's `index.json` maps each original repository path to its archived lo
 
 Current retained artifacts:
 
-- `artifacts/benchmark/cross_subject_fold0_bn_control/`: common warmup checkpoint and active paired runs.
+- `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`: current paired 2a preprocessing continuation and TensorBoard logs.
+- `artifacts/benchmark/cross_subject_fold0_bn_control/`: completed BN comparison, source checkpoint, diagnostic controls and historical TensorBoard logs.
 - `artifacts/benchmark/reference_constant_lr/`: old constant-LR metrics and fixed-subset predictions; weights are archived.
 - `artifacts/benchmark/reference_cosine_partial/`: interrupted cosine-run logs/configuration; its step-100 checkpoint is retained under the current common directory.
 - `artifacts/benchmark/mpnet/`, instruction embeddings and source audit files: current shared dependencies.
