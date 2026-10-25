@@ -30,6 +30,8 @@ The working tree retains the current benchmark implementation, matched BN contro
 
 ## Historical result entry points
 
+[Experiment history and dataset/generalization ledger](EXPERIMENT_HISTORY.md) groups the REVE direct-supervision, text-alignment and LEAF routes, records the training datasets for each JEV experiment family, and distinguishes completed external evaluations from source validation and pending tests.
+
 [Current results and comparisons](RESULTS.md) remain the main result record. The following historical reports are preserved verbatim; their figures belong to their original protocols and are not directly comparable with the current benchmark. Historical JSON/JSONL metrics and checkpoint locations are preserved in the same archive and can be located through `index.json`. Reports may contain old absolute paths; use the archive index to resolve those paths.
 
 | Historical experiment | Preserved report |
