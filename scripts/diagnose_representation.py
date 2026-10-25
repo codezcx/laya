@@ -40,15 +40,109 @@ def write_json(path, value):
     tmp.replace(path)
 
 
+def source_subject_cv(cache, out):
+    """Select regularization using source subjects only, then read validation once."""
+    assert (cache / 'complete.json').exists()
+    source_plan = json.loads((cache / 'plan.json').read_text())
+    assert source_plan['train_manifest_sha256'] == digest(
+        SIGNAL_ROOT / f"fold{source_plan['fold']}" / 'train.jsonl')
+    assert source_plan['validation_manifest_sha256'] == digest(
+        SIGNAL_ROOT / f"fold{source_plan['fold']}" / 'validation.jsonl')
+    source_rows = {r['id']: r for r in load_rows('train', source_plan['fold'])
+                   if r['dataset'] in source_plan['datasets']}
+    arrays = np.load(cache / 'features.npz')
+    candidates = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+    out.mkdir(parents=True, exist_ok=False)
+    plan = dict(cache=str(cache.resolve()), feature_sha256=digest(cache / 'features.npz'),
+                source_plan_sha256=digest(cache / 'plan.json'), script_sha256=digest(__file__),
+                C_candidates=candidates, selection='mean source-subject held-out BA; ties choose smaller C',
+                folds='leave one training subject out; scaler and classifier refit in every fold',
+                estimator=dict(class_weight='balanced', solver='lbfgs', max_iter=2000, tol=1e-4),
+                limitation='Probe-only selection: the fixed encoder previously saw all source subjects. '
+                           'Inner scores are not end-to-end unseen-subject estimates. Outer validation '
+                           'was already used in earlier diagnostics; this is not independent test evidence.')
+    write_json(out / 'plan.json', plan)
+    results, models = {}, {}
+    started = time.monotonic()
+
+    def fit(x, y, c):
+        model = make_pipeline(StandardScaler(), LogisticRegression(
+            C=c, class_weight='balanced', solver='lbfgs', max_iter=2000, tol=1e-4, random_state=42))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always', ConvergenceWarning)
+            model.fit(x, y)
+        return model, [str(w.message) for w in caught]
+
+    with threadpool_limits(limits=3):
+        for ds in source_plan['datasets']:
+            x = arrays[f'{ds}_train']
+            y = arrays[f'{ds}_train_labels']
+            rr = [source_rows[i] for i in arrays[f'{ds}_train_ids']]
+            assert np.array_equal(y, [r['label'] for r in rr])
+            assert all(r['dataset'] == ds and r['split'] == 'train' for r in rr)
+            groups = np.array([r['subject'] for r in rr])
+            subjects = sorted(set(groups))
+            assert len(subjects) >= 3
+            classes = len(np.unique(y))
+            scores = []
+            for c in candidates:
+                folds = []
+                for held in subjects:
+                    train, held_out = groups != held, groups == held
+                    assert not set(groups[train]) & set(groups[held_out])
+                    model, messages = fit(x[train], y[train], c)
+                    assert np.array_equal(model.classes_, np.arange(classes))
+                    assert model[0].n_samples_seen_ == train.sum()
+                    score = classification_metrics(y[held_out], model.predict_proba(x[held_out]), classes)
+                    folds.append(dict(subject=str(held), train_n=int(train.sum()),
+                                      metric=score, convergence_warnings=messages))
+                value = dict(C=c, subject_macro_BA=float(np.mean([
+                    f['metric']['balanced_accuracy'] for f in folds])), folds=folds)
+                scores.append(value)
+                print(json.dumps(dict(dataset=ds, C=c, source_cv_BA=value['subject_macro_BA'])), flush=True)
+                write_json(out / 'progress.json', dict(dataset=ds, completed_candidates=scores,
+                                                       elapsed_seconds=time.monotonic() - started))
+            chosen = max(scores, key=lambda v: (v['subject_macro_BA'], -v['C']))
+            models[ds], messages = fit(x, y, chosen['C'])
+            results[ds] = dict(selected_C=chosen['C'], source_cv_BA=chosen['subject_macro_BA'],
+                               candidates=scores, final_fit_warnings=messages,
+                               final_iterations=models[ds][-1].n_iter_.tolist())
+        # Freeze every choice on disk before accessing any outer validation features/labels.
+        write_json(out / 'selection.json', results)
+        with (out / 'predictions.jsonl').open('x') as predictions:
+            for ds, model in models.items():
+                for split in ['train', 'validation']:
+                    x, y = arrays[f'{ds}_{split}'], arrays[f'{ds}_{split}_labels']
+                    probabilities = model.predict_proba(x)
+                    results[ds][split] = classification_metrics(y, probabilities, len(model.classes_))
+                    for sample, label, p in zip(arrays[f'{ds}_{split}_ids'], y, probabilities):
+                        predictions.write(json.dumps(dict(id=str(sample), dataset=ds, split=split,
+                                                          label=int(label), probabilities=p.tolist())) + '\n')
+                print(json.dumps({k: v for k, v in dict(dataset=ds, **results[ds]).items()
+                                  if k != 'candidates'}), flush=True)
+        joblib.dump(models, out / 'probes.joblib')
+        write_json(out / 'metrics.json', results)
+        write_json(out / 'complete.json', dict(elapsed_seconds=time.monotonic() - started,
+                                               datasets=source_plan['datasets'], no_test_access=True))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--checkpoint', type=Path, required=True)
-    parser.add_argument('--expected-step', type=int, required=True)
+    parser.add_argument('--checkpoint', type=Path)
+    parser.add_argument('--expected-step', type=int)
+    parser.add_argument('--source-cv-cache', type=Path)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--datasets', nargs='+', default=[
         'BNCI2014001', 'BNCI2014009', 'Nakanishi2015'])
     parser.add_argument('--batch-size', type=int, default=32)
     args = parser.parse_args()
+    if args.source_cv_cache:
+        if args.checkpoint or args.expected_step is not None:
+            parser.error('--source-cv-cache cannot be combined with a checkpoint')
+        source_subject_cv(args.source_cv_cache, args.out)
+        return
+    if args.checkpoint is None or args.expected_step is None:
+        parser.error('Extraction requires --checkpoint and --expected-step')
     assert args.batch_size > 0 and len(set(args.datasets)) == len(args.datasets)
     torch.set_num_threads(3)
     torch.cuda.set_device(0)
