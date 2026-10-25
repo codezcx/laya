@@ -15,18 +15,20 @@ def frequency_scores(signals,sampling_rate,frequencies):
     return power.mean(axis=1)
 
 
-def frequency_check_train(out,online=False):
-    """Training-only signal sanity check, with no fitted weights or test access.
+def frequency_check(out,online=False,split='train'):
+    """Fixed signal sanity check, with no fitted weights or test access.
 
     Score the stated candidate fundamentals by a Hann-windowed Fourier projection
     averaged across channels after per-channel energy normalization. This is a
     fixed positive control for readable frequency information, not a replacement
-    model or an estimate of held-out JEV performance.
+    model or an estimate of held-out JEV performance. The validation mode uses
+    exactly the same rule already fixed for the training-data positive control.
     """
     from eeg_align.signal_data import load_rows,SignalStore,ROOT as SIGNAL_ROOT
     from eeg_align.leaf_runtime import digest
     task=next(t for t in catalog() if t['task_id']=='Nakanishi2015')
-    rows=[r for r in load_rows('train',0) if r['dataset']==task['task_id']]
+    assert split in {'train','validation'}
+    rows=[r for r in load_rows(split,0) if r['dataset']==task['task_id']]
     folder=SIGNAL_ROOT/task['task_id'];meta=json.loads((folder/'complete.json').read_text())
     signals=np.load(folder/'signals.npy',mmap_mode='r')
     frequencies=np.array([float(c['option'].split()[0]) for c in task['classes']])
@@ -48,11 +50,11 @@ def frequency_check_train(out,online=False):
         predictions.extend(dict(id=r['id'],subject=r['subject'],label=r['label'],prediction=int(y),scores=s.tolist()) for r,y,s in zip(rr,pred,scores))
     cm=np.zeros((len(frequencies),len(frequencies)),dtype=int)
     for p in predictions:cm[p['label'],p['prediction']]+=1
-    report=dict(dataset=task['task_id'],split='train',n=len(rows),frequencies_hz=frequencies.tolist(),
+    report=dict(dataset=task['task_id'],split=split,n=len(rows),frequencies_hz=frequencies.tolist(),
                 sampling_rate=sampling_rate,source_channels=meta['channels'],source_samples=n,
                 input_mode='exact_online_preprocessing' if online else 'raw_cache',input_shape=input_shape,
                 method='Fixed fundamental-only Fourier score, Hann window, channel energy normalization; no fit or parameter selection',
-                train_manifest_sha256=digest(SIGNAL_ROOT/'fold0/train.jsonl'),
+                manifest_sha256=digest(SIGNAL_ROOT/f'fold0/{split}.jsonl'),
                 accuracy=float(np.trace(cm)/cm.sum()),confusion_matrix=cm.tolist(),
                 per_subject={s:dict(n=sum(p['subject']==s for p in predictions),accuracy=float(np.mean([p['label']==p['prediction'] for p in predictions if p['subject']==s]))) for s in sorted({r['subject'] for r in rows})},
                 predictions=predictions)
@@ -121,14 +123,20 @@ def bn_input_check_train(out):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path);parser.add_argument('--frequency-check-train',action='store_true');parser.add_argument('--online-input',action='store_true');parser.add_argument('--bn-input-check-train',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--out',type=Path)
+    modes=parser.add_mutually_exclusive_group()
+    modes.add_argument('--frequency-check-train',action='store_true')
+    modes.add_argument('--frequency-check-validation',action='store_true')
+    modes.add_argument('--bn-input-check-train',action='store_true')
+    parser.add_argument('--online-input',action='store_true');args=parser.parse_args()
     if args.bn_input_check_train:
-        if args.frequency_check_train or args.online_input:parser.error('Choose one audit mode')
+        if args.online_input:parser.error('Choose one audit mode')
         bn_input_check_train(args.out or ROOT/'artifacts/benchmark/bn_input_train.json');return
-    if args.frequency_check_train:
+    if args.frequency_check_train or args.frequency_check_validation:
         suffix='online_' if args.online_input else ''
-        frequency_check_train(args.out or ROOT/f'artifacts/benchmark/nakanishi_frequency_{suffix}train.json',args.online_input);return
-    if args.online_input:parser.error('--online-input requires --frequency-check-train')
+        split='validation' if args.frequency_check_validation else 'train'
+        frequency_check(args.out or ROOT/f'artifacts/benchmark/nakanishi_frequency_{suffix}{split}.json',args.online_input,split);return
+    if args.online_input:parser.error('--online-input requires a frequency check')
     args.out=args.out or ROOT/'artifacts/benchmark/adapter_audit.json'
     sys.path.insert(0,str(ROOT.parent/'EEG-FM-Benchmark'))
     sys.path.insert(0,str(ROOT.parent/'LEAF'))

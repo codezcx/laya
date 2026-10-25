@@ -67,6 +67,8 @@ While the matched branches run, `scripts/diagnose_representation.py` freezes the
 Each task gets a separate fixed `StandardScaler` + `LogisticRegression(C=1, class_weight='balanced', solver='lbfgs', max_iter=1000, random_state=42)` pipeline. Scaling and classifier fitting use training rows only. No validation hyperparameter search. Save train/validation accuracy, BA, confusion matrices, convergence warnings, IDs, probabilities, features and the exact encoder snapshot under `cross_subject_fold0_bn_control/representation_probe_0200/`. Verify encoder parameters and buffers remain unchanged after extraction.
 
 This is a diagnostic of accessible class information, not a matched comparison of optimizers or training exposure. A better linear-probe result would support usable information in the encoder output, but would not by itself locate a specific JEV interface bug. The extra encoder-only inference process may affect one branch's wall time; it does not update either training model.
+
+The fixed frequency positive control can also be applied to validation with `scripts/audit_benchmark.py --frequency-check-validation [--online-input] --out <path>`. It uses the same candidate fundamentals, Hann window and per-channel energy normalization fixed for the training-only check. This is a validation diagnostic, not test evaluation or hyperparameter selection.
 - Shared raw signals: `datasets/benchmark/signals/`; shared MPNet/instructions remain unchanged.
 
 Superseded tracked implementations are in Git (`521f865` before this replacement). Old artifacts are moved outside the repository, not deleted. See [ARCHIVE.md](ARCHIVE.md) for the inventory. Unrelated ECG-R1 working files, shared models, datasets, environments and third-party installations are retained.

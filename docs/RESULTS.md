@@ -48,6 +48,22 @@ Follow-up using the **exact current online preprocessing** (`SignalStore.batch`,
 
 A CPU-only input diagnostic sampled the exact training calls at updates 101, 120 and 140 with the **fixed released tokenizer CNN**, before BN. Mean activation variance was about 7–34 for most tasks, 74.73 for Nakanishi and 354.89 for SEED; one two-example SEED call reached 1,134.08. These descriptive samples are not a population estimate. Reconstructing BN's EMA from these fixed-CNN activation variances predicted the live updating branch's mean running variance as 40.3964 / 78.6547 / 119.5143, versus observed 40.3991 / 78.6530 / 119.4984. Relative errors were all <0.014%, consistent with input-driven running-statistic movement rather than substantial CNN weight changes at these early updates. This supports the normalization mechanism but does not establish its effect on held-out accuracy. Evidence/reproduction: `bn_input_train.json`, `scripts/audit_benchmark.py --bn-input-check-train --out <run>/bn_input_train.json`. This diagnostic used CPU and training samples only, with no change to either active training branch.
 
+## Frozen LEAF query diagnostic at update 200
+
+The frozen-BN branch's saved encoder was restored with all five encoder buffers and kept in evaluation mode. Its eight query tokens were flattened to 2,048 features. Separate, fixed `StandardScaler` + balanced logistic-regression pipelines were fit on all training rows for three unresolved datasets. No hyperparameter search or test access. All 1,044 validation IDs and labels exactly match the corresponding JEV update-200 predictions.
+
+| Dataset | Linear probe train accuracy / BA | Linear probe validation accuracy / BA | JEV validation accuracy / BA |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 (2a) | 97.72% / 97.72% | 28.47% / 28.47% | 25.35% / 25.35% |
+| BNCI2014009 (P300) | 90.32% / 92.53% | 73.44% / 54.48% | 64.24% / 44.79% |
+| Nakanishi2015 | 99.38% / 99.38% | 11.11% / 11.11% | 10.56% / 10.56% |
+
+This does **not** support attributing all poor performance to the JEV interface: 2a and Nakanishi also generalize poorly with this direct linear readout despite near-perfect training fit. P300 has somewhat more accessible held-out information, but its BA remains modest. These are results for one fixed regularization setting and one validation subject per dataset; they do not prove that the encoder cannot represent the tasks. The 2,048-dimensional classifier may overfit, and its optimization/data exposure differ from JEV. By update 200, the balanced JEV sampler had visited 1,110/2,016 distinct 2a rows, 1,203/4,608 P300 rows and 989/1,440 Nakanishi rows; the probes use all training rows. Do not interpret this as a matched training-recipe comparison.
+
+The same previously fixed Fourier rule was subsequently applied to the 180 Nakanishi validation rows, with no parameter change. Accuracy was **12.78% on the raw cache and 65.56% after exact online preprocessing**, compared with 11.11% for the LEAF-query probe. All IDs/labels match. The processed inputs therefore retain useful frequency information on this held-out subject. The raw-to-processed change includes robust clipping, spatial interpolation and padding; it is not an isolated estimate of any single preprocessing effect. This result motivates checking the representation/readout's cross-subject frequency generalization, without asserting an encoder implementation bug.
+
+Evidence: [diagnostic metrics](../artifacts/benchmark/cross_subject_fold0_bn_control/representation_probe_0200/metrics.json), `comparison.json`, `sampling_0200.json`, `frequency_{raw,online}_validation.json`, and `verification.json` in the same directory. The exact encoder snapshot, features, fitted probes and per-example predictions are preserved there. Encoder parameters and buffers remained unchanged; all 9,108 saved train/validation probabilities reproduce exactly after reloading the fitted probes. All three fits converged without warnings. The frequency-score synthetic test passed. Neither active BN branch was changed.
+
 ## Checkpoint correction and initialization
 
 The previous trainer saved trainable parameters but omitted LEAF SyncBatchNorm running statistics. Online in-process validation scores remain evidence for the live models, but later reloads cannot reproduce those models exactly. This implementation now saves all buffers, optimizer/scheduler and RNG state; unit tests require identical restored predictions, next updates and random draws. Real-model round-trip checks run on held-out examples for every task/class.
