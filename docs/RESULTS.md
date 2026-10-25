@@ -34,6 +34,8 @@ Exact same 9,748 validation IDs/labels in both branches, also matching the histo
 
 BN freezing substantially improves BNCI2015001, CHB-MIT and SleepEDF at this checkpoint, but does not resolve 2a, P300 or SSVEP. Frozen 2a accuracy is near chance and its semantic consistency is only 1.74%; Nakanishi consistency is 0%. These are unresolved answer-position/semantic-binding failures, not evidence that the full 11-task model is working. Detailed normal/reversed slot counts, confusion matrices and paired metrics are in `comparison_0200.json`. Keep the matched branches running unchanged to subsequent checks before selecting an intervention.
 
+This is not simply a model always choosing the same letter: frozen 2a predominantly selects slot A in normal order (279/288), but slot C after reversal (278/288), changing the associated semantic class. The supported observation is strong sensitivity to the candidate arrangement. The interval from the update-200 training log to update 201 was 478.29 / 478.40 seconds for updating/frozen, including full monitor validation, checkpoint writing, reload verification and the next training update; it is not a pure inference benchmark.
+
 Training updates 101–200: updating mean loss 1.00035 and sampled accuracy 46.7841%; frozen mean loss 0.95501 and sampled accuracy 50.2841%. Mean BN running variance ranged 33.67–913.82 for the updating branch versus a constant 26.5335 for the frozen branch. This is training-batch evidence, not full-training-set evaluation.
 
 ## Read-only diagnostic evidence while paired training runs
