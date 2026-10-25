@@ -1,6 +1,6 @@
 # Joint cross-subject BatchNorm comparison
 
-Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Paired validation at update 400 is complete: macro BA is **47.40% updating / 55.38% frozen**. Both checkpoint reload checks passed and training continues.
+Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Initial diagnostic stop: step 1200, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Paired validation at update 600 is complete: macro BA is **51.48% updating / 55.59% frozen**. Both checkpoint reload checks passed and training continues.
 
 - Live summaries: `LIVE.md`, `monitor.json` under the current root.
 - Per-step metrics: `{updating,frozen}/metrics.jsonl`.
@@ -13,6 +13,44 @@ Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two s
 Implementation `55008f1`: 22 focused tests passed. Both one-GPU real-model smoke tests completed successfully. The frozen branch retained BN count 32,365 and mean variance 26.5335 while encoder gradients remained nonzero (norm 2.1252); the updating branch advanced BN count to 32,381 and mean variance 29.5483 (encoder gradient norm 1.9542). Both had a peak allocated memory of 58.71 GiB. These two-update checks are functional validation, not evidence of classification superiority.
 
 Checkpoint round trips covered all 11 tasks and 38 task/class examples. Both branches saved nine named buffers and reproduced logits exactly after deliberately perturbing the head and BN state (maximum difference 0, prediction agreement 100%). Smoke metrics/reload proof files remain under the current run; consumed smoke weights were moved into the external archive. Formal training has passed update 102 in both branches with finite loss/gradients. Initial comparison checked 3,624 tensor pairs and confirmed identical trainable weights, buffers, AdamW state, scheduler, RNG states and predictions; evidence: `initial_comparison.json`. At update 102 the updating branch BN count was 32,397; the frozen branch remained 32,365 with nonzero encoder gradients, confirming the intervention. Paired update-200 validation is recorded below; early batch scores were not used to select a winner.
+
+## Paired validation: update 600
+
+All 9,748 sample IDs/labels match update 400 and both branches. Normal/reversed metrics were recomputed from probabilities; both 38-example checkpoint checks cover all task/classes and reproduce logits exactly. Both branches select update 600 as their current best. Dataset-macro BA is **51.4801% updating / 55.5947% frozen**, a **4.1146-point** paired difference. Changes from update 400 are +4.0763 / +0.2164 points, respectively.
+
+| Dataset | Updating accuracy / BA | Frozen accuracy / BA | Frozen semantic consistency under reversal |
+| --- | ---: | ---: | ---: |
+| BNCI2014001 | 28.47% / 28.47% | 27.43% / 27.43% | 81.25% |
+| BNCI2014004 | 54.17% / 54.17% | 50.83% / 50.83% | 93.33% |
+| BNCI2015001 | 49.50% / 49.50% | 75.00% / 75.00% | 92.50% |
+| BNCI2014008 | 57.31% / 51.29% | 44.49% / 51.15% | 77.38% |
+| BNCI2014009 | 60.94% / 46.98% | 61.98% / 48.02% | 93.75% |
+| CHB_MIT | 45.42% / 66.92% | 83.50% / 68.32% | 98.17% |
+| TUAB | 60.25% / 60.25% | 60.84% / 60.84% | 98.54% |
+| SleepEDF | 51.25% / 51.25% | 61.03% / 61.03% | 89.44% |
+| SEED | 61.34% / 61.34% | 65.59% / 65.59% | 98.39% |
+| EEGMAT | 86.67% / 86.67% | 93.33% / 93.33% | 100.00% |
+| Nakanishi2015 | 9.44% / 9.44% | 10.00% / 10.00% | 0.00% |
+
+Frozen BN retains the aggregate advantage, but task-level performance is mixed. SEED improves by 7.72 points and SleepEDF by 4.40; REM recall recovers from 16.38% to 38.14%. BNCI2015001 falls by 15 points because right-hand recall falls from 93% to 59%, while feet recall rises from 87% to 91%. Frozen CHB-MIT accuracy reaches 83.50%, but seizure recall declines again, from 54.76% to 50%; its BA is essentially flat at 68.32%. Because these changes occur with identical frozen BN statistics, BN drift alone cannot explain them. Shared optimization and cross-subject generalization remain candidate mechanisms, not established causes.
+
+The frozen model's 2a/2b option consistency improves to 81.25% / 93.33% without meaningful classification recovery (27.43% / 50.83%). Frozen 2b now predicts the left semantic class for 105/120 normal-order cases; it no longer selects A in both orders for every example. This is consistent with the known-category control: option following can improve while EEG category discrimination remains weak. Nakanishi is still near chance and inconsistent under reversal.
+
+The small macro-score improvement should not be read as broad progress. EEGMAT has only 30 validation examples: one additional correct prediction contributes +0.3030 points to the 11-dataset macro BA, exceeding the frozen model's total +0.2164-point gain. Excluding EEGMAT **for a descriptive sensitivity check only**, the other ten datasets' mean BA changes from 51.9161% to 51.8208%. The prespecified 11-dataset macro BA remains the selection rule; it has not been changed after observing results. For the updating branch, the EEGMAT rebound alone contributes +3.0303 of its +4.0763-point aggregate gain.
+
+Evidence: [paired update-600 audit](../artifacts/benchmark/cross_subject_fold0_bn_control/comparison_0600.json), branch `validation_0600.json` and `reload_check_0600.json`. Updating BN mean running variance is 43.2360; frozen remains 26.5335. Training continues under the unchanged matched protocol.
+
+### Training trend through update 600
+
+Every row below averages exactly 100 sampled training updates; these are not full-training-set evaluations. Source: `training_blocks.json` and the per-branch JSONL logs.
+
+| Updates | Updating loss / accuracy | Frozen loss / accuracy |
+| --- | ---: | ---: |
+| 101–200 | 1.00035 / 46.78% | 0.95501 / 50.28% |
+| 201–300 | 0.96114 / 50.07% | 0.93282 / 52.27% |
+| 301–400 | 0.93779 / 52.18% | 0.91114 / 53.92% |
+| 401–500 | 0.92618 / 52.83% | 0.89873 / 54.86% |
+| 501–600 | 0.92264 / 53.66% | 0.88031 / 56.34% |
 
 ## Paired validation: update 400
 
