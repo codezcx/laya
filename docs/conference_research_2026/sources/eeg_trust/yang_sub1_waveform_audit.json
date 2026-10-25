@@ -1,0 +1,119 @@
+[
+  {
+    "processed_session": 1,
+    "native_session": 1,
+    "trial_index": 0,
+    "raw_trigger_seconds": 231.965,
+    "candidate_offset_comparisons": {
+      "0.0": {
+        "median_channel_correlation": 0.92314231820753,
+        "channel_correlation_range": [
+          0.7809151573200883,
+          0.9911656936023164
+        ]
+      },
+      "1.5": {
+        "median_channel_correlation": 0.04718531740506962,
+        "channel_correlation_range": [
+          -0.029485787832050168,
+          0.31775447066382057
+        ]
+      },
+      "-1.0": {
+        "median_channel_correlation": -0.045053296950398766,
+        "channel_correlation_range": [
+          -0.3773140065722313,
+          0.18946101992070744
+        ]
+      },
+      "0.5": {
+        "median_channel_correlation": -0.12126391701001354,
+        "channel_correlation_range": [
+          -0.40321040148779375,
+          0.0576444445406899
+        ]
+      }
+    },
+    "manual_BDF_decoder_matches_MNE": true,
+    "approximate_filter": "Pz reference and 4th-order Butterworth .5-40 Hz, resample_poly to250; not exact EEGLAB reproduction",
+    "fragment_sha256": "40c5183f223a98679f230ab0496dc55d7592611fb826c64bad310160836464fa"
+  },
+  {
+    "processed_session": 2,
+    "native_session": 3,
+    "trial_index": 0,
+    "raw_trigger_seconds": 162.014,
+    "candidate_offset_comparisons": {
+      "0.0": {
+        "median_channel_correlation": 0.9020769056024568,
+        "channel_correlation_range": [
+          0.44471142338081027,
+          0.972924229308938
+        ]
+      },
+      "1.5": {
+        "median_channel_correlation": 0.015043499154825906,
+        "channel_correlation_range": [
+          -0.29602082656595596,
+          0.2227630927850465
+        ]
+      },
+      "-1.0": {
+        "median_channel_correlation": -0.19751240844695026,
+        "channel_correlation_range": [
+          -0.49274622440756577,
+          -0.027892956030941905
+        ]
+      },
+      "0.5": {
+        "median_channel_correlation": -0.15988443520476547,
+        "channel_correlation_range": [
+          -0.31931324567441605,
+          0.04007799361600617
+        ]
+      }
+    },
+    "manual_BDF_decoder_matches_MNE": true,
+    "approximate_filter": "Pz reference and 4th-order Butterworth .5-40 Hz, resample_poly to250; not exact EEGLAB reproduction",
+    "fragment_sha256": "88a97642c9ab348ce3e56c0200839eb8600496fcc6a3b4571130ab5d45ffba26"
+  },
+  {
+    "processed_session": 3,
+    "native_session": 2,
+    "trial_index": 0,
+    "raw_trigger_seconds": 166.634,
+    "candidate_offset_comparisons": {
+      "0.0": {
+        "median_channel_correlation": 0.9044394915022855,
+        "channel_correlation_range": [
+          0.6915746646671164,
+          0.9733641295035907
+        ]
+      },
+      "1.5": {
+        "median_channel_correlation": -0.013986371751489337,
+        "channel_correlation_range": [
+          -0.19967375961449238,
+          0.2353183501478078
+        ]
+      },
+      "-1.0": {
+        "median_channel_correlation": 0.03801609829076477,
+        "channel_correlation_range": [
+          -0.27632617734752635,
+          0.1874144719098594
+        ]
+      },
+      "0.5": {
+        "median_channel_correlation": 0.012377353817289972,
+        "channel_correlation_range": [
+          -0.13861379075267397,
+          0.2666243757825738
+        ]
+      }
+    },
+    "manual_BDF_decoder_matches_MNE": true,
+    "approximate_filter": "Pz reference and 4th-order Butterworth .5-40 Hz, resample_poly to250; not exact EEGLAB reproduction",
+    "fragment_sha256": "7e792247afd4d781afa02e106e157d9df1f86e1c86e763d74b1504b297b9a7b0"
+  }
+]

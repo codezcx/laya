@@ -34,6 +34,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--csv', type=Path, required=True)
     parser.add_argument('--headers', type=Path, required=True)
+    parser.add_argument('--mapping', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
     matrix = np.full((51, 3, 5), np.nan)
@@ -59,7 +60,19 @@ def main():
         subject, session = int(pp[0][4:])-1, int(pp[1][4:])
         assert (subject, session) not in dates
         dates[subject, session] = datetime.strptime(h['date']+' '+h['time'], '%d.%m.%y %H.%M.%S')
-    orders = np.array([sorted(range(3), key=lambda d: dates[i, d]) for i in range(51)])
+    mappings = json.loads(args.mapping.read_text())['mappings']
+    assert len(mappings) == 51
+    processed_to_native = {}
+    for entry in mappings:
+        subject = entry['subject']-1
+        assert subject not in processed_to_native and 0 <= subject < 51
+        assert entry['status'] == 'unique' and len(entry['candidate_permutations']) == 1
+        permutation = entry['candidate_permutations'][0]
+        assert sorted(permutation) == [1, 2, 3]
+        assert all(entry['equality_matrix'][d][native-1] for d, native in enumerate(permutation))
+        processed_to_native[subject] = [native-1 for native in permutation]
+    orders = np.array([sorted(range(3), key=lambda d: dates[i, processed_to_native[i][d]])
+                       for i in range(51)])
     eligible = np.array([i for i in range(51) if len({dates[i, d].date() for d in range(3)}) == 3])
     excluded = [i+1 for i in range(51) if i not in eligible]
     # Metadata-only eligibility amendment, recorded before any score statistic.
@@ -92,13 +105,17 @@ def main():
     gap = personal_later-global_later
     result = dict(
         kind='exploratory_author_score_reanalysis_not_new_model_experiment',
-        input_sha256={str(p): digest(p) for p in [args.csv, args.headers, Path(__file__)]},
+        input_sha256={str(p): digest(p) for p in [args.csv, args.headers, args.mapping, Path(__file__)]},
         n_source_people=51, n_source_sessions=153, n_analysis_people=n,
         analysis_subjects=(eligible+1).tolist(), excluded_repeated_date_subjects=excluded,
         arms=ARMS, original_number_order_scores=matrix.tolist(),
         chronological_session_indices=orders.tolist(),
-        chronological_dates=[[dates[i, d].isoformat() for d in orders[i]] for i in range(51)],
+        processed_to_native_session_indices=[processed_to_native[i] for i in range(51)],
+        chronological_dates=[[dates[i, processed_to_native[i][d]].isoformat()
+                              for d in orders[i]] for i in range(51)],
         subjects_with_nonchronological_numbering=[i+1 for i in range(51) if list(orders[i]) != [0, 1, 2]],
+        correction='Processed/native sessions matched by all 200 task labels. '
+                   'Supersedes invalid same-number date ordering archived at a4cf3c0.',
         source_means=matrix.mean((0, 1)).tolist(),
         original_number_order_day_means=matrix[eligible].mean(0).tolist(),
         chronological_day_means=scores.mean(0).tolist(),
@@ -117,7 +134,9 @@ def main():
                                     'Bootstrap conditions on observed leave-one-person-out global choices.'),
         limitations=['No trialwise predictions or repeated initialization/fold logs; cannot deattenuate reliability.',
                      'Ten pair intervals are exploratory marginal intervals, not simultaneous coverage.',
-                     'Recording clock validity and identity matching of author score rows remain assumptions.',
+                     'Recording clocks lack external validation. Score-to-processed-file identity follows author code; '
+                     'processed-to-native session identity is supported by complete label sequences, '
+                     'with waveform spot checks for subject 1 only.',
                      'No foundation model in this score matrix; not evidence about frozen encoders.'])
     (args.out/'result.json').write_text(json.dumps(result, indent=2, allow_nan=False)+'\n')
     primary = next(p for p in pairs if p['arms'] == ['EEGNet', 'deepConvNet'])
@@ -132,9 +151,8 @@ def main():
         axs[0].annotate(str(eligible[i]+1), (x[i], y[i]), fontsize=8)
     for a, label, color in [(2, 'EEGNet', '#2166ac'), (3, 'deepConvNet', '#d95f02')]:
         axs[1].plot([1, 2, 3], scores[:, :, a].mean(0)*100, marker='o', label=label, color=color)
-        axs[1].plot([1, 2, 3], matrix[eligible, :, a].mean(0)*100, linestyle='--', alpha=.55, color=color)
-    axs[1].set(xlabel='Day rank / original session number', ylabel='Mean author accuracy (%)',
-               title='Solid: date order; dashed: session number', xticks=[1, 2, 3])
+    axs[1].set(xlabel='Verified chronological session rank', ylabel='Mean author accuracy (%)',
+               title='Same 42 people on three distinct dates', xticks=[1, 2, 3])
     axs[1].legend()
     fig.suptitle('Exploratory reanalysis of Yang2025 author scores; no new model fits', fontsize=10)
     fig.savefig(args.out/'diagnostic.png', dpi=160)
