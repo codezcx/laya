@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 5387,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/5387",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 195\nCoordinate Singularities Break Conformal Coverage for Gaze and Head Pose\nMohammadreza Jamalifard ⋅ Yaxiong Lei ⋅ Parastoo Azizinezhad ⋅ Javier Andreu-Perez\nKeywords:\nGeometry, Localization, Matching & Motion\nPaper PDF\nAbstract\nConformal prediction provides distribution-free reliability guar-antees for vision systems, but these guarantees depend on how predictionerrors are measured in the output space. Many vision tasks produce out-puts on curved spaces (e.g. gaze directions on the sphere or 3D headrotations), yet intermediate prediction heads, residuals, uncertainty es-timates, or conformal scores are often defined in flat coordinate chartssuch as yaw–pitch or Euler angles. We show that this scoring choice intro-duces systematic geometric distortion near coordinate singularities (largepitch angles on the sphere and poses approaching gimbal lock in 3D rota-tions). Across four datasets (ETH-XGaze, Gaze360, BIWI, AFLW2000-3D), slice-conditional coverage at a nominal 90% target drops by 30–50percentage points in these regions, falling to 38.9% on ETH-XGaze and42.0% on Gaze360 at gaze pitch above 70◦ , and to 57.5% on BIWI and55.2% on AFLW2000-3D at head pose pitch above 60◦ near gimbal lock,despite marginal coverage remaining near 90%. We prove that this isstructural. Scalar thresholding changes the size of chart-coordinate pre-diction sets but leaves their distorted axis ratios unchanged. To diagnosethis hidden failure mode, we show that a simple geometric quantity,the Riemannian volume density, strongly correlates with where cover-age collapse occurs. Finally, we show that coordinate-free geodesic scor-ing removes this distortion. It requires no retraining and adds negligiblecomputational cost.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/10321.pdf"
+    }
+  ]
+}

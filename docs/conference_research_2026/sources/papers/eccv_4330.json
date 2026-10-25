@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 4330,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/4330",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 146\nRethinking Detection Calibration: A Coordinate Perspective\nJuyong Lee ⋅ Seungjin Jung ⋅ Jungmin Lee ⋅ Sunju Lee ⋅ Jongwon Choi\nKeywords:\nGeometry, Localization, Matching & Motion\nPaper PDF\nAbstract\nDeep learning based object detectors require trustworthinessbeyond competitive detection performance, but deep neural networks areprone to overconfident predictions, assigning high confidence scores topredictions that are likely to be inaccurate. To improve the alignmentbetween confidence scores and prediction accuracy, existing methodscalibrate confidence scores based on box-level localization, such as pre-cision or intersection over union with the ground truth bounding box.However, box-level localization reflects only a measure of agreement be-tween the predicted box and the ground truth, resulting in calibratedconfidence scores for box-level accuracy failing to capture the localizationaccuracy of coordinates of box. To tackle this issue, we propose a novelpost-hoc calibration framework, rethinking detection calibration (ReDC),which provides reliable coordinate-level confidence scores, including di-rectional information. The proposed framework defines coordinate-wisealignment and deviation direction between predictions and ground truth.Based on the alignment measure, confidence re-encoding produces reliablecoordinate-level confidence scores, while directional displacement estima-tion predicts coordinate-wise deviation directions. Extensive experimentsunder in-domain and out-domain scenarios demonstrate that the proposedapproach expresses the coordinate-wise localization of detected objectsmore precisely than existing methods. Furthermore, our method coversthe representational scope of prior calibration approaches by aggregatingcoordinate-level confidence scores into box-level localization.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/5431.pdf"
+    }
+  ]
+}

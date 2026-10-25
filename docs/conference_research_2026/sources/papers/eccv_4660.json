@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 4660,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/4660",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 42\nWhy Can Accurate Models Be Learned from Inaccurate Annotations?\nChongjie Si ⋅ Yidan Cui ⋅ Fuchao Yang ⋅ Wei Shen\nKeywords:\nVision Foundation Models: Interpretability and Reasoning\nPaper PDF\nAbstract\nLearning from inaccurate annotations has gained significantattention due to the high cost of precise labeling. However, despite thepresence of erroneous labels, models trained on noisy data often retainthe ability to make accurate predictions. This intriguing phenomenonraises a fundamental yet largely unexplored question: why models canstill extract correct label information from inaccurate annotations re-mains unexplored. In this paper, we conduct a comprehensive investiga-tion into this issue. By analyzing weight matrices from both empiricaland theoretical perspectives, we find that label inaccuracy primarily ac-cumulates noise in lower singular components and subtly perturbs theprincipal subspace. Within a certain range, the principal subspaces ofweights trained on inaccurate labels remain largely aligned with thoselearned from clean labels, preserving essential task-relevant information.We formally prove that the angles of principal subspaces exhibit mini-mal deviation under moderate label inaccuracy, explaining why modelscan still generalize effectively. Building on these insights, we proposeLIP, a lightweight plug-in designed to help classifiers retain principalsubspace information while mitigating noise induced by label inaccu-racy. Extensive experiments on tasks with various inaccuracy conditionsdemonstrate that LIP consistently enhances the performance of existingalgorithms. We hope our findings can offer valuable insights to under-stand of model robustness under inaccurate supervision.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/6905.pdf"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "eccv_5387",
+    "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/10321.pdf",
+    "status": 200,
+    "pages": 18,
+    "chars": 47947
+  },
+  {
+    "id": "eccv_5455",
+    "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/10723.pdf",
+    "status": 200,
+    "pages": 16,
+    "chars": 51629
+  },
+  {
+    "id": "eccv_4464",
+    "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/6052.pdf",
+    "status": 200,
+    "pages": 24,
+    "chars": 74084
+  },
+  {
+    "id": "neurips_139218",
+    "url": "https://openreview.net/pdf?id=eBkHgucGKp",
+    "status": 403,
+    "error": "not_pdf"
+  },
+  {
+    "id": "neurips_154165",
+    "url": "https://openreview.net/pdf?id=FnMwOr3VoG",
+    "status": 403,
+    "error": "not_pdf"
+  },
+  {
+    "id": "neurips_154058",
+    "url": "https://openreview.net/pdf?id=GWiH2LVHcr",
+    "status": 403,
+    "error": "not_pdf"
+  },
+  {
+    "id": "neurips_152860",
+    "url": "https://openreview.net/pdf?id=Pr0dB2FD5u",
+    "status": 403,
+    "error": "not_pdf"
+  },
+  {
+    "id": "icml_65937",
+    "url": "https://openreview.net/pdf?id=8jViL8YrB1",
+    "status": 403,
+    "error": "not_pdf"
+  },
+  {
+    "id": "aistats_errandonea26a",
+    "url": "https://raw.githubusercontent.com/mlresearch/v300/main/assets/errandonea26a/errandonea26a.pdf",
+    "status": 200,
+    "pages": 27,
+    "chars": 84152
+  },
+  {
+    "id": "aistats_fan26a",
+    "url": "https://raw.githubusercontent.com/mlresearch/v300/main/assets/fan26a/fan26a.pdf",
+    "status": 200,
+    "pages": 32,
+    "chars": 101091
+  },
+  {
+    "id": "uai_bhadane26a",
+    "url": "https://raw.githubusercontent.com/mlresearch/v337/main/assets/bhadane26a/bhadane26a.pdf",
+    "status": 200,
+    "pages": 18,
+    "chars": 64861
+  },
+  {
+    "id": "colt_diakonikolas26b",
+    "url": "https://raw.githubusercontent.com/mlresearch/v336/main/assets/diakonikolas26b/diakonikolas26b.pdf",
+    "status": 200,
+    "pages": 45,
+    "chars": 133604
+  },
+  {
+    "id": "prior_model_choice",
+    "url": "https://arxiv.org/pdf/2609.18622",
+    "status": 200,
+    "pages": 22,
+    "chars": 63352
+  },
+  {
+    "id": "prior_graft",
+    "url": "https://arxiv.org/pdf/2610.23620",
+    "status": 200,
+    "pages": 38,
+    "chars": 115261
+  }
+]

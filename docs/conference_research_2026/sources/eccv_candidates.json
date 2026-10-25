@@ -1,0 +1,326 @@
+[
+  {
+    "title": "Beyond the Black Box: Identifiable Interpretation and Control in Generative Models via Causal Minimality",
+    "url": "/virtual/2026/poster/4260"
+  },
+  {
+    "title": "Geometry-Preserving in 3D Gaussian Splatting for LiDAR-Camera Extrinsic Calibration",
+    "url": "/virtual/2026/poster/4656"
+  },
+  {
+    "title": "Wat3R: Underwater 3D Geometry Learning without Underwater Annotations",
+    "url": "/virtual/2026/poster/5154"
+  },
+  {
+    "title": "StructSplat: Generalizable 3D Gaussian Splatting from Uncalibrated Sparse Views",
+    "url": "/virtual/2026/poster/3486"
+  },
+  {
+    "title": "HiReFF: High-Resolution Feedforward Human Reconstruction from Uncalibrated Sparse-View Video",
+    "url": "/virtual/2026/poster/5349"
+  },
+  {
+    "title": "Forge4D: Feed-Forward 4D Human Reconstruction and Interpolation from Uncalibrated Sparse-View Videos",
+    "url": "/virtual/2026/poster/3899"
+  },
+  {
+    "title": "EAGS: Error-Aware Gaussian Splatting with Dual-Confidence-Guided Modeling for Uncalibrated Driving Scenes",
+    "url": "/virtual/2026/poster/4526"
+  },
+  {
+    "title": "SupIR-GS: Thermal Infrared Super-Resolution Novel View Synthesis with Imaging-Calibrated 3D Gaussian Splatting",
+    "url": "/virtual/2026/poster/5680"
+  },
+  {
+    "title": "TRAM: Finetuning-Free Test-Time Adaptation for Generalized Face Anti-Spoofing with Only a Few Bonafide Samples",
+    "url": "/virtual/2026/poster/3306"
+  },
+  {
+    "title": "Ice Cloud Geometry Retrieval with Calibrated Uncertainty from Passive Satellite Imagery",
+    "url": "/virtual/2026/poster/5781"
+  },
+  {
+    "title": "FedLAS: Feature-Modulated Bidirectional Label Smoothing for Neural Network Calibration",
+    "url": "/virtual/2026/poster/3206"
+  },
+  {
+    "title": "MambaRaw: Selective State Space Modeling for Efficient 4K RAW Image Reconstruction",
+    "url": "/virtual/2026/poster/3408"
+  },
+  {
+    "title": "Quantile‑Adaptive Temperature Scaling for Confidence Calibration",
+    "url": "/virtual/2026/poster/4026"
+  },
+  {
+    "title": "Hybrid Event–Frame Sensors: Modeling, Calibration, and Simulation",
+    "url": "/virtual/2026/poster/3755"
+  },
+  {
+    "title": "Physics-Guided Deep Learning for Linear Mueller Matrix Acquisition",
+    "url": "/virtual/2026/poster/5705"
+  },
+  {
+    "title": "Posterior Samplings are Missing Modalities Generators for Medical Image Translation",
+    "url": "/virtual/2026/poster/3287"
+  },
+  {
+    "title": "Bridge-UniPS: Bridging Calibrated Photometric Stereo toward Universal Photometric Stereo",
+    "url": "/virtual/2026/poster/3325"
+  },
+  {
+    "title": "Synthetic Sub-Aperture Phase Augmentation for Demosaicing 2×2 Shared Microlens Sensors",
+    "url": "/virtual/2026/poster/5790"
+  },
+  {
+    "title": "Sen-Cap: Sensor-Flexible and Noise-Resilient Human Motion Capture via LiDAR-Camera Integration",
+    "url": "/virtual/2026/poster/4655"
+  },
+  {
+    "title": "WildWorld: A Large-Scale Dataset for Action-Conditioned World Modeling with Explicit State Annotations",
+    "url": "/virtual/2026/poster/5427"
+  },
+  {
+    "title": "Stabilizing Real-World Visual Active Tracking with Action-Smooth Test-Time Adaptation",
+    "url": "/virtual/2026/poster/4009"
+  },
+  {
+    "title": "Two-Way Street: Efficient VSLAM using Collaborative In-Sensor and Off-Sensor processing",
+    "url": "/virtual/2026/poster/4943"
+  },
+  {
+    "title": "Dual Distribution Estimation for Zero-shot Noisy Test-Time Adaptation with VLMs",
+    "url": "/virtual/2026/poster/3144"
+  },
+  {
+    "title": "Distill Once, Adapt Life-Long: Exploring Dataset Distillation for Continual Test-Time Adaptation",
+    "url": "/virtual/2026/poster/3773"
+  },
+  {
+    "title": "Neutralizing Token Aggregation via Information Augmentation for Efficient Test-Time Adaptation",
+    "url": "/virtual/2026/poster/4804"
+  },
+  {
+    "title": "VLOD-TTA: Test-Time Adaptation of Vision-Language Object Detectors",
+    "url": "/virtual/2026/poster/3853"
+  },
+  {
+    "title": "Probe, Anchor, and Amend: Active Test-Time Adaptation of Vision-Language Models",
+    "url": "/virtual/2026/poster/5393"
+  },
+  {
+    "title": "SPDA: Efficient Online Test-Time Adaptation for Promptable Medical Segmentation",
+    "url": "/virtual/2026/poster/4824"
+  },
+  {
+    "title": "MixTTA: Low-Rank Cross-Channel Mixing for Reliable Test-Time Adaptation",
+    "url": "/virtual/2026/poster/4612"
+  },
+  {
+    "title": "Identifiable Gated Residual Personalization for Federated Parameter-Efficient Fine-Tuning",
+    "url": "/virtual/2026/poster/5020"
+  },
+  {
+    "title": "MED-LCDS: Multi-Expert-Domain CLIP Classification via Logit Calibration",
+    "url": "/virtual/2026/poster/4338"
+  },
+  {
+    "title": "Learning from Reliable Negatives: Confidence-Anchored Test-Time Adaptation for GUI Grounding",
+    "url": "/virtual/2026/poster/4771"
+  },
+  {
+    "title": "Multi-Hypothesis Test-Time Adaptation to Mitigate Underspecification",
+    "url": "/virtual/2026/poster/5455"
+  },
+  {
+    "title": "Towards Purified Multi-Label Test-Time Adaptation of Vision-Language Models",
+    "url": "/virtual/2026/poster/3924"
+  },
+  {
+    "title": "Combining Discrepancy-Confusion Uncertainty and Calibration Diversity for Active Fine-Grained Image Classification",
+    "url": "/virtual/2026/poster/4105"
+  },
+  {
+    "title": "SPARC: Single-Pass Scaling for Motion Forecasting with Conformal Bayesian Last Layers",
+    "url": "/virtual/2026/poster/5773"
+  },
+  {
+    "title": "Rolling Shutter Camera Self-Calibration",
+    "url": "/virtual/2026/poster/4929"
+  },
+  {
+    "title": "Rethinking Detection Calibration: A Coordinate Perspective",
+    "url": "/virtual/2026/poster/4330"
+  },
+  {
+    "title": "Visible Yet Unrecognizable: Frequency-Selective Facial Privacy via Attention",
+    "url": "/virtual/2026/poster/5918"
+  },
+  {
+    "title": "Coordinate Singularities Break Conformal Coverage for Gaze and Head Pose",
+    "url": "/virtual/2026/poster/5387"
+  },
+  {
+    "title": "MASS: Motion-Aligned Selective Scan for Flow-Based Video Frame Interpolation",
+    "url": "/virtual/2026/poster/3303"
+  },
+  {
+    "title": "Mitigating Radar-Inertial Calibration Ambiguities via SO(3) Manifold Steering",
+    "url": "/virtual/2026/poster/4409"
+  },
+  {
+    "title": "AutoSpeed: Annotation-Free Stage-Adaptive Motion Speed Learning for Robot Manipulation",
+    "url": "/virtual/2026/poster/3578"
+  },
+  {
+    "title": "Gravity-aware partially calibrated absolute pose estimation from affine- or rotation-covariant features",
+    "url": "/virtual/2026/poster/3439"
+  },
+  {
+    "title": "General Self-Calibration with Varying Intrinsics",
+    "url": "/virtual/2026/poster/3851"
+  },
+  {
+    "title": "Aligning Human Sense: Calibrated Distributional Reward Learning for Video Generation",
+    "url": "/virtual/2026/poster/3296"
+  },
+  {
+    "title": "Unmasking-Time Visual Calibration for Hallucination Mitigation in Multimodal Discrete Diffusion Language Models",
+    "url": "/virtual/2026/poster/4427"
+  },
+  {
+    "title": "SCALE: Semantic-Calibrated Guidance Enhancement for Prompt-Faithful Diffusion",
+    "url": "/virtual/2026/poster/5514"
+  },
+  {
+    "title": "HART: High-Resolution Annotation-Free Reasoning Technique through a Closed-loop Framework",
+    "url": "/virtual/2026/poster/5808"
+  },
+  {
+    "title": "From Illusion to Intention: Visual Rationale Learning for Reliable Evidence Acquisition",
+    "url": "/virtual/2026/poster/5432"
+  },
+  {
+    "title": "UniTac: A Unified Multimodal Model for Cross-Sensor Tactile Understanding and Generation",
+    "url": "/virtual/2026/poster/5005"
+  },
+  {
+    "title": "Looking Back and Forth: Cross-Image Attention Calibration and Attentive Preference Learning for Multi-Image Hallucination Mitigation",
+    "url": "/virtual/2026/poster/4735"
+  },
+  {
+    "title": "CRISP: Calibration-Aware Visual State Space Duality for Remote Sensing Image Segmentation",
+    "url": "/virtual/2026/poster/5624"
+  },
+  {
+    "title": "BIP: Bi-level Information Transfer and Completion Prompting for Visual Recognition with Missing Modalities",
+    "url": "/virtual/2026/poster/4101"
+  },
+  {
+    "title": "Selective Synergistic Learning for Video Object-Centric Learning",
+    "url": "/virtual/2026/poster/3321"
+  },
+  {
+    "title": "Calibrate Before Adapt: Training-Free Pseudo-Label Calibration for Semi-Supervised Cross-Domain Few-Shot Detection",
+    "url": "/virtual/2026/poster/5788"
+  },
+  {
+    "title": "Solving Semi-Supervised Few-Shot Learning from an Auto-Annotation Perspective",
+    "url": "/virtual/2026/poster/4085"
+  },
+  {
+    "title": "OBBSeg: Irregular Lesion Segmentation under Oriented Bounding Box Annotations",
+    "url": "/virtual/2026/poster/5877"
+  },
+  {
+    "title": "ArcAD: Anomaly-Rectified Calibration for Cold-Start Supervised Anomaly Detection",
+    "url": "/virtual/2026/poster/5146"
+  },
+  {
+    "title": "ModTrack: Sensor-Agnostic Multi-View Tracking via Identity-Informed PHD Filtering with Covariance Propagation",
+    "url": "/virtual/2026/poster/5528"
+  },
+  {
+    "title": "Mode-Conditioned Residual Calibration for Multi-Object Tracking",
+    "url": "/virtual/2026/poster/5156"
+  },
+  {
+    "title": "Evaluating the Interpretability of Sparse Autoencoders with Concept Annotations",
+    "url": "/virtual/2026/poster/5939"
+  },
+  {
+    "title": "Calibrated Harmonic Overlaid Implicit Neural Representations for Multi-Dimensional Data",
+    "url": "/virtual/2026/poster/4834"
+  },
+  {
+    "title": "Robustness Meets Uncertainty: Evidential Adversarial Training for Robust Selective Classification",
+    "url": "/virtual/2026/poster/5235"
+  },
+  {
+    "title": "Don’t Teach Instability, Teach Robustness: Selective Sensitivity Gating for Adversarial Robust Distillation",
+    "url": "/virtual/2026/poster/3233"
+  },
+  {
+    "title": "Inference-time Motion Calibration for Video Generation",
+    "url": "/virtual/2026/poster/3884"
+  },
+  {
+    "title": "STAC: Selective Spatiotemporal Aggregation and Compression for Video Reasoning Segmentation",
+    "url": "/virtual/2026/poster/5742"
+  },
+  {
+    "title": "GUIDE: Resolving Domain Bias in GUI Agents through Real-Time Web Video Retrieval and Plug-and-Play Annotation",
+    "url": "/virtual/2026/poster/3244"
+  },
+  {
+    "title": "Accelerating Text-to-Video Generation with Calibrated Sparse Attention",
+    "url": "/virtual/2026/poster/3436"
+  },
+  {
+    "title": "Whence the Voice? Self-supervised Dual-source Audio-Visual Localisation via Selective Convergence",
+    "url": "/virtual/2026/poster/4648"
+  },
+  {
+    "title": "Test-time Counterfactual Calibration for Hallucination-Resistant Temporal Grounding",
+    "url": "/virtual/2026/poster/3576"
+  },
+  {
+    "title": "Audio-Visual Continual Test-Time Adaptation without Forgetting",
+    "url": "/virtual/2026/poster/4051"
+  },
+  {
+    "title": "Towards Benign Memory Forgetting for Selective Multimodal Large Language Model Unlearning",
+    "url": "/virtual/2026/poster/4358"
+  },
+  {
+    "title": "Delayed Bidirectional Alignment via Disentangled Audio Semantics for Audio-Visual Segmentation",
+    "url": "/virtual/2026/poster/4151"
+  },
+  {
+    "title": "UrbanAlign: Post-hoc Semantic Calibration for VLM-Human Preference Alignment",
+    "url": "/virtual/2026/poster/4316"
+  },
+  {
+    "title": "CS-TTA: Preserving Concept Sensitivity in Test-Time Adaptation",
+    "url": "/virtual/2026/poster/3699"
+  },
+  {
+    "title": "Why Can Accurate Models Be Learned from Inaccurate Annotations?",
+    "url": "/virtual/2026/poster/4660"
+  },
+  {
+    "title": "GenRecal: Generation after Recalibration from Large to Small Vision-Language Models",
+    "url": "/virtual/2026/poster/4989"
+  },
+  {
+    "title": "To Adapt or Not to Adapt? Selective Adaptation for Vision-Language Models",
+    "url": "/virtual/2026/poster/3715"
+  },
+  {
+    "title": "Restoring Linguistic Grounding in VLA Models via Train-Free Attention Recalibration",
+    "url": "/virtual/2026/poster/5241"
+  },
+  {
+    "title": "Context Blindness in DPO: Mitigating Object Hallucination in MLLMs via Context-Calibrated Preference Optimization",
+    "url": "/virtual/2026/poster/5807"
+  }
+]

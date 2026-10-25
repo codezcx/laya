@@ -1,0 +1,13 @@
+{
+  "venue": "neurips",
+  "id": 155709,
+  "url": "https://neurips.cc/virtual/2026/poster/155709",
+  "status": 200,
+  "text": "Sydney\nAtlanta\nParis\nSelect Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\nEarlier Conferences\nDates\nSubmit\nPoster Instructions\nCall for Papers\nMain Track Handbook\nReviewing Guidelines\nCall for Evaluations & Datasets\nEvaluations and Datasets FAQ\nReviewing Guidelines\nCall for Position Papers\nCall for Reproducibility\nCall for Tutorials\nCall For Competitions\nCompetition Track Reviewing Guidelines\nCall for Workshops\nCall For Affinity Events\nCall for Educational Resources\nCall For Creative AI\nCall for Social Events\nCall for Journal Papers\nCall for Expo\nAI Reviewing Experiment\nAttend\nHotels\nVisa Information\nVolunteering and Financial Assistance\nAttending with Children\nOrganizers\nOrganizing Committee\nNeurIPS Board\nNeurIPS Foundation\nExhibitors\n2026 Exhibitors\nPortal\nEAC Information\nPoster\nThu, Dec 10, 2026 • 5:00 PM – 8:00 PM AEDT\nHall 1-4\nDistribution Shift in Missing Data Imputation: A Risk-Based Perspective and Importance-Weighted Correction under MAR\nLuke Shannon ⋅ Song Liu ⋅ Katarzyna Reluga\n[\nOpenReview\n]\nAbstract\nMissing data imputation, where a model is trained on observed data to estimate unobserved values, is a fundamental problem in machine learning. In this paper, we rigorously formulate imputation model learning as a mean-squared error risk minimisation problem. We show that when the probability of missingness depends on the data, many state-of-the-art methods fail to account for the resulting distribution shift between the observed data used for training and the full data distribution used for evaluation. Consequently, these approaches do not minimise mean-squared error on the full data distribution. Instead, we propose a novel imputation algorithm designed to learn an imputation model from the observed data while explicitly accounting for this distribution shift. Simulation studies show consistent improvements over otherwise identical uncorrected baselines, with average reductions of 3\\% in RMSE and 7\\% in Wasserstein distance.\nShow more\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=3VK2QApcYJ"
+    }
+  ]
+}

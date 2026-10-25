@@ -1,0 +1,4 @@
+# Downloaded source copies remain locally available; do not vendor full papers.
+sources/*.html
+sources/fulltext/*.pdf
+sources/fulltext/*.txt

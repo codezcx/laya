@@ -1,0 +1,12 @@
+{
+  "venue": "eccv",
+  "url": "https://eccv.ecva.net/virtual/2026/poster/4464",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 4:00 PM – 6:00 PM CEST\nExHall # 391\nUnsupervised Source-Free Ranking of Biomedical Segmentation Models Under Distribution Shift\nJoshua Talks ⋅ Kevin Marchesini ⋅ Luca Lumetti ⋅ Federico Bolelli ⋅ Anna Kreshuk\nKeywords:\nRecognition, Tracking, Re-ID & Anomaly Detection\nPaper PDF\nAbstract\nModel reuse offers a solution to the challenges of segmentation in biomedical imaging, where high data annotation costs remain a major bottleneck for deep learning. However, although many pre-trained models are released through challenges, model zoos, and repositories, selecting the most suitable model for a new dataset remains diffcult due to the lack of reliable model ranking methods. We introduce the first blackbox-compatible framework for unsupervised and source-free ranking of semantic and instance segmentation models based on the consistency of predictions under perturbations. While ranking methods have been studied for classification and a few segmentation-related approaches exist, most target-related tasks such as transferability estimation or model validation and typically rely on labelled data, feature-space access, or specific training assumptions. In contrast, our method directly addresses the repository setting and applies to both semantic and instance segmentation, for zero-shot reuse or after unsupervised domain adaptation. We evaluate the approach across a wide range of biomedical segmentation tasks in both 2D and 3D imaging, showing that our estimated rankings strongly correlate with true target-domain model performance rankings. https://github.com/kreshuklab/model_ranking.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/6052.pdf"
+    }
+  ]
+}

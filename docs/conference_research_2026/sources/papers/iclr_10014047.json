@@ -1,0 +1,13 @@
+{
+  "venue": "iclr",
+  "id": 10014047,
+  "url": "https://iclr.cc/virtual/2026/poster/10014047",
+  "status": 200,
+  "text": "Select Year: (2026)\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\nGetting Started\nSchedule\nMain Conference\nInvited Talks\nAwards\nPapers\nOrals\nBlog Track Posters\nJournal Track Posters\nWorkshops\nCommunity\nTown Hall\nSocials\nSponsors\nOrganizers\nHelpDesk\nJournal Track Poster\nThu, Apr 23, 2026 • 3:15 PM – 5:45 PM -03\nOnline Selective Conformal Inference: Errors and Solutions\nYusuf Sale · Aaditya Ramdas\nProject Page\nAbstract\nIn online selective conformal inference, data arrives sequentially, and prediction intervals are constructed only when an online selection rule is met. Since online selections may break the exchangeability between the selected test datum and the rest of the data, one must correct for this by suitably selecting the calibration data. In this paper, we evaluate existing calibration selection strategies and pinpoint some fundamental errors in the associated claims that guarantee selection-conditional coverage and control of the false coverage rate (FCR). To address these shortcomings, we propose novel calibration selection strategies that provably preserve the exchangeability of the calibration data and the selected test datum. Consequently, we demonstrate that online selective conformal inference with these strategies guarantees both selection-conditional coverage and FCR control. Our theoretical findings are supported by experimental evidence examining trade-offs between valid methods.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "Project Page",
+      "url": "https://openreview.net/pdf?id=PjIQwFyP07"
+    }
+  ]
+}

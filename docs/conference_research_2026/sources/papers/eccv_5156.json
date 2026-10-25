@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 5156,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/5156",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 4:00 PM – 6:00 PM CEST\nExHall # 436\nMode-Conditioned Residual Calibration for Multi-Object Tracking\nMuyu Li ⋅ Henan Hu ⋅ Deepak Jain ⋅ Xudong Zhao\nKeywords:\nRecognition, Tracking, Re-ID & Anomaly Detection\nPaper PDF\nAbstract\nMulti-object tracking degrades in crowded scenes. The reliability of geometry and appearance shifts under occlusion, uniform appearance, and fast motion. Consequently, association scores suffer from mode-dependent miscalibration. We observe that these failures concentrate into a small set of recurring error modes. This pattern renders single global thresholds ineffective. To address this issue, we propose a diagnose-then-correct strategy via Mode-Conditioned Residual Calibration (MCRC). It is a lightweight auxiliary module that identifies the dominant failure mode from pairwise and set-level geometric cues. The module then applies a mode-conditioned residual correction to the association cost matrix. For highly ambiguous tracking pairs, MCRC selectively activates an uncertainty-gated semantic refiner. This refiner incorporates simple acceptance checks to ensure representation stability, thereby avoiding global computational overhead. Extensive evaluations on DanceTrack, SportsMOT, MOT17, and MOT20 confirm its effectiveness. MCRC consistently improves identity preservation when inserted into diverse trackers, maintaining minimal added overhead.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/9126.pdf"
+    }
+  ]
+}

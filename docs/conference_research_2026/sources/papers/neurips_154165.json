@@ -1,0 +1,13 @@
+{
+  "venue": "neurips",
+  "id": 154165,
+  "url": "https://neurips.cc/virtual/2026/poster/154165",
+  "status": 200,
+  "text": "Sydney\nAtlanta\nParis\nSelect Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\nEarlier Conferences\nDates\nSubmit\nPoster Instructions\nCall for Papers\nMain Track Handbook\nReviewing Guidelines\nCall for Evaluations & Datasets\nEvaluations and Datasets FAQ\nReviewing Guidelines\nCall for Position Papers\nCall for Reproducibility\nCall for Tutorials\nCall For Competitions\nCompetition Track Reviewing Guidelines\nCall for Workshops\nCall For Affinity Events\nCall for Educational Resources\nCall For Creative AI\nCall for Social Events\nCall for Journal Papers\nCall for Expo\nAI Reviewing Experiment\nAttend\nHotels\nVisa Information\nVolunteering and Financial Assistance\nAttending with Children\nOrganizers\nOrganizing Committee\nNeurIPS Board\nNeurIPS Foundation\nExhibitors\n2026 Exhibitors\nPortal\nEAC Information\nPoster\nTue, Dec 8, 2026 • 5:00 PM – 8:00 PM AEDT\nHall 1-4\nHidden Tails: Certifying Tail-Risk Claims under Selective Labels\nEl Mustapha Mansouri\n[\nOpenReview\n]\nAbstract\nHigh-stakes prediction systems are often evaluated only on labels revealed by past decisions. This selective observation can hide the losses that determine full-population tail risk: a predictor may appear safe on revealed labels while its worst compatible failures remain unseen. We study certification of conditional value-at-risk (CVaR) under selective labels. First, we prove non-identifiability: even with overlap, two predictors with identical observed selected-loss distributions can have reversed full-population CVaR rankings under compatible hidden-label laws. Under an outcome-dependent odds-ratio sensitivity model, we derive sharp upper and lower CVaR envelopes. A minimax interchange shows that worst-compatible hidden-label completion commutes with the Rockafellar--Uryasev threshold optimization, giving an exact certificate rather than a loose robust surrogate. We then define the tail-risk certification frontier: the minimum passive revelation cost needed to reduce hidden-tail ambiguity below a target tolerance. For a fixed predictor and threshold, this frontier is a fractional-knapsack problem whose value density, tail-identification value, pinpoints labels that can move the CVaR tail. Finally, we give finite-sample guarantees for cross-fitted conservative certificate learning and a lower bound governed by the effective number of revealed tail labels.\nShow more\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=FnMwOr3VoG"
+    }
+  ]
+}

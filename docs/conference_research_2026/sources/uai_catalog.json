@@ -1,0 +1,1322 @@
+[
+  {
+    "title": "Distilling Safe LLM Systems via Soft Prompts for On Device Settings",
+    "url": "https://proceedings.mlr.press/v337/alfarra26a.html"
+  },
+  {
+    "title": "Contrastive Conformal Sets",
+    "url": "https://proceedings.mlr.press/v337/alkhatib26a.html"
+  },
+  {
+    "title": "PCU: Perturbation-Calibrated Uncertainty for Unsupervised Anomaly Detection",
+    "url": "https://proceedings.mlr.press/v337/allaoui26a.html"
+  },
+  {
+    "title": "Curvature-Weighted Capacity Allocation: A Minimum Description Length Framework for Layer-Adaptive Large Language Model Optimization",
+    "url": "https://proceedings.mlr.press/v337/amaefuna26a.html"
+  },
+  {
+    "title": "When and How Often is Weighted Majority Vote Optimal Under Log Loss?",
+    "url": "https://proceedings.mlr.press/v337/an26a.html"
+  },
+  {
+    "title": "Workload-Preserving Differentially Private Synthetic Data for Causal Inference via Maximum-Entropy Calibration",
+    "url": "https://proceedings.mlr.press/v337/asiaee26a.html"
+  },
+  {
+    "title": "Partial Causal Structure Learning for Valid Selective Conformal Inference under Interventions",
+    "url": "https://proceedings.mlr.press/v337/asiaee26b.html"
+  },
+  {
+    "title": "Improving RCT-Based Treatment Effect Estimation Under Covariate Mismatch via Calibrated Alignment",
+    "url": "https://proceedings.mlr.press/v337/asiaee26c.html"
+  },
+  {
+    "title": "Certified Interventional Fidelity: Anytime-Valid, Adaptive Evaluation of Causal Claims in Mechanistic Interpretability",
+    "url": "https://proceedings.mlr.press/v337/asiaee26d.html"
+  },
+  {
+    "title": "Probably Correct Optimal Stable Matching under Two-Sided Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/athanasopoulos26a.html"
+  },
+  {
+    "title": "Robust Transfer Learning With Side Information",
+    "url": "https://proceedings.mlr.press/v337/awad26a.html"
+  },
+  {
+    "title": "Gaussian Process Limit Reveals Structural Benefits of  Graph Transformers",
+    "url": "https://proceedings.mlr.press/v337/ayday26a.html"
+  },
+  {
+    "title": "Dynamic Regret in Outlier-Oblivious Online Optimization using Nonconvex Robust Losses",
+    "url": "https://proceedings.mlr.press/v337/barik26a.html"
+  },
+  {
+    "title": "Stop Probing, Start Coding: Why Linear Probes and Sparse Autoencoders Fail at Compositional Generalization",
+    "url": "https://proceedings.mlr.press/v337/barin-pacela26a.html"
+  },
+  {
+    "title": "Gradual Uncertainty Refinement via Noise-Driven Curriculum: A Post-Hoc Meta-Model for Robust Uncertainty Quantification",
+    "url": "https://proceedings.mlr.press/v337/barker26a.html"
+  },
+  {
+    "title": "Anomaly detection in time-series via inductive biases in the latent space of conditional normalizing flows",
+    "url": "https://proceedings.mlr.press/v337/baumgartner26a.html"
+  },
+  {
+    "title": "Sparse recovery of Diffusion Dynamics: Handling High-Dimensionality in Repeated Short Trajectories",
+    "url": "https://proceedings.mlr.press/v337/bayraktar26a.html"
+  },
+  {
+    "title": "Bound to Disagree: Generalization Bounds via Certifiable Surrogates",
+    "url": "https://proceedings.mlr.press/v337/bazinet26a.html"
+  },
+  {
+    "title": "Approximation Rates for Schrödinger Bridge Potentials via Fixed-Point ERM",
+    "url": "https://proceedings.mlr.press/v337/belomestny26a.html"
+  },
+  {
+    "title": "Testing Partially-Identifiable Causal Queries Using Ternary Tests",
+    "url": "https://proceedings.mlr.press/v337/bhadane26a.html"
+  },
+  {
+    "title": "Robust Weighted Triangulation of Causal Effects Under Model Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/bhattacharya26a.html"
+  },
+  {
+    "title": "Algorithm Design and Stronger Guarantees for the Improving Multi-Armed Bandits Problem",
+    "url": "https://proceedings.mlr.press/v337/blum26a.html"
+  },
+  {
+    "title": "Characterising the Convergence of Imprecise Markov Chains",
+    "url": "https://proceedings.mlr.press/v337/de-bock26a.html"
+  },
+  {
+    "title": "Proximal Policy Optimization Suffices for On-Policy Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v337/bouftini26a.html"
+  },
+  {
+    "title": "Pareto-Optimal Probabilistic Explanations: Balancing Cognitive Constraints and User Preferences",
+    "url": "https://proceedings.mlr.press/v337/bounia26a.html"
+  },
+  {
+    "title": "Fundamental Limits and Optimal Methods for Sharp Analytical Causal Bounds in Instrumental Variable Models",
+    "url": "https://proceedings.mlr.press/v337/boushehrian26a.html"
+  },
+  {
+    "title": "Bayesian Symbolic Regression with Entropic Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v337/boussif26a.html"
+  },
+  {
+    "title": "Task Expansion and Cross Refinement for Open-World Conditional Modeling",
+    "url": "https://proceedings.mlr.press/v337/brahmavar26a.html"
+  },
+  {
+    "title": "Causal Discovery with Metadata-Informed Latent Types",
+    "url": "https://proceedings.mlr.press/v337/brouillard26a.html"
+  },
+  {
+    "title": "Model Merging as Probabilistic Inference in Fine-Tuning Parameter Space",
+    "url": "https://proceedings.mlr.press/v337/bui26a.html"
+  },
+  {
+    "title": "Uncertainty Quantification for Regression: A Unified Framework based on kernel scores",
+    "url": "https://proceedings.mlr.press/v337/bulte26a.html"
+  },
+  {
+    "title": "An Axiomatic Assessment of Entropy- and Variance-based Uncertainty Quantification in Regression",
+    "url": "https://proceedings.mlr.press/v337/bulte26b.html"
+  },
+  {
+    "title": "Provably Efficient Personalized Multi-Objective Bandits with Proactive Conversational Queries",
+    "url": "https://proceedings.mlr.press/v337/cao26a.html"
+  },
+  {
+    "title": "Robust Predictive Uncertainty and Double Descent in Contaminated Bayesian Random Features",
+    "url": "https://proceedings.mlr.press/v337/caprio26a.html"
+  },
+  {
+    "title": "Neural Routed Boosting: Robust Learning against Heteroscedastic Noise",
+    "url": "https://proceedings.mlr.press/v337/chakraborty26a.html"
+  },
+  {
+    "title": "Group-Fair Allocations of Contiguous Blocks of Indivisible Items",
+    "url": "https://proceedings.mlr.press/v337/chan26a.html"
+  },
+  {
+    "title": "Robust Constrained Markov Games: Multi-Agent Decision-Making under Model Uncertainty and Constraints",
+    "url": "https://proceedings.mlr.press/v337/chang26a.html"
+  },
+  {
+    "title": "Inference for quantile-parametrized families via CDF confidence bands",
+    "url": "https://proceedings.mlr.press/v337/chattopadhyay26a.html"
+  },
+  {
+    "title": "Linear Regression with Heteroskedastic Errors",
+    "url": "https://proceedings.mlr.press/v337/chaudhary26a.html"
+  },
+  {
+    "title": "SteinGate: Tail-Sensitive Safe Reinforcement Learning via Stein Discrepancy",
+    "url": "https://proceedings.mlr.press/v337/chemingui26a.html"
+  },
+  {
+    "title": "Interactive Multi-Objective Probabilistic Preference Learning with Soft and Hard Bounds",
+    "url": "https://proceedings.mlr.press/v337/chen26a.html"
+  },
+  {
+    "title": "Finite-Sample Regret Analysis of Nash Q-Learning with Random-Feature Approximation",
+    "url": "https://proceedings.mlr.press/v337/chen26b.html"
+  },
+  {
+    "title": "On the Granularity of Causal Effect Identifiability",
+    "url": "https://proceedings.mlr.press/v337/chen26c.html"
+  },
+  {
+    "title": "On the Sublinear Regret of Continuous K-Max Bandits",
+    "url": "https://proceedings.mlr.press/v337/chen26d.html"
+  },
+  {
+    "title": "Hyperbolic Belief Propagation",
+    "url": "https://proceedings.mlr.press/v337/cheng26a.html"
+  },
+  {
+    "title": "Policy Optimization for Adversarial Linear Mixture MDPs with Unknown Transitions and Bandit Feedback",
+    "url": "https://proceedings.mlr.press/v337/cheng26b.html"
+  },
+  {
+    "title": "Fairness under Graph Uncertainty:  Achieving Interventional Fairness with Partially Known Causal Graphs over Clusters of Variables",
+    "url": "https://proceedings.mlr.press/v337/chikahara26a.html"
+  },
+  {
+    "title": "Canonical Domain Reduction for Partial Counterfactual Identification",
+    "url": "https://proceedings.mlr.press/v337/choe26a.html"
+  },
+  {
+    "title": "Which Directions Matter? Sparse Design for Affine Robust Optimization",
+    "url": "https://proceedings.mlr.press/v337/chumpitaz-flores26a.html"
+  },
+  {
+    "title": "Ensemble Diversity Optimization for Subjective Supervision",
+    "url": "https://proceedings.mlr.press/v337/cui26a.html"
+  },
+  {
+    "title": "Communication-Efficient Distributed Training for Collaborative Flat Optima Recovery in Deep Learning",
+    "url": "https://proceedings.mlr.press/v337/dimlioglu26a.html"
+  },
+  {
+    "title": "Sparse Action-Dependent Policy Iteration under Coordination Structures: Convergence and Optimality",
+    "url": "https://proceedings.mlr.press/v337/ding26a.html"
+  },
+  {
+    "title": "Neural Diffusion Intensity Models for Point Process Data",
+    "url": "https://proceedings.mlr.press/v337/du26a.html"
+  },
+  {
+    "title": "One Model to Rule Them All: Canonically Gluing Causal Models Along Shared Substructures",
+    "url": "https://proceedings.mlr.press/v337/englberger26a.html"
+  },
+  {
+    "title": "How PC-based Methods Err: Towards Better Reporting of Assumption Violations and Small Sample Errors",
+    "url": "https://proceedings.mlr.press/v337/faltenbacher26a.html"
+  },
+  {
+    "title": "Poisson–Gamma Modeling of Inter-Relational Dependencies in Dynamic Knowledge Graphs",
+    "url": "https://proceedings.mlr.press/v337/fang26a.html"
+  },
+  {
+    "title": "Mitigating Spurious Correlations with Memorization-Guided Dataset De-Biasing",
+    "url": "https://proceedings.mlr.press/v337/fazla26a.html"
+  },
+  {
+    "title": "Average Controlled and Average Natural Micro Direct Effects in Summary Causal Graphs",
+    "url": "https://proceedings.mlr.press/v337/ferreira26a.html"
+  },
+  {
+    "title": "Explainable Clustering of Mixture Models",
+    "url": "https://proceedings.mlr.press/v337/fleissner26a.html"
+  },
+  {
+    "title": "Bregman contrastive estimation as a general framework for learning unnormalized models: Efficiency, robustness and optimal noise",
+    "url": "https://proceedings.mlr.press/v337/fujii26a.html"
+  },
+  {
+    "title": "Perfect Matching Map Recovery Under Unknown Scalar Affine Transformation",
+    "url": "https://proceedings.mlr.press/v337/galstyan26a.html"
+  },
+  {
+    "title": "Advances in PAC-Bayesian certification of deep neural networks: tighter closed-form inequalities and optimization of bounds on non-differentiable losses",
+    "url": "https://proceedings.mlr.press/v337/garcia-perez26a.html"
+  },
+  {
+    "title": "Conformal Online Model Aggregation",
+    "url": "https://proceedings.mlr.press/v337/gasparin26a.html"
+  },
+  {
+    "title": "Implicit Learning for Reasoning in First-Order Probabilistic Logic",
+    "url": "https://proceedings.mlr.press/v337/ge26a.html"
+  },
+  {
+    "title": "Fast Best-in-Class Regret for Contextual Bandits",
+    "url": "https://proceedings.mlr.press/v337/girard26a.html"
+  },
+  {
+    "title": "Quantification of Credal Uncertainty: A Distance-Based Approach",
+    "url": "https://proceedings.mlr.press/v337/gonzalez-garcia26a.html"
+  },
+  {
+    "title": "Gaussian Graphical Learning via PSD Constraint for Blockwise Missing Multimodal Data",
+    "url": "https://proceedings.mlr.press/v337/graves26a.html"
+  },
+  {
+    "title": "Eigenvalue Calibration for Semantic Embeddings of Large Language Models",
+    "url": "https://proceedings.mlr.press/v337/gruber26a.html"
+  },
+  {
+    "title": "Detecting Out of Distribution Samples using Class Centered Residual Energy in the Discarded PCA Subspace with Weight Alignment",
+    "url": "https://proceedings.mlr.press/v337/gul26a.html"
+  },
+  {
+    "title": "The Price of Valid Inference After Causal Discovery",
+    "url": "https://proceedings.mlr.press/v337/guo26a.html"
+  },
+  {
+    "title": "Provably Efficient Reinforcement Learning in Continuous-Time Episodic MDPs with Poisson Decision Epochs",
+    "url": "https://proceedings.mlr.press/v337/guo26b.html"
+  },
+  {
+    "title": "Proximal Identification and Estimation in Front-Door Causal Structures with Unobserved Confounding of the Mediator",
+    "url": "https://proceedings.mlr.press/v337/guo26c.html"
+  },
+  {
+    "title": "Reliable Conformal Prediction for Ordinal Classification Using the Ranked Probability Score",
+    "url": "https://proceedings.mlr.press/v337/haas26a.html"
+  },
+  {
+    "title": "A Probabilistic Circuit Framework for Interpretable Graph PU Learning",
+    "url": "https://proceedings.mlr.press/v337/hamid26a.html"
+  },
+  {
+    "title": "Scalable Model-Assisted Multi-Target Estimation in Large Image Collections",
+    "url": "https://proceedings.mlr.press/v337/hamilton26a.html"
+  },
+  {
+    "title": "Provable Subspace Identification of Nonlinear Multi-view CCA",
+    "url": "https://proceedings.mlr.press/v337/han26a.html"
+  },
+  {
+    "title": "Robust Bayesian Decision Making under Adversarial Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/harikumar26a.html"
+  },
+  {
+    "title": "Should You Use Your Large Language Model to Explore or Exploit?",
+    "url": "https://proceedings.mlr.press/v337/harris26a.html"
+  },
+  {
+    "title": "Learning Bayesian and Markov Networks with an Unreliable Oracle",
+    "url": "https://proceedings.mlr.press/v337/harviainen26a.html"
+  },
+  {
+    "title": "Learning Max-Stable Representations that Extrapolate",
+    "url": "https://proceedings.mlr.press/v337/hasan26a.html"
+  },
+  {
+    "title": "Identification and Bounding of Central Moments of Causal Effects Using Marginal Moments Information",
+    "url": "https://proceedings.mlr.press/v337/hashimoto26a.html"
+  },
+  {
+    "title": "Identifying Labeling Mechanism in Positive–Unlabeled Learning under Unknown Class Prior",
+    "url": "https://proceedings.mlr.press/v337/he26a.html"
+  },
+  {
+    "title": "EpiRDN: A Learnable Anisotropic Reaction-Diffusion Network for Epidemic Time Series Prediction",
+    "url": "https://proceedings.mlr.press/v337/hevapathige26a.html"
+  },
+  {
+    "title": "Generalized Distribution-Free Semi-Supervised Learning with Risk Rewrite",
+    "url": "https://proceedings.mlr.press/v337/hirose26a.html"
+  },
+  {
+    "title": "From Bayes’ Rule to Bayes Rules: Information Processing, Bayes’ Theorem, and Imprecise Probabilities",
+    "url": "https://proceedings.mlr.press/v337/houssineau26a.html"
+  },
+  {
+    "title": "Policy-Based Trajectory Clustering in Offline Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v337/wang26a.html"
+  },
+  {
+    "title": "From Global to Factor-Wise Expert Composition in Discrete Diffusion Models",
+    "url": "https://proceedings.mlr.press/v337/huang26a.html"
+  },
+  {
+    "title": "Model-Agnostic Online Certificate-Driven Calibration for Time Series Forecasting Under Distribution Shift",
+    "url": "https://proceedings.mlr.press/v337/huang26b.html"
+  },
+  {
+    "title": "Balancing Expressivity and Learnability in Quantum Kernel Bandit Optimization",
+    "url": "https://proceedings.mlr.press/v337/huang26c.html"
+  },
+  {
+    "title": "Probabilistic Edge Modulation for High-Dimensional Causal Discovery",
+    "url": "https://proceedings.mlr.press/v337/hwang26a.html"
+  },
+  {
+    "title": "Achieving Alignment Through Adaptive Play: Helping Optimize Objectives Without Observing Them",
+    "url": "https://proceedings.mlr.press/v337/isa26a.html"
+  },
+  {
+    "title": "Byzantine-Robust and Differentially Private Federated Optimization under Weaker Assumptions",
+    "url": "https://proceedings.mlr.press/v337/islamov26a.html"
+  },
+  {
+    "title": "Graph-Dependent Regret Bounds in Multi-Armed Bandits with Interference",
+    "url": "https://proceedings.mlr.press/v337/jamshidi26a.html"
+  },
+  {
+    "title": "Optimal Conformal Prediction under Epistemic Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/javanmardi26a.html"
+  },
+  {
+    "title": "Calibration-Aware Online Adaptation under Label Shift",
+    "url": "https://proceedings.mlr.press/v337/jeong26a.html"
+  },
+  {
+    "title": "Score-Based Diffusion Priors for Adaptive Conformal Inference under Distribution Shift",
+    "url": "https://proceedings.mlr.press/v337/jiang26a.html"
+  },
+  {
+    "title": "Improving the Convergence of Private Shuffled Gradient Methods with Public Data",
+    "url": "https://proceedings.mlr.press/v337/jiang26b.html"
+  },
+  {
+    "title": "PRISM: Calibrated Bayesian Fusion and Auditable Attribution for Reliable LLM Event Prediction from Text",
+    "url": "https://proceedings.mlr.press/v337/jin26a.html"
+  },
+  {
+    "title": "Who Guards the Guardians? The Challenges of Evaluating Identifiability of Learned Representations",
+    "url": "https://proceedings.mlr.press/v337/joshi26a.html"
+  },
+  {
+    "title": "Information-Theoretic Bayesian Optimization for Bilevel Optimization Problems",
+    "url": "https://proceedings.mlr.press/v337/kanayama26a.html"
+  },
+  {
+    "title": "Conditional Diffusion Models for Imbalanced Tabular Regression",
+    "url": "https://proceedings.mlr.press/v337/kang26a.html"
+  },
+  {
+    "title": "COBALT: Censored Optimization and Bayesian Active Learning Techniques",
+    "url": "https://proceedings.mlr.press/v337/karlova26a.html"
+  },
+  {
+    "title": "Likelihood hacking in probabilistic program synthesis",
+    "url": "https://proceedings.mlr.press/v337/karwowski26a.html"
+  },
+  {
+    "title": "General Bayesian Policy Learning",
+    "url": "https://proceedings.mlr.press/v337/kato26a.html"
+  },
+  {
+    "title": "Stochastic Dominance Driven First-Order Policy Optimization for Multi-Objective Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v337/kaya26a.html"
+  },
+  {
+    "title": "Joint MDPs and Reinforcement Learning in Coupled-Dynamics Environments",
+    "url": "https://proceedings.mlr.press/v337/kaya26b.html"
+  },
+  {
+    "title": "Adaptive Cumulative Mass Calibration with Conformal Prediction",
+    "url": "https://proceedings.mlr.press/v337/kazantsev26a.html"
+  },
+  {
+    "title": "Conformal Risk Sharing: Certified Cost Allocation with Participation Guarantees",
+    "url": "https://proceedings.mlr.press/v337/kazlauskaite26a.html"
+  },
+  {
+    "title": "Capacity and Redundancy Trade-offs in Multi-Task Learning",
+    "url": "https://proceedings.mlr.press/v337/khan26a.html"
+  },
+  {
+    "title": "Don’t Test What You Can Deduce: Causal Discovery with Logical Inference",
+    "url": "https://proceedings.mlr.press/v337/kim26a.html"
+  },
+  {
+    "title": "Beyond Bounds: Quantifying the Probability of Counterfactual Fairness",
+    "url": "https://proceedings.mlr.press/v337/kim26b.html"
+  },
+  {
+    "title": "A Model-Free Universal AI",
+    "url": "https://proceedings.mlr.press/v337/kim26c.html"
+  },
+  {
+    "title": "Residual Koopman Spectral Profiling for Predicting and Preventing Transformer Training Instability",
+    "url": "https://proceedings.mlr.press/v337/kim26d.html"
+  },
+  {
+    "title": "On Causal Representation Learning with Internal Auxiliaries",
+    "url": "https://proceedings.mlr.press/v337/kim26e.html"
+  },
+  {
+    "title": "Model Merging is Secretly Certifiable: Non-Vacuous Generalisation Bounds for Low-Shot Learning",
+    "url": "https://proceedings.mlr.press/v337/kim26f.html"
+  },
+  {
+    "title": "Same Benchmark, Same Subspace: Task-Selective Convergence in LLM Representations",
+    "url": "https://proceedings.mlr.press/v337/kim26g.html"
+  },
+  {
+    "title": "Maximally Robust Satisficing Bayesian Optimization",
+    "url": "https://proceedings.mlr.press/v337/kinnunen26a.html"
+  },
+  {
+    "title": "Controlling Uncertainty and Hallucination Risk in Multi-Agent Fact Verification",
+    "url": "https://proceedings.mlr.press/v337/kostka26a.html"
+  },
+  {
+    "title": "Who to Trust? Aggregating Client Predictions in Federated Distillation.",
+    "url": "https://proceedings.mlr.press/v337/kovalchuk26a.html"
+  },
+  {
+    "title": "Decomposing Ensemble Spread in Lorenz ’96 with Learned Stochastic Parameterizations",
+    "url": "https://proceedings.mlr.press/v337/kuhbacher26a.html"
+  },
+  {
+    "title": "Controlling Path Dependence in Gradient Ascent Unlearning through Forget-Set Ordering",
+    "url": "https://proceedings.mlr.press/v337/kumar26a.html"
+  },
+  {
+    "title": "KMM-CP: Practical Conformal Prediction under Covariate Shift via Selective Kernel Mean Matching",
+    "url": "https://proceedings.mlr.press/v337/laghuvarapu26a.html"
+  },
+  {
+    "title": "Robustness Quantification for Discriminative Models: a New Robustness Metric and its Application to Dynamic Classifier Selection",
+    "url": "https://proceedings.mlr.press/v337/lassance26a.html"
+  },
+  {
+    "title": "Task-Free Continual Learning via Order-Invariant Linearized Adaptation and Density-Guided Adapter Routing",
+    "url": "https://proceedings.mlr.press/v337/le26a.html"
+  },
+  {
+    "title": "Efficient Confidence Set Enumeration for Multi-label Conformal Classification",
+    "url": "https://proceedings.mlr.press/v337/ledaguenel26a.html"
+  },
+  {
+    "title": "Provably Correct $k$-Means Clustering of Persistence Diagrams",
+    "url": "https://proceedings.mlr.press/v337/lee26a.html"
+  },
+  {
+    "title": "High-Order Markov Blanket Discovery via a k-Order Relaxation of the Faithfulness Assumption",
+    "url": "https://proceedings.mlr.press/v337/lee26b.html"
+  },
+  {
+    "title": "Nonlocal Bayesian Modeling of Continuous Spatio-Temporal Dynamics",
+    "url": "https://proceedings.mlr.press/v337/lee26c.html"
+  },
+  {
+    "title": "Interpretable Spatial-Temporal Forecasting via Additive Neural Decomposition and Knowledge Distillation",
+    "url": "https://proceedings.mlr.press/v337/lee26d.html"
+  },
+  {
+    "title": "FraudGNAM: Inherently Interpretable Spectral GNN for Graph Fraud Detection",
+    "url": "https://proceedings.mlr.press/v337/lee26e.html"
+  },
+  {
+    "title": "Preserving Compositionality for Robust Multi-Subject Personalization in Text-to-Image Generation",
+    "url": "https://proceedings.mlr.press/v337/lee26f.html"
+  },
+  {
+    "title": "Diagnosing Conformal Prediction Failures Under Distribution Shift: A COVID-19 Case Study",
+    "url": "https://proceedings.mlr.press/v337/lee26g.html"
+  },
+  {
+    "title": "Counting and Sampling Subsets Using Block Covers",
+    "url": "https://proceedings.mlr.press/v337/lehtinen26a.html"
+  },
+  {
+    "title": "Gaussian Approximation and Multiplier Bootstrap for Federated Linear Stochastic Approximation",
+    "url": "https://proceedings.mlr.press/v337/levin26a.html"
+  },
+  {
+    "title": "Computational Complexity of Repair Problems on Simple Temporal Networks with Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/li26a.html"
+  },
+  {
+    "title": "Differentially Private Approval-Based Committee Voting",
+    "url": "https://proceedings.mlr.press/v337/li26b.html"
+  },
+  {
+    "title": "Nonlinear Axiomatic Attribution for Cooperative Games",
+    "url": "https://proceedings.mlr.press/v337/li26c.html"
+  },
+  {
+    "title": "Matched-Pair Experimental Design with Active Learning",
+    "url": "https://proceedings.mlr.press/v337/li26d.html"
+  },
+  {
+    "title": "Leveraging Large Language Models for Causal Discovery: a Constraint-based, Argumentation-driven Approach",
+    "url": "https://proceedings.mlr.press/v337/li26e.html"
+  },
+  {
+    "title": "Online Fair Allocation with Demand-Side Time-Dependent Weight",
+    "url": "https://proceedings.mlr.press/v337/li26f.html"
+  },
+  {
+    "title": "A Sequence-Graph Fusion Framework via BiMamba and Fourier-KAN for Interpretable Drug-Target Affinity Prediction",
+    "url": "https://proceedings.mlr.press/v337/li26g.html"
+  },
+  {
+    "title": "CAIC: Congestion-Aware Intent Communication for Multi-Agent Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v337/li26h.html"
+  },
+  {
+    "title": "Label-Wise uncertainty decomposition for Multi-label Classification by Maximizing Type II Likelihood",
+    "url": "https://proceedings.mlr.press/v337/li26i.html"
+  },
+  {
+    "title": "Remedying Coarsening-Based GNN Training under Heterophily via Adaptive Complementary Enhancement",
+    "url": "https://proceedings.mlr.press/v337/li26j.html"
+  },
+  {
+    "title": "Exploiting Concavity Information in Contextual Bandit Optimization",
+    "url": "https://proceedings.mlr.press/v337/li26k.html"
+  },
+  {
+    "title": "Probabilistic Verification of Neural Networks via Efficient Probabilistic Hull Generation",
+    "url": "https://proceedings.mlr.press/v337/li26l.html"
+  },
+  {
+    "title": "HHC: Hierarchical Hypergraph Communication for Multi-Agent Systems",
+    "url": "https://proceedings.mlr.press/v337/liang26a.html"
+  },
+  {
+    "title": "Grokked Models are Better Unlearners",
+    "url": "https://proceedings.mlr.press/v337/liang26b.html"
+  },
+  {
+    "title": "Overcoming Dependent Censoring in the Evaluation of Survival Models",
+    "url": "https://proceedings.mlr.press/v337/lillelund26a.html"
+  },
+  {
+    "title": "Gradient-Guided Reward Optimization for Inference-time Alignment",
+    "url": "https://proceedings.mlr.press/v337/lin26a.html"
+  },
+  {
+    "title": "Constrained Random Forest for Domain-Generalizable Classification",
+    "url": "https://proceedings.mlr.press/v337/lingjaerde26a.html"
+  },
+  {
+    "title": "EagleConv: Bio-inspired Dual-Foveated Convolution for Robust Small Object Detection",
+    "url": "https://proceedings.mlr.press/v337/liu26a.html"
+  },
+  {
+    "title": "LENS: Latent Precision Inference in Multi-LLM Routing",
+    "url": "https://proceedings.mlr.press/v337/liu26b.html"
+  },
+  {
+    "title": "Score-Regularized Joint Sampling with Importance Weights for Flow Matching",
+    "url": "https://proceedings.mlr.press/v337/liu26c.html"
+  },
+  {
+    "title": "When Can We Learn from Noisy Logical Data? Parameterized Complexity of Approximate Concept Fitting in Description Logics",
+    "url": "https://proceedings.mlr.press/v337/lu26a.html"
+  },
+  {
+    "title": "Conformal Prediction Sets for Instance Segmentation",
+    "url": "https://proceedings.mlr.press/v337/lu26b.html"
+  },
+  {
+    "title": "Computing Exact Nash Equilibria in Graphical Games: A Geometric Approach to Paths, Stars, and Caterpillars",
+    "url": "https://proceedings.mlr.press/v337/lucca26a.html"
+  },
+  {
+    "title": "The relative value of interventional and observational samples in Bayesian Causal Linear Gaussian Models",
+    "url": "https://proceedings.mlr.press/v337/lungu26a.html"
+  },
+  {
+    "title": "First-Order Softmax Weighted Switching Gradient Method for Distributed Stochastic Minimax Optimization with Stochastic Constraints",
+    "url": "https://proceedings.mlr.press/v337/luo26a.html"
+  },
+  {
+    "title": "Learning Expressive Random Feature Models via Parametrized Activations",
+    "url": "https://proceedings.mlr.press/v337/ma26a.html"
+  },
+  {
+    "title": "Bayesian Causal Discovery in Directed Cyclic Graphs with Closed-Form Lag Bayes Factors",
+    "url": "https://proceedings.mlr.press/v337/maadi26a.html"
+  },
+  {
+    "title": "Approximating Nash Equilibria in Finite-Horizon Multi-Adversarial Team Markov Games",
+    "url": "https://proceedings.mlr.press/v337/maddila26a.html"
+  },
+  {
+    "title": "Information-Theoretic Lower Bounds for Causal Inference under Credal Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/mai26a.html"
+  },
+  {
+    "title": "Learning plug-in surrogate endpoints for randomized experiments",
+    "url": "https://proceedings.mlr.press/v337/margueritte26a.html"
+  },
+  {
+    "title": "Learning Latent Energy-Based Models via Interacting Particle Langevin Dynamics",
+    "url": "https://proceedings.mlr.press/v337/marks26a.html"
+  },
+  {
+    "title": "cc-Shapley: Measuring Multivariate Feature Importance Needs Causal Context",
+    "url": "https://proceedings.mlr.press/v337/martin26a.html"
+  },
+  {
+    "title": "AudiFair: Privacy-Preserving Framework for Auditing Fairness",
+    "url": "https://proceedings.mlr.press/v337/masserova26a.html"
+  },
+  {
+    "title": "Provable Guarantees For Robust Feature Selection in Sparse Linear Models in High-Dimensions",
+    "url": "https://proceedings.mlr.press/v337/maurya26a.html"
+  },
+  {
+    "title": "Meta-Dependence in Conditional Independence Testing",
+    "url": "https://proceedings.mlr.press/v337/mazaheri26a.html"
+  },
+  {
+    "title": "Relaxing Faithfulness with Intervention-Only Causal Discovery",
+    "url": "https://proceedings.mlr.press/v337/mazaheri26b.html"
+  },
+  {
+    "title": "Causal Discovery in Mixtures of Populations",
+    "url": "https://proceedings.mlr.press/v337/mazaheri26c.html"
+  },
+  {
+    "title": "Conformal Graph Prediction with Z-Gromov Wasserstein Distances",
+    "url": "https://proceedings.mlr.press/v337/melo26a.html"
+  },
+  {
+    "title": "Exact Uncertainty Propagation via Gaussian Process Neurons",
+    "url": "https://proceedings.mlr.press/v337/meng26a.html"
+  },
+  {
+    "title": "Globally Optimal Multi-Object Tracking with Splitting and Merging",
+    "url": "https://proceedings.mlr.press/v337/mihaylova26a.html"
+  },
+  {
+    "title": "Robust estimation of graphical models with measurement error: False discovery control and sensitivity analysis",
+    "url": "https://proceedings.mlr.press/v337/mingelgrin26a.html"
+  },
+  {
+    "title": "Long term sequential decision making under risk",
+    "url": "https://proceedings.mlr.press/v337/mirzanejad26a.html"
+  },
+  {
+    "title": "Learning Stable Digraphs from Sparse-Input Linear Structural Causal Models",
+    "url": "https://proceedings.mlr.press/v337/misiakos26a.html"
+  },
+  {
+    "title": "Wasserstein Gradient Flows for Scalable and Regularized Barycenter Computation",
+    "url": "https://proceedings.mlr.press/v337/fernandes-montesuma26a.html"
+  },
+  {
+    "title": "Causal Reasoning with Bipartite Graphical Causal Models",
+    "url": "https://proceedings.mlr.press/v337/mooij26a.html"
+  },
+  {
+    "title": "Learning to Infer Fast by Attending to Sparse Temporal Observations",
+    "url": "https://proceedings.mlr.press/v337/motamed26a.html"
+  },
+  {
+    "title": "Model Agnostic Graph Prompt Learning for Crystal Property Prediction",
+    "url": "https://proceedings.mlr.press/v337/mukherjee26a.html"
+  },
+  {
+    "title": "Online Bootstrap Inference for the Trend of Nonstationary Time Series",
+    "url": "https://proceedings.mlr.press/v337/nagler26a.html"
+  },
+  {
+    "title": "IDCR: Information-Directed Conformal Retrieval",
+    "url": "https://proceedings.mlr.press/v337/nanivadekar26a.html"
+  },
+  {
+    "title": "Dynamics of Learning under User Choice: Overspecialization and Peer-Model Probing",
+    "url": "https://proceedings.mlr.press/v337/narang26a.html"
+  },
+  {
+    "title": "What Capable Agents Must Know: Selection Theorems for Robust Decision-Making under Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/nayebi26a.html"
+  },
+  {
+    "title": "Adaptive and Robust Watermark for Generative Tabular Data",
+    "url": "https://proceedings.mlr.press/v337/ngo26a.html"
+  },
+  {
+    "title": "REALITrees: Rashomon Ensemble Active Learning for Interpretable Trees",
+    "url": "https://proceedings.mlr.press/v337/nguyen26a.html"
+  },
+  {
+    "title": "Tight rates of approximation of mixed Nash equilibria by entropy regularization in continuous games",
+    "url": "https://proceedings.mlr.press/v337/nguyen26b.html"
+  },
+  {
+    "title": "When Does Model Multiplicity Affect Prediction Intervals? A Sharp Phase Transition",
+    "url": "https://proceedings.mlr.press/v337/nguyen26c.html"
+  },
+  {
+    "title": "MUSS: Multilevel Subset Selection for Relevance and Diversity",
+    "url": "https://proceedings.mlr.press/v337/nguyen26d.html"
+  },
+  {
+    "title": "Mixture-Greedy for Online Generative Model Selection: Is UCB Necessary in Diversity-Aware Multi-Armed Bandits?",
+    "url": "https://proceedings.mlr.press/v337/nia26a.html"
+  },
+  {
+    "title": "Scaling Up Bayesian DAG Sampling",
+    "url": "https://proceedings.mlr.press/v337/nikzad26a.html"
+  },
+  {
+    "title": "Conformal Risk Minimization with Variance Reduction",
+    "url": "https://proceedings.mlr.press/v337/noorani26a.html"
+  },
+  {
+    "title": "What Type of Inference is Active Inference?",
+    "url": "https://proceedings.mlr.press/v337/nuijten26a.html"
+  },
+  {
+    "title": "Prior-Fitted Functional Flows: In-Context Generative Models for Pharmacokinetics",
+    "url": "https://proceedings.mlr.press/v337/ojeda26a.html"
+  },
+  {
+    "title": "MetaCaDI: A Meta-Learning Framework for Causal Discovery from Multiple Environments with Unknown Interventions",
+    "url": "https://proceedings.mlr.press/v337/ong26a.html"
+  },
+  {
+    "title": "Falsifying Causal Graphs With Outlier Events",
+    "url": "https://proceedings.mlr.press/v337/orchard26a.html"
+  },
+  {
+    "title": "Partially Observed Structural Causal Models",
+    "url": "https://proceedings.mlr.press/v337/orujlu26a.html"
+  },
+  {
+    "title": "Coarsening Bias from Variable Discretization in Causal Functionals",
+    "url": "https://proceedings.mlr.press/v337/ou26a.html"
+  },
+  {
+    "title": "Sample-Efficient Learning of Probabilistic Causes for Reachability in Markov Decision Processes with Probabilistic Guarantees",
+    "url": "https://proceedings.mlr.press/v337/oura26a.html"
+  },
+  {
+    "title": "Explore, Refine, then Commit: Nearly Optimal Multi-Group Mean Estimation with Active Learning",
+    "url": "https://proceedings.mlr.press/v337/pandey26a.html"
+  },
+  {
+    "title": "The Convergence Behavior of Adam under Heavy-Tailed Noise",
+    "url": "https://proceedings.mlr.press/v337/pang26a.html"
+  },
+  {
+    "title": "On Transportability for Structural Causal Bandits",
+    "url": "https://proceedings.mlr.press/v337/park26a.html"
+  },
+  {
+    "title": "Breaking Bad: Component-Wise Parent Deletion for Score-Based Causal Discovery",
+    "url": "https://proceedings.mlr.press/v337/park26b.html"
+  },
+  {
+    "title": "Higher-Order Hit-&-Run Samplers for Linearly Constrained Densities",
+    "url": "https://proceedings.mlr.press/v337/paul26a.html"
+  },
+  {
+    "title": "Information Theoretic Bayesian Optimization over the Probability Simplex",
+    "url": "https://proceedings.mlr.press/v337/pavesi26a.html"
+  },
+  {
+    "title": "How Predicted Links Influence Network Evolution: Disentangling Choice and Algorithmic Feedback in Dynamic Graphs",
+    "url": "https://proceedings.mlr.press/v337/perez26a.html"
+  },
+  {
+    "title": "Bayesian Experimental Design via Score Matching",
+    "url": "https://proceedings.mlr.press/v337/phillips26a.html"
+  },
+  {
+    "title": "Semantic Self-Distillation for Language Model Uncertainty",
+    "url": "https://proceedings.mlr.press/v337/phillips26b.html"
+  },
+  {
+    "title": "A Characterization of the Orthocomplement of the Tangent Space of Semiparametric Markov Models",
+    "url": "https://proceedings.mlr.press/v337/phung26a.html"
+  },
+  {
+    "title": "UnGuide: Learning to Forget with LoRA-Guided Diffusion Models",
+    "url": "https://proceedings.mlr.press/v337/polowczyk26a.html"
+  },
+  {
+    "title": "Distributional Deep Gaussian Processes",
+    "url": "https://proceedings.mlr.press/v337/popescu26a.html"
+  },
+  {
+    "title": "Transformer Based Bayesian Network Structure Learning from an Information Theory Perspective",
+    "url": "https://proceedings.mlr.press/v337/qi26a.html"
+  },
+  {
+    "title": "Reading As Humans: Unified Negation Detection via Cascade Linear Attention Network with Model-Agnostic Meta-Learning",
+    "url": "https://proceedings.mlr.press/v337/qian26a.html"
+  },
+  {
+    "title": "Multi-Agent RL with Invisible Collaborators: Marginal Advantage Estimation for Indirect Cooperation",
+    "url": "https://proceedings.mlr.press/v337/qiao26a.html"
+  },
+  {
+    "title": "Beyond Mean-Field: Tree-Copula Variational Autoencoders for Structured Latent Dependencies",
+    "url": "https://proceedings.mlr.press/v337/rachamim26a.html"
+  },
+  {
+    "title": "Metacognitive Arbitration as Uncertainty Compression in Multi-Agent Language Models",
+    "url": "https://proceedings.mlr.press/v337/rahman26a.html"
+  },
+  {
+    "title": "Variance Estimation and Selecting Good  Estimands for Causal Effect Queries",
+    "url": "https://proceedings.mlr.press/v337/raichev26a.html"
+  },
+  {
+    "title": "Structure Learning for Unfaithful Distributions: The Minimal Dependence Faithfulness",
+    "url": "https://proceedings.mlr.press/v337/ramazi26a.html"
+  },
+  {
+    "title": "Beyond Mixtures and Products for Ensemble Aggregation: A Likelihood Perspective on Generalized Means",
+    "url": "https://proceedings.mlr.press/v337/razafindralambo26a.html"
+  },
+  {
+    "title": "Expert Advice with Costly Observations",
+    "url": "https://proceedings.mlr.press/v337/reyzin26a.html"
+  },
+  {
+    "title": "Imprecise Probabilities for Privacy–Accuracy Trade-offs in Bayesian Networks",
+    "url": "https://proceedings.mlr.press/v337/rocchi26a.html"
+  },
+  {
+    "title": "Planning with Formal Reachability Guarantees in Goal-Oriented MDPs with Dead-Ends",
+    "url": "https://proceedings.mlr.press/v337/roche26a.html"
+  },
+  {
+    "title": "Constrained Weighted Bayesian Bootstrap",
+    "url": "https://proceedings.mlr.press/v337/rosen26a.html"
+  },
+  {
+    "title": "Kernel Integrated $R^2$: A Measure of Dependence",
+    "url": "https://proceedings.mlr.press/v337/roudaki26a.html"
+  },
+  {
+    "title": "VaSST: Variational Inference for Symbolic Regression using Soft Symbolic Trees",
+    "url": "https://proceedings.mlr.press/v337/roy26a.html"
+  },
+  {
+    "title": "Fairness Uncertainty Quantification: A Constrained Stochastic Optimization Perspective",
+    "url": "https://proceedings.mlr.press/v337/roy26b.html"
+  },
+  {
+    "title": "Variance Reduction for Non-Log-Concave Sampling with Applications to Inverse Problems",
+    "url": "https://proceedings.mlr.press/v337/sahin26a.html"
+  },
+  {
+    "title": "Bayesian Adaptation Gym: A Benchmark for the Bayesian Low-Rank Adaptation of Multi-Modal Language Models",
+    "url": "https://proceedings.mlr.press/v337/samplawski26a.html"
+  },
+  {
+    "title": "Quantized Stochastic Primal–Dual Methods for Distributed Optimization under Relaxed Global Geometry",
+    "url": "https://proceedings.mlr.press/v337/sarkar26a.html"
+  },
+  {
+    "title": "Global Convergence of Average Reward Constrained MDPs with Neural Critic and General Policy Parameterization",
+    "url": "https://proceedings.mlr.press/v337/satheesh26a.html"
+  },
+  {
+    "title": "A Sobering Look at Tabular Data Generation via Probabilistic Circuits",
+    "url": "https://proceedings.mlr.press/v337/scassola26a.html"
+  },
+  {
+    "title": "The Price of Knowledge: Optimal Algorithms for Costly Bandits",
+    "url": "https://proceedings.mlr.press/v337/schur26a.html"
+  },
+  {
+    "title": "Sign Identifiability of Causal Effects in Stationary Stochastic Dynamical Systems",
+    "url": "https://proceedings.mlr.press/v337/seeventer26a.html"
+  },
+  {
+    "title": "Birds of a Feather Reason Together: Gestalt Grouping Meets Neuro-Symbolic Inference",
+    "url": "https://proceedings.mlr.press/v337/sha26a.html"
+  },
+  {
+    "title": "The Art of Calling the Winner by Asking Just Enough Questions",
+    "url": "https://proceedings.mlr.press/v337/shah26a.html"
+  },
+  {
+    "title": "Analytic Planning under Uncertainty with Moment Closure",
+    "url": "https://proceedings.mlr.press/v337/sharma26a.html"
+  },
+  {
+    "title": "Improving TensorSketch Using Complex Random Variables",
+    "url": "https://proceedings.mlr.press/v337/sharma26b.html"
+  },
+  {
+    "title": "Finding the Signal in the Spam: Jointly Learning Rewards and Worker Reliability from Pairwise Comparisons",
+    "url": "https://proceedings.mlr.press/v337/shejole26a.html"
+  },
+  {
+    "title": "Valid and Efficient Uncertainty Quantification for Federated Joint Shift",
+    "url": "https://proceedings.mlr.press/v337/shi26a.html"
+  },
+  {
+    "title": "Evaluation of \"Probabilities of Causation\" in Case-Control Studies: Identification and Estimation",
+    "url": "https://proceedings.mlr.press/v337/shingaki26a.html"
+  },
+  {
+    "title": "Fixed-Confidence Best-Arm Identification for Causal Mediation Analysis",
+    "url": "https://proceedings.mlr.press/v337/shrivastava26a.html"
+  },
+  {
+    "title": "Collaborative Multi-view Learning from Crowds",
+    "url": "https://proceedings.mlr.press/v337/si26a.html"
+  },
+  {
+    "title": "Conditional neural control variates for variance reduction in Bayesian inverse problems",
+    "url": "https://proceedings.mlr.press/v337/siahkoohi26a.html"
+  },
+  {
+    "title": "A Stronger Calculus of Intervention for Max-Linear Bayesian Networks",
+    "url": "https://proceedings.mlr.press/v337/sierau26a.html"
+  },
+  {
+    "title": "Particle GFlowNets: Rethinking Generative Marginalization Models",
+    "url": "https://proceedings.mlr.press/v337/silva26a.html"
+  },
+  {
+    "title": "The Minimal Search Space for Conditional Causal Bandits",
+    "url": "https://proceedings.mlr.press/v337/simoes26a.html"
+  },
+  {
+    "title": "Learning-based Optimal Admission Control for Erlang-B Queuing Systems",
+    "url": "https://proceedings.mlr.press/v337/singh26a.html"
+  },
+  {
+    "title": "Consensus Optimization Graph Neural Networks",
+    "url": "https://proceedings.mlr.press/v337/solodova26a.html"
+  },
+  {
+    "title": "Adaptive Fourier Decomposition-guided Neural Operator Design for Inverse PDE Problems",
+    "url": "https://proceedings.mlr.press/v337/song26a.html"
+  },
+  {
+    "title": "Privacy-Preserving Robustness Verification for Neural Networks",
+    "url": "https://proceedings.mlr.press/v337/song26b.html"
+  },
+  {
+    "title": "Multiwinner Voting with Interval Preferences under Incomplete Information",
+    "url": "https://proceedings.mlr.press/v337/springham26a.html"
+  },
+  {
+    "title": "Possibilistic Instrumental Variable Regression with Potentially Invalid Instruments",
+    "url": "https://proceedings.mlr.press/v337/steiner26a.html"
+  },
+  {
+    "title": "Classical and Quantum Speedups for Non-Convex Optimization via Energy Conserving Descent",
+    "url": "https://proceedings.mlr.press/v337/sun26a.html"
+  },
+  {
+    "title": "Learning Who to Treat When Treatment is Missing",
+    "url": "https://proceedings.mlr.press/v337/sundberg26a.html"
+  },
+  {
+    "title": "Deep Spectral Learning of Embedded Latent Transfer Operators for Stochastic Dynamical Systems",
+    "url": "https://proceedings.mlr.press/v337/tanaka26a.html"
+  },
+  {
+    "title": "Particle Dynamics for Latent-Variable Energy-Based Models",
+    "url": "https://proceedings.mlr.press/v337/tang26a.html"
+  },
+  {
+    "title": "Robust and Computationally Efficient Linear Contextual Bandits under Adversarial Corruption and Heavy-Tailed Noise",
+    "url": "https://proceedings.mlr.press/v337/tani26a.html"
+  },
+  {
+    "title": "Positive-Unlabeled Regression: learning from partially labeled quantitative outcomes",
+    "url": "https://proceedings.mlr.press/v337/teisseyre26a.html"
+  },
+  {
+    "title": "EVIA: Entropic Variational Inference Auto-encoding",
+    "url": "https://proceedings.mlr.press/v337/teng26a.html"
+  },
+  {
+    "title": "On Pairwise Quantile Regression - Statistical Guarantees and Applications",
+    "url": "https://proceedings.mlr.press/v337/therezien26a.html"
+  },
+  {
+    "title": "Benign Overfitting  with Quantum Kernels",
+    "url": "https://proceedings.mlr.press/v337/tomasi26a.html"
+  },
+  {
+    "title": "Not Just How Much, But Where: Decomposing Epistemic Uncertainty into Per-Class Contributions",
+    "url": "https://proceedings.mlr.press/v337/toure26a.html"
+  },
+  {
+    "title": "Improving TabPFN’s Synthetic Data Generation by Integrating Causal Structure",
+    "url": "https://proceedings.mlr.press/v337/tugnoli26a.html"
+  },
+  {
+    "title": "Online Learning for Project Selection in Hedonic Project Games",
+    "url": "https://proceedings.mlr.press/v337/valizadeh26a.html"
+  },
+  {
+    "title": "A Causal Markov Condition for Value",
+    "url": "https://proceedings.mlr.press/v337/vassend26a.html"
+  },
+  {
+    "title": "Fisher8: Stabilizing Neural Heteroscedastic Regression via Output-Layer Fisher Geometry",
+    "url": "https://proceedings.mlr.press/v337/vemuganti26a.html"
+  },
+  {
+    "title": "APIC: Amortized Physics-Informed Calibration using Neural Processes",
+    "url": "https://proceedings.mlr.press/v337/venkataramanan26a.html"
+  },
+  {
+    "title": "Structured Credal Learning",
+    "url": "https://proceedings.mlr.press/v337/venkatesh26a.html"
+  },
+  {
+    "title": "Markovian Compression: Looking to the Past Helps Accelerate the Future",
+    "url": "https://proceedings.mlr.press/v337/veprikov26a.html"
+  },
+  {
+    "title": "Collapse-Aware Regularization for Reliable Reasoning Under Distribution Shift",
+    "url": "https://proceedings.mlr.press/v337/vo26a.html"
+  },
+  {
+    "title": "Upper entropy for 2-monotone lower probabilities",
+    "url": "https://proceedings.mlr.press/v337/vu26a.html"
+  },
+  {
+    "title": "Learning Informative Attention Weights for Person Re-Identification",
+    "url": "https://proceedings.mlr.press/v337/wang26b.html"
+  },
+  {
+    "title": "Set-based v.s. Distribution-based Representations of Epistemic Uncertainty: A Comparative Study",
+    "url": "https://proceedings.mlr.press/v337/wang26c.html"
+  },
+  {
+    "title": "Recursive Fréchet Mean Estimation",
+    "url": "https://proceedings.mlr.press/v337/wang26d.html"
+  },
+  {
+    "title": "From Moves to Paths: A Hierarchical Framework for Trajectory Representation Learning",
+    "url": "https://proceedings.mlr.press/v337/wang26e.html"
+  },
+  {
+    "title": "On the Effect of Sampling Diversity in Scaling LLM Inference",
+    "url": "https://proceedings.mlr.press/v337/wang26f.html"
+  },
+  {
+    "title": "Bandit Learning for Online Scheduling with Immediate Decision",
+    "url": "https://proceedings.mlr.press/v337/wang26g.html"
+  },
+  {
+    "title": "Graph Contrastive Learning with Low-Rank Regularization and Low-Rank Attention for Noisy Node Classification",
+    "url": "https://proceedings.mlr.press/v337/wang26h.html"
+  },
+  {
+    "title": "Stationary Robust Mean-Field Games under Model Mismatches",
+    "url": "https://proceedings.mlr.press/v337/wang26i.html"
+  },
+  {
+    "title": "Hierarchical Bayesian Quadrature",
+    "url": "https://proceedings.mlr.press/v337/weiland26a.html"
+  },
+  {
+    "title": "Efficient Federated Conformal Prediction with Group-Conditional Guarantee",
+    "url": "https://proceedings.mlr.press/v337/wen26a.html"
+  },
+  {
+    "title": "Weighted Sequential Bayesian Inference for Non-Stationary Linear Contextual Bandits",
+    "url": "https://proceedings.mlr.press/v337/werge26a.html"
+  },
+  {
+    "title": "Single-Network Asymptotics for Causal Inference with Partial Network Data",
+    "url": "https://proceedings.mlr.press/v337/wilkins-reeves26a.html"
+  },
+  {
+    "title": "Simplex-to-Euclidean Bijection for Conjugate and Calibrated Multiclass Gaussian Process Classification",
+    "url": "https://proceedings.mlr.press/v337/williams26a.html"
+  },
+  {
+    "title": "Building a Bridge Between the Shapley Value, Prime Implicants and Counterfactual Explanations: a Theoretical Analysis",
+    "url": "https://proceedings.mlr.press/v337/willot26a.html"
+  },
+  {
+    "title": "An NTK Theory Approach to UCB Estimation in Semi-gradient TD Learning",
+    "url": "https://proceedings.mlr.press/v337/wu26a.html"
+  },
+  {
+    "title": "Learning Representations from Perturbation: A Novel Matrix-View Weighting Framework for Naive Bayes",
+    "url": "https://proceedings.mlr.press/v337/wu26b.html"
+  },
+  {
+    "title": "On the Convergence of Self-Improving Online LLM Alignment",
+    "url": "https://proceedings.mlr.press/v337/wu26c.html"
+  },
+  {
+    "title": "Concept Sketching for Description Logics",
+    "url": "https://proceedings.mlr.press/v337/wu26d.html"
+  },
+  {
+    "title": "DRL-ORA: Distributional Reinforcement Learning with Online Epistemic Risk Adaptation",
+    "url": "https://proceedings.mlr.press/v337/wu26e.html"
+  },
+  {
+    "title": "Federated Combinatorial Causal Bandits with Heterogeneous Causal Influences",
+    "url": "https://proceedings.mlr.press/v337/wu26f.html"
+  },
+  {
+    "title": "ARGUS: Argumentation-Based Minimal-Change Repair for Verifiable LLM Self-Explanations",
+    "url": "https://proceedings.mlr.press/v337/xiao26a.html"
+  },
+  {
+    "title": "Improving online FDR procedures via online analogs of e-closure and compound e-values",
+    "url": "https://proceedings.mlr.press/v337/xu26a.html"
+  },
+  {
+    "title": "How Learning Dynamics Drive Adversarially Robust Generalization?",
+    "url": "https://proceedings.mlr.press/v337/xu26b.html"
+  },
+  {
+    "title": "Kronecker-Structured Nonparametric Spatiotemporal Point Processes",
+    "url": "https://proceedings.mlr.press/v337/xu26c.html"
+  },
+  {
+    "title": "Efficient Q-Learning and Actor–Critic Methods for Robust Average-Reward Reinforcement Learning.",
+    "url": "https://proceedings.mlr.press/v337/xu26d.html"
+  },
+  {
+    "title": "Implicit Variational Rejection Sampling",
+    "url": "https://proceedings.mlr.press/v337/xu26e.html"
+  },
+  {
+    "title": "Vanilla SGD with Momentum Survives Heavy-Tailed Noise: Convergence Analysis without Gradient Clipping or Normalization",
+    "url": "https://proceedings.mlr.press/v337/yamada26a.html"
+  },
+  {
+    "title": "Robust Decision-Focused Learning via Worst-Case Regret Minimization",
+    "url": "https://proceedings.mlr.press/v337/yamao26a.html"
+  },
+  {
+    "title": "One-Shot Federated Learning based on Random Feature Extractor",
+    "url": "https://proceedings.mlr.press/v337/yang26a.html"
+  },
+  {
+    "title": "ReVAD: From Imitation to Reasoning in Vectorized Autonomous Driving via Latent Space Search",
+    "url": "https://proceedings.mlr.press/v337/yang26b.html"
+  },
+  {
+    "title": "Verbalizing LLM’s Higher-order Uncertainty via Imprecise Probabilities",
+    "url": "https://proceedings.mlr.press/v337/yang26c.html"
+  },
+  {
+    "title": "Evaluating the Role of Great Pre-trained Diffusion Models in Few-shot Phase: Warm-up and Acceleration",
+    "url": "https://proceedings.mlr.press/v337/yang26d.html"
+  },
+  {
+    "title": "Near-Exponential Convergence Rates for kNN Classifications based on Boltzmann Margin",
+    "url": "https://proceedings.mlr.press/v337/yang26e.html"
+  },
+  {
+    "title": "When Can Transformers Count to n?",
+    "url": "https://proceedings.mlr.press/v337/yehudai26a.html"
+  },
+  {
+    "title": "Estimating Interventional Outcomes over Time with Causal Normalizing Flow",
+    "url": "https://proceedings.mlr.press/v337/yeom26a.html"
+  },
+  {
+    "title": "Neural Value Iteration",
+    "url": "https://proceedings.mlr.press/v337/you26a.html"
+  },
+  {
+    "title": "MMG: Mutual Information Estimation via the MMSE Gap in Diffusion",
+    "url": "https://proceedings.mlr.press/v337/yu26a.html"
+  },
+  {
+    "title": "Optimizing Likelihoods via Mutual Information: Bridging Simulation-Based Inference and Bayesian Optimal Experimental Design",
+    "url": "https://proceedings.mlr.press/v337/zaballa26a.html"
+  },
+  {
+    "title": "On the Equivalence of Random Network Distillation, Deep Ensembles, and Bayesian Inference",
+    "url": "https://proceedings.mlr.press/v337/zanger26a.html"
+  },
+  {
+    "title": "A Debiased LASSO Estimator for Design Matrices with Non-zero Mean Elements",
+    "url": "https://proceedings.mlr.press/v337/zantye26a.html"
+  },
+  {
+    "title": "Structural Drift Repair in Decision Trees via Bayesian Model-Based Diagnosis",
+    "url": "https://proceedings.mlr.press/v337/zelinger26a.html"
+  },
+  {
+    "title": "ALIGN: Adversarial Learning for Generalizable Speech Neuroprosthesis",
+    "url": "https://proceedings.mlr.press/v337/zhang26a.html"
+  },
+  {
+    "title": "Bounding the Causal Impact of ML-assisted Decision-Making via Counterfactual Correctness",
+    "url": "https://proceedings.mlr.press/v337/zhang26b.html"
+  },
+  {
+    "title": "Interpretable Causal Discovery via Causal-Effect Constraints",
+    "url": "https://proceedings.mlr.press/v337/zhang26c.html"
+  },
+  {
+    "title": "FedSteer: Taming Extreme Gradient Staleness in Federated Learning with Corrective Projections and Caching",
+    "url": "https://proceedings.mlr.press/v337/zhang26d.html"
+  },
+  {
+    "title": "Not All Queries Need Deep Thought: CoFiCot for Adaptive Coarse-to-fine Stateful Refinement",
+    "url": "https://proceedings.mlr.press/v337/zhang26e.html"
+  },
+  {
+    "title": "Instrumental and Proximal Causal Inference with Gaussian Processes",
+    "url": "https://proceedings.mlr.press/v337/zhang26f.html"
+  },
+  {
+    "title": "Gungnir: Exploiting Stylistic Features in Images for Backdoor Attacks on Diffusion Models",
+    "url": "https://proceedings.mlr.press/v337/zhang26g.html"
+  },
+  {
+    "title": "Efficient Decentralized Learning of Generalized Quantal Response Equilibrium",
+    "url": "https://proceedings.mlr.press/v337/zhao26a.html"
+  },
+  {
+    "title": "SeSE: Black-Box Uncertainty Quantification for Large Language Models Based on Structural Information Theory",
+    "url": "https://proceedings.mlr.press/v337/zhao26b.html"
+  },
+  {
+    "title": "Self-Supervised Uncertainty Estimation For Super-Resolution of Satellite Images",
+    "url": "https://proceedings.mlr.press/v337/zheng26a.html"
+  },
+  {
+    "title": "Uncertainty Quantification of Click and Conversion Estimates for the Autobidding",
+    "url": "https://proceedings.mlr.press/v337/zhigalskii26a.html"
+  },
+  {
+    "title": "Bandwidth Selection in Kernel Density Estimation for Model Calibration",
+    "url": "https://proceedings.mlr.press/v337/zhou26a.html"
+  },
+  {
+    "title": "Unified Confidence Adjustment for Robust Cross-Modal Retrieval under Test-Time Distribution Shifts",
+    "url": "https://proceedings.mlr.press/v337/zhou26b.html"
+  },
+  {
+    "title": "Approximating Probabilistic Inference in Statistical $\\mathcalEL$ with Knowledge Graph Embeddings",
+    "url": "https://proceedings.mlr.press/v337/zhu26a.html"
+  },
+  {
+    "title": "Revisiting TD Target Aggregation under Uncertainty in Q-Learning",
+    "url": "https://proceedings.mlr.press/v337/zu26a.html"
+  },
+  {
+    "title": "Towards Identifiability of Interventional Stochastic Differential Equations",
+    "url": "https://proceedings.mlr.press/v337/zweig26a.html"
+  },
+  {
+    "title": "Learning Lineage-guided Geodesics with Finsler Geometry",
+    "url": "https://proceedings.mlr.press/v337/zweig26b.html"
+  }
+]

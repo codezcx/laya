@@ -1,0 +1,13 @@
+{
+  "venue": "neurips",
+  "id": 155643,
+  "url": "https://neurips.cc/virtual/2026/poster/155643",
+  "status": 200,
+  "text": "Sydney\nAtlanta\nParis\nSelect Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\nEarlier Conferences\nDates\nSubmit\nPoster Instructions\nCall for Papers\nMain Track Handbook\nReviewing Guidelines\nCall for Evaluations & Datasets\nEvaluations and Datasets FAQ\nReviewing Guidelines\nCall for Position Papers\nCall for Reproducibility\nCall for Tutorials\nCall For Competitions\nCompetition Track Reviewing Guidelines\nCall for Workshops\nCall For Affinity Events\nCall for Educational Resources\nCall For Creative AI\nCall for Social Events\nCall for Journal Papers\nCall for Expo\nAI Reviewing Experiment\nAttend\nHotels\nVisa Information\nVolunteering and Financial Assistance\nAttending with Children\nOrganizers\nOrganizing Committee\nNeurIPS Board\nNeurIPS Foundation\nExhibitors\n2026 Exhibitors\nPortal\nEAC Information\nPoster\nFri, Dec 11, 2026 • 2:00 AM – 5:00 AM AEDT\nHall C1\nBudgeted Multi-Source Counterfactual Annotation for Off-Policy Evaluation\nBiao Xiang ⋅ Ali Eshragh ⋅ Yuexing Li ⋅ Kai Wang\n[\nOpenReview\n]\nAbstract\nOff-policy evaluation (OPE) estimates the value of a target policy from logged data, but limited behavior-policy coverage can force high-variance reweighting or reward-model extrapolation. Counterfactual annotations can add evidence about unobserved actions, yet practical sources, including domain experts and LLMs, may be costly, biased, or noisy. We study budgeted acquisition of such annotations for contextual-bandit OPE. Given source-specific costs and error profiles, we formulate an integer allocation problem over context-action pairs and annotation sources to minimize the component of estimator variance that depends on the annotation plan. We characterize when annotations are valuable through a first-annotation threshold and local annotation-value regimes. For the coupled multi-source problem, we develop a majorization-minimization algorithm with dynamic-programming subroutines that monotonically improves the objective. Experiments in synthetic clinical and LLM-annotated education bandits show that our proposed allocation method reduces the optimized variance component by $20.58$% and $10.77$%, respectively, relative to no-annotation baseline.\nShow more\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=446GKdY1L2"
+    }
+  ]
+}

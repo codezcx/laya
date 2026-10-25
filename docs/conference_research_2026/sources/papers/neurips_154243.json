@@ -1,0 +1,13 @@
+{
+  "venue": "neurips",
+  "id": 154243,
+  "url": "https://neurips.cc/virtual/2026/poster/154243",
+  "status": 200,
+  "text": "Sydney\nAtlanta\nParis\nSelect Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\nEarlier Conferences\nDates\nSubmit\nPoster Instructions\nCall for Papers\nMain Track Handbook\nReviewing Guidelines\nCall for Evaluations & Datasets\nEvaluations and Datasets FAQ\nReviewing Guidelines\nCall for Position Papers\nCall for Reproducibility\nCall for Tutorials\nCall For Competitions\nCompetition Track Reviewing Guidelines\nCall for Workshops\nCall For Affinity Events\nCall for Educational Resources\nCall For Creative AI\nCall for Social Events\nCall for Journal Papers\nCall for Expo\nAI Reviewing Experiment\nAttend\nHotels\nVisa Information\nVolunteering and Financial Assistance\nAttending with Children\nOrganizers\nOrganizing Committee\nNeurIPS Board\nNeurIPS Foundation\nExhibitors\n2026 Exhibitors\nPortal\nEAC Information\nPoster\nWed, Dec 9, 2026 • 10:00 AM – 1:00 PM AEDT\nHall 1-4\nAnytime-Valid Conformal Risk Control\nBror Hultberg ⋅ Dave Zachariah ⋅ Antonio Ribeiro\n[\nOpenReview\n]\nAbstract\nPrediction sets provide a means of quantifying the uncertainty in predictive tasks. Using held out calibration data, conformal prediction and risk control can produce prediction sets that exhibit statistically valid error control in a computationally efficient manner. However, in the standard formulations, the error is only controlled on average over many possible calibration datasets of fixed size. In this paper, we extend the control to remain valid with high probability over a cumulatively growing calibration dataset at any time point. We derive such guarantees using quantile-based arguments and illustrate the applicability of the proposed framework to settings involving distribution shift. We further establish a matching lower bound and show that our guarantees are asymptotically tight. Finally, we demonstrate the practical performance of our methods through both simulations and real-world numerical examples.\nShow more\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=FCHpcvgVme"
+    }
+  ]
+}

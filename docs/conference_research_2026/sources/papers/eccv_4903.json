@@ -1,0 +1,12 @@
+{
+  "venue": "eccv",
+  "url": "https://eccv.ecva.net/virtual/2026/poster/4903",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nThu, Sep 10, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 45\nFoundDP: Revisiting Weak Disparity Observability in Dual-Pixel Depth Estimation\nfengchen he ⋅ Hao Xu ⋅ Dayang Zhao ⋅ Tingwei Quan ⋅ Shaoqun zeng\nKeywords:\nComputational Imaging, Shape Recovery and Camera Geometry\nPaper PDF\nAbstract\nDual-pixel (DP) imaging enables metric depth estimation from a single camera using sub-aperture disparity. However, the extremely small e(cid:27)ective baseline limits disparity observability, leading to structural degradation and depth failure in textureless, low-contrast, or downsampled regions. Existing DP-based methods rely primarily on local disparity cues and therefore become unreliable when disparity signals are weak or ambiguous. To address this limitation, we propose FoundDP, a uni(cid:28)ed framework that integrates metric DP depth with global structural priors from a monocular depth foundation model. Our method preserves metric scale through DP-derived depth and leverages Vision Transformer (ViT) features to restore structural consistency in weakdisparity regions. To ensure reliable metric guidance under DP imaging conditions, we identify and mitigate ViT representation degradation induced by DP defocus blur via ViT feature alignment, enabling stable metric-guided depth estimation. Extensive experiments on synthetic and real-world DP benchmarks show that FoundDP delivers superior performance, with consistent gains in structural (cid:28)delity and metric accuracy, especially under reduced disparity observability. Code will be available at: https://github.com/EchoLighting/FoundDP • •\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/7935.pdf"
+    }
+  ]
+}

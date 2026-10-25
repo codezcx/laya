@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 5235,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/5235",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nThu, Sep 10, 2026 • 4:30 PM – 6:30 PM CEST\nExHall # 461\nRobustness Meets Uncertainty: Evidential Adversarial Training for Robust Selective Classification\nNicolas Sournac ⋅ Ahmed Baha Ben Jmaa ⋅ Bertrand Braeckeveldt\nKeywords:\nRobustness, Privacy, Learning & Theory\nPaper PDF\nAbstract\nSafety-critical applications require classifiers that are bothrobust and reliable. Adversarial training is a widely adopted defense forimproving robustness in deep neural networks; however, its effect on thereliability of predictive uncertainty remains underexplored. We investi-gate this gap through the lens of selective classification, which has rarelybeen systematically analyzed alongside adversarial robustness. We in-troduce a unified benchmark for the robustness–uncertainty trade-off.It standardizes architectures, augmentations, threat models, and evalu-ation metrics across clean, adversarial, and common-corruption settings.Across a wide range of state-of-the-art adversarial training methods,we uncover a recurring failure mode: several approaches improve robustaccuracy while degrading uncertainty ranking, leading to poorer selec-tive behavior. To address this, we propose Evidential Adversarial Train-ing (EV-AT), which models uncertainty through a Dirichlet distributionand combines (i) an evidence-based loss promoting clean accuracy andreliable uncertainty with (ii) a robust evidence-alignment loss match-ing clean and adversarial predictions in log Dirichlet-parameter space.Extensive experiments show that EV-AT shifts the Pareto frontier ofrobustness–uncertainty trade-offs beyond prior state-of-the-art adversar-ial training methods. Our source code is publicly available at https://github.com/NicolasSournac/Robustness\nMeets\nUncertainty.EV-AT.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/9519.pdf"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "readme": "# ISP Multi-expert Electrocardiography Dataset Overview\n\n## Data Acquisition\n1. Raw 12-lead ECG data was collected. Each ECG record includes the standard set of 12 leads: I, II, III, AVL, AVR, AVF, and V1 through V6.\n2. General metadata, such as age and sex of the patient, was recorded in a database.\n3. Each record was reviewed and annotated with a textual report by up to 7 doctors. These text annotations were manually converted into a standardized set of SCP-ECG statements (scp_codes).\n\n## Data Description\nThe dataset is organized as follows:\n```\n.\n\u251c\u2500\u2500 data\n\u2502\u00a0\u00a0 \u251c\u2500\u2500 1000.dat\n\u2502\u00a0\u00a0 \u251c\u2500\u2500 1000.hea\n\u2502\u00a0\u00a0 \u251c\u2500\u2500 1000.ii\n\u2502\u00a0\u00a0 \u251c\u2500\u2500 ...\n\u2502\u00a0\u00a0 \u2514\u2500\u2500 9.ii\n\u2514\u2500\u2500 map_file.csv\n```\n\nThe `map_file.csv` contains metadata and abnormality annotations for each ECG record with the following columns:\n\n* **ID**: Unique identifier for each ECG record.\n* **age**: The age of the patient at the time of the ECG recording. All patients are older than 18 years.\n* **sex**: The sex of the patient. \n    * 0 indicates Male.\n    * 1 indicates Female.\n* **device_id**: Identifier for the device used to record the ECG.\n* **segmented**: A boolean value (True or False) indicating whether segmentation annotations are available for the record.\n* **doctor\\<i\\>**: Seven columns labeled doctor1 through doctor7, each representing abnormality annotations provided by different doctors in SCP-ECG format, if available. The experience of the doctors is as follows:\n* **unified_decision**: Abnornality annotation based on the unified decision made by the cardiologists. The unified decision can be calculated in different ways. This column stores the annotations based on the majority decision made by the doctors.\n\ndoctor1: 13 years, doctor2: 20 years, doctor3: 15 years, doctor4: 20 years, doctor5: 16 years, doctor6: 20 years, doctor7: 10 years. \n\nThe dataset consists of 2,732 ECG records, each identified by a unique ID. ECG records are stored in WFDB format. For every record, corresponding `.hea` (header) and `.dat` (data) files are provided, allowing you to associate metadata with the respective ECG signals.\n\nOut of these records, 1,527 have associated delineation annotations in `.ii` files based on the II lead. These files provide detailed information on specific ECG waveforms with the following labels:\n* **(**  : Waveform onset\n* **)**  : Waveform end\n* **p** : P wave\n* **t** : T wave\n* **N** : QRS complex\n\n",
+  "map_columns": [
+    "ID",
+    "age",
+    "sex",
+    "device_id",
+    "doctor1",
+    "doctor2",
+    "doctor3",
+    "doctor4",
+    "doctor5",
+    "doctor6",
+    "doctor7",
+    "segmented",
+    "unified_decision"
+  ],
+  "map_row_count": 2732,
+  "nonempty_by_column": {
+    "ID": 2732,
+    "age": 2732,
+    "sex": 2732,
+    "device_id": 2732,
+    "doctor1": 2732,
+    "doctor2": 2732,
+    "doctor3": 2732,
+    "doctor4": 2732,
+    "doctor5": 2732,
+    "doctor6": 2732,
+    "doctor7": 2732,
+    "segmented": 2732,
+    "unified_decision": 2732
+  },
+  "source": "https://zenodo.org/api/records/20067223/files/ecg_dataset.zip/content",
+  "range": "bytes=0-56109"
+}

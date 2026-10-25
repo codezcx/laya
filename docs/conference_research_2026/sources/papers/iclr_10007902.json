@@ -1,0 +1,21 @@
+{
+  "venue": "iclr",
+  "id": 10007902,
+  "url": "https://iclr.cc/virtual/2026/poster/10007902",
+  "status": 200,
+  "text": "Select Year: (2026)\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\nGetting Started\nSchedule\nMain Conference\nInvited Talks\nAwards\nPapers\nOrals\nBlog Track Posters\nJournal Track Posters\nWorkshops\nCommunity\nTown Hall\nSocials\nSponsors\nOrganizers\nHelpDesk\nPoster\nThu, Apr 23, 2026 • 3:15 PM – 5:45 PM -03\nICYM$^2$I: The illusion of multimodal informativeness under missingness\nYoung Sang Choi ⋅ Vincent Jeanselme ⋅ Pierre Elias ⋅ Shalmali Joshi\nProject Page\n[\nSlides\n]\n[\nPoster\n]\n[\nOpenReview\n]\nAbstract\nMultimodal learning is of continued interest in artificial intelligence-based applications, motivated by the potential information gain from combining different data modalities. However, modalities observed in the source environment may differ from the modalities observed in the target environment due to multiple factors, including cost, hardware failure, or the perceived *informativeness* of a given modality. This change in missingness patterns between the source and target environment has not been carefully studied. Naïve estimation of the information gain associated with including an additional modality without accounting for missingness may result in improper estimates of that modality's value in the target environment. We formalize the problem of missingness, demonstrate its ubiquity, and show that the subsequent distribution shift induces bias when the missingness process is not explicitly accounted for. To address this issue, we introduce $\\text{ICYM}^2\\text{I}$ (In Case You Multimodal Missed It), a framework for the evaluation of predictive performance and information gain under missingness through inverse probability weighting-based correction. We demonstrate the importance of the proposed adjustment to estimate information gain under missingness on synthetic, semi-synthetic, and real-world datasets.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "Project Page",
+      "url": "https://github.com/reAIM-Lab/ICYM2I"
+    },
+    {
+      "text": "Slides",
+      "url": "/media/iclr-2026/Slides/10007902.pdf"
+    },
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=jC7FK8Rf4s"
+    }
+  ]
+}

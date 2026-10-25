@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-25",
+  "args": {
+    "open": [
+      {
+        "ref_id": "https://openreview.net/forum?id=eBkHgucGKp"
+      },
+      {
+        "ref_id": "https://openreview.net/pdf?id=FnMwOr3VoG"
+      },
+      {
+        "ref_id": "https://openreview.net/pdf?id=Pr0dB2FD5u"
+      },
+      {
+        "ref_id": "https://openreview.net/pdf?id=8jViL8YrB1"
+      }
+    ],
+    "response_length": "short"
+  },
+  "result": "Internal Error ()\nciteturn11view0 [wordlim: 200] Source: open({\"ref_id\":\"https://openreview.net/forum?id=eBkHgucGKp\",\"lineno\":null}); Total lines: 1\nL0: URL https://openreview.net/forum?id=eBkHgucGKp is not accessible via this tool.\n--------------------------------------------------------------------------------\nInternal Error ()\nciteturn11view1 [wordlim: 200] Source: open({\"ref_id\":\"https://openreview.net/pdf?id=FnMwOr3VoG\",\"lineno\":null}); Total lines: 1\nL0: URL https://openreview.net/pdf?id=FnMwOr3VoG is not accessible via this tool.\n--------------------------------------------------------------------------------\nInternal Error ()\nciteturn11view2 [wordlim: 200] Source: open({\"ref_id\":\"https://openreview.net/pdf?id=Pr0dB2FD5u\",\"lineno\":null}); Total lines: 1\nL0: URL https://openreview.net/pdf?id=Pr0dB2FD5u is not accessible via this tool.\n--------------------------------------------------------------------------------\nVerifying your browser | OpenReview (https://openreview.net/pdf?id=8jViL8YrB1)\nciteturn11view3 [wordlim: 200] Crawled: yesterday; Content type: text/html; Source: open({\"ref_id\":\"https://openreview.net/pdf?id=8jViL8YrB1\",\"lineno\":null}); Redirected to URL: https://openreview.net/challenge?redirect=/pdf?id%3D8jViL8YrB1; Total lines: 9\nL0: # Verifying your browser\nL1: \nL2: ## Complete the check below to continue to OpenReview\nL3: \nL4: Please complete the verification above.\nL5: \nL6: Have an OpenReview account? 【0†Sign in】 to skip this check.\nL7: \nL8: 【1†OpenReview】 — Open Peer Review. Open Publishing. Open Access.\n"
+}

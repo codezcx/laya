@@ -1,0 +1,16 @@
+{
+  "venue": "icml",
+  "url": "https://icml.cc/virtual/2026/poster/65937",
+  "status": 200,
+  "text": "Select Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2002\n1996\nIMLS Archives\nGetting Started\nSchedule\nTutorials\nMain Conference\nInvited Talks\nOrals\nAwards\nTest of Time Award\nPapers\nSpotlight Posters\nPosition Paper Posters\nJournal Track Posters\nWorkshops\nSocials\nExhibitors\nExhibitors\nExpo Talks, Demos, and Workshops\nOrganizers\nHelpDesk\nPoster\nThu, Jul 9, 2026 • 10:30 AM – 12:15 PM KST\nHALL A #1008\nA Strictly Proper Scoring Rule and a Calibration Metric for Interval-Censored Data Analysis\nHiroki Yanagisawa ⋅ Shunta Akiyama\nProject Page\n[\nPoster\n]\n[\nOpenReview\n]\nAbstract\nInterval-censored data present unique challenges in statistical analysis due to the partial observability of event times within known intervals, requiring assumptions about the censoring mechanism. This paper explores the theoretical relationship between two foundational assumptions: independent monitoring and non-informative censoring. We demonstrate that these assumptions are equivalent for Case-1 interval-censored data, but not for Case-$K$ interval-censored data, where $K \\geq 2$, through a synthetic dataset example. Additionally, we propose the first strictly proper scoring rule and calibration metric specifically designed for interval-censored data under the constant-sum assumption and the non-informative censoring assumption, respectively. Our empirical evaluations on real-world datasets show that a neural network model trained with our scoring rule is competitive with established statistical baselines, offering enhanced flexibility. These contributions provide significant advancements in the theoretical understanding and practical analysis of interval-censored data.\nShow more\nLay Summary\nMany real-world prediction problems involve event times that can't be observed exactly. For example, in medical studies, an infection might be detected only at periodic visits, so the true onset time is known only to lie between two dates. This is called interval censoring, and it makes it hard to both train and evaluate probabilistic models because the usual likelihood and calibration tools assume exact labels.  In this paper, we provide the first strict theoretical guarantee that the standard interval-censored log loss is a strictly proper scoring rule under some common assumptions. In addition, we introduce a new calibration metric that can be computed from censored intervals and detects when predicted probabilities are systematically too optimistic or pessimistic. Experiments show a neural network trained with the proposed loss is competitive with strong statistical baselines.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "Project Page",
+      "url": "https://github.com/CyberAgentAILab/cenreg"
+    },
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=8jViL8YrB1"
+    }
+  ]
+}

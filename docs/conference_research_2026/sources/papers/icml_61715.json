@@ -1,0 +1,13 @@
+{
+  "venue": "icml",
+  "id": 61715,
+  "url": "https://icml.cc/virtual/2026/poster/61715",
+  "status": 200,
+  "text": "Select Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2002\n1996\nIMLS Archives\nGetting Started\nSchedule\nTutorials\nMain Conference\nInvited Talks\nOrals\nAwards\nTest of Time Award\nPapers\nSpotlight Posters\nPosition Paper Posters\nJournal Track Posters\nWorkshops\nSocials\nExhibitors\nExhibitors\nExpo Talks, Demos, and Workshops\nOrganizers\nHelpDesk\nPoster\nWed, Jul 8, 2026 • 10:30 AM – 12:15 PM KST\nHALL A #3901\nConformal Prediction for Early Stopping in Mixed Integer Optimization\nStefan Clarke ⋅ Bartolomeo Stellato\n[\nOpenReview\n]\nAbstract\nMixed-integer optimization solvers often find optimal solutions early in the search, yet spend the majority of computation time proving optimality. We exploit this by learning when to terminate solvers early on distributions of similar problem instances. Our method trains a neural network to estimate the true optimality gap from the solver state, then uses conformal prediction to calibrate a stopping threshold with rigorous probabilistic guarantees on solution quality. On six problem families from the Distributional MIPLIB library, our method reduces solve time by over 60% while guaranteeing 0.1%-optimal solutions with 95% probability for new instances drawn from the same distribution.\nShow more\nLay Summary\nMany real-world problems, like scheduling deliveries, dispatching power, or routing fleets, come down to choosing the best option from millions of possibilities. Standard algorithms find the best answer quickly, then spend most of their time proving it's best. It's like a chef who finds the perfect recipe in ten minutes, then checks every alternative for two hours.  We trained a small neural network to spot, from how the solver runs, when its current answer is probably already optimal. Since the network alone isn't trustworthy, we pair it with conformal prediction: a calibration technique that turns unreliable predictions into provable guarantees using a sample of past problems.  On six benchmark problem families, the method cuts solve time by over 60% on five of them while still returning solutions within 0.1% of optimal at least 95% of the time. Useful anywhere a formal optimality proof costs more than the answer is worth: high-frequency trading, real-time control, emergency dispatch.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=nXsHRrysJX"
+    }
+  ]
+}

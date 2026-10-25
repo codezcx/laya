@@ -1,0 +1,13 @@
+{
+  "venue": "iclr",
+  "id": 10009505,
+  "url": "https://iclr.cc/virtual/2026/poster/10009505",
+  "status": 200,
+  "text": "Select Year: (2026)\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\nGetting Started\nSchedule\nMain Conference\nInvited Talks\nAwards\nPapers\nOrals\nBlog Track Posters\nJournal Track Posters\nWorkshops\nCommunity\nTown Hall\nSocials\nSponsors\nOrganizers\nHelpDesk\nPoster\nFri, Apr 24, 2026 • 10:30 AM – 1:00 PM -03\nOnline Conformal Prediction with Adversarial Semi-bandit Feedback via Regret Minimization\nJunyoung Yang ⋅ Kyungmin Kim ⋅ Sangdon Park\n[\nPoster\n]\n[\nOpenReview\n]\nAbstract\nUncertainty quantification is crucial in safety-critical systems, where decisions must be made under uncertainty.  In particular, we consider the problem of online uncertainty quantification,  where data points arrive sequentially.  Online conformal prediction is a principled online uncertainty quantification method that dynamically constructs a prediction set at each time step. While existing methods for online conformal prediction provide long-run coverage guarantees without any distributional assumptions, they typically assume a\nfull feedback\nsetting in which the true label is always observed.  In this paper, we propose a novel learning method for online conformal prediction with\npartial feedback\nfrom an adaptive adversary—a more challenging setup where the true label is revealed only when it lies inside the constructed prediction set. Specifically, we formulate online conformal prediction as an adversarial bandit problem by treating each candidate prediction set as an arm.  Building on an existing algorithm for adversarial bandits,  our method achieves a long-run coverage guarantee by explicitly establishing its connection to the regret of the learner. Finally, we empirically demonstrate the effectiveness of our method in both independent and identically distributed (i.i.d.) and non-i.i.d. settings,  showing that it successfully controls the miscoverage rate while maintaining a reasonable size of the prediction set.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=RMWcdp5IUy"
+    }
+  ]
+}

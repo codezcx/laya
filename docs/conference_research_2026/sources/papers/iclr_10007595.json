@@ -1,0 +1,13 @@
+{
+  "venue": "iclr",
+  "id": 10007595,
+  "url": "https://iclr.cc/virtual/2026/poster/10007595",
+  "status": 200,
+  "text": "Select Year: (2026)\n2027\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\nGetting Started\nSchedule\nMain Conference\nInvited Talks\nAwards\nPapers\nOrals\nBlog Track Posters\nJournal Track Posters\nWorkshops\nCommunity\nTown Hall\nSocials\nSponsors\nOrganizers\nHelpDesk\nPoster\nSat, Apr 25, 2026 • 10:30 AM – 1:00 PM -03\nRobust Decision-Making with Partially Calibrated Forecasters\nShayan Kiyani ⋅ Hamed Hassani ⋅ George Pappas ⋅ Aaron Roth\n[\nOpenReview\n]\nAbstract\nCalibration has emerged as a foundational goal in trustworthy machine learning, in part because of its strong decision theoretic semantics. Independent of the underlying distribution, and independent of the decision maker's utility function, calibration promises that amongst all policies mapping predictions to actions, the uniformly best policy is the one that trusts the predictions and acts as if they were correct. But this is true only of fully calibrated forecasts, which are tractable to guarantee only for very low dimensional prediction problems. For higher dimensional prediction problems (e.g. when outcomes are multiclass), weaker forms of calibration have been studied that lack these decision theoretic properties. In this paper we study how a conservative decision maker should map predictions endowed with these weaker (partial) calibration guarantees to actions, in a way that is robust in a minimax sense: i.e. to maximize their expected utility in the worst case over distributions consistent with the calibration guarantees. We characterize their minimax optimal decision rule via a duality argument, and show that surprisingly, trusting the predictions and acting accordingly is recovered in this minimax sense by decision calibration (and any strictly stronger notion of calibration), a substantially weaker and more tractable condition than full calibration. For calibration guarantees that fall short of decision calibration, the minimax optimal decision rule is still efficiently computable, and we provide an empirical evaluation of a natural one that applies to any regression model solved to optimize squared error.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=mHRuCmc9lo"
+    }
+  ]
+}

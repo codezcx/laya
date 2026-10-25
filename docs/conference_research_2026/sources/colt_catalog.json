@@ -1,0 +1,790 @@
+[
+  {
+    "title": "Conference on Learning Theory 2026: Preface",
+    "url": "https://proceedings.mlr.press/v336/hanneke26a.html"
+  },
+  {
+    "title": "How fast can you find a good hypothesis?",
+    "url": "https://proceedings.mlr.press/v336/aamand26a.html"
+  },
+  {
+    "title": "On efficient robust regression with subquadratic samples",
+    "url": "https://proceedings.mlr.press/v336/adil26a.html"
+  },
+  {
+    "title": "Quiet Planting for $k$-SAT, Multiple Solutions of Arbitrary Geometry",
+    "url": "https://proceedings.mlr.press/v336/ahmadi26a.html"
+  },
+  {
+    "title": "Optimal Prediction-Augmented Algorithms for Testing Independence of Distributions",
+    "url": "https://proceedings.mlr.press/v336/aliakbarpour26a.html"
+  },
+  {
+    "title": "Query Efficient Structured Matrix Learning",
+    "url": "https://proceedings.mlr.press/v336/amsel26a.html"
+  },
+  {
+    "title": "Swap Regret Minimization Through Response-Based Approachability",
+    "url": "https://proceedings.mlr.press/v336/anagnostides26a.html"
+  },
+  {
+    "title": "Dimension Reduction via Sum-of-Squares and Improved Clustering Algorithms for Non-Spherical Mixtures",
+    "url": "https://proceedings.mlr.press/v336/anderson26a.html"
+  },
+  {
+    "title": "Statistical Learning from Attribution Sets",
+    "url": "https://proceedings.mlr.press/v336/applebaum26a.html"
+  },
+  {
+    "title": "Tight Long-Term Tail Decay of (Clipped) SGD in Non-Convex Optimization",
+    "url": "https://proceedings.mlr.press/v336/armacki26a.html"
+  },
+  {
+    "title": "Learning depth-3 circuits via quantum agnostic boosting",
+    "url": "https://proceedings.mlr.press/v336/arunachalam26a.html"
+  },
+  {
+    "title": "Strongly Polynomial Time Complexity of Policy Iteration for $L_∞$ Robust MDPs",
+    "url": "https://proceedings.mlr.press/v336/asadi26a.html"
+  },
+  {
+    "title": "Margin in Abstract Spaces",
+    "url": "https://proceedings.mlr.press/v336/ashlagi26a.html"
+  },
+  {
+    "title": "A Complexity Measure for Active Learning in Multi-group Mean Estimation",
+    "url": "https://proceedings.mlr.press/v336/aznag26a.html"
+  },
+  {
+    "title": "Variational Tail Bounds for Norms of Random Vectors and Matrices",
+    "url": "https://proceedings.mlr.press/v336/bahmani26a.html"
+  },
+  {
+    "title": "Cloning is as Hard as Learning for Stabilizer States",
+    "url": "https://proceedings.mlr.press/v336/bansal26a.html"
+  },
+  {
+    "title": "Limitations of SGD for Multi-Index Models Beyond Statistical Queries",
+    "url": "https://proceedings.mlr.press/v336/barzilai26a.html"
+  },
+  {
+    "title": "Algorithmic Thinking Theory",
+    "url": "https://proceedings.mlr.press/v336/bateni26a.html"
+  },
+  {
+    "title": "Omniprediction with Long-Term Constraints",
+    "url": "https://proceedings.mlr.press/v336/bechavod26a.html"
+  },
+  {
+    "title": "Adaptive Weighted Averaging",
+    "url": "https://proceedings.mlr.press/v336/bhaskara26a.html"
+  },
+  {
+    "title": "Actively Learning Halfspaces without Synthetic Data",
+    "url": "https://proceedings.mlr.press/v336/black26a.html"
+  },
+  {
+    "title": "Characterizing Online and Private Learnability under Distributional Constraints via Generalized Smoothness",
+    "url": "https://proceedings.mlr.press/v336/blanchard26a.html"
+  },
+  {
+    "title": "Partition Function Estimation under Bounded $f$-Divergence",
+    "url": "https://proceedings.mlr.press/v336/block26a.html"
+  },
+  {
+    "title": "Tight list replicability bounds via a novel sphere covering theorem",
+    "url": "https://proceedings.mlr.press/v336/blondal26a.html"
+  },
+  {
+    "title": "Learning from Equivalence Queries, Revisited",
+    "url": "https://proceedings.mlr.press/v336/braverman26a.html"
+  },
+  {
+    "title": "Learning Conditional Averages",
+    "url": "https://proceedings.mlr.press/v336/bressan26a.html"
+  },
+  {
+    "title": "Active Learning on Adversarially Corrupted Graphs",
+    "url": "https://proceedings.mlr.press/v336/bressan26b.html"
+  },
+  {
+    "title": "Universal priors: solving empirical Bayes via Bayesian inference and pretraining",
+    "url": "https://proceedings.mlr.press/v336/cannella26a.html"
+  },
+  {
+    "title": "Phase Transition for Stochastic Block Model with more than $\\sqrtn$ Communities",
+    "url": "https://proceedings.mlr.press/v336/carpentier26a.html"
+  },
+  {
+    "title": "Learning Periodic Strategies in Blocking Bandits Is as Hard as Bandits with Switching Costs",
+    "url": "https://proceedings.mlr.press/v336/cesa-bianchi26a.html"
+  },
+  {
+    "title": "A Characterization of List Language Identification in the Limit",
+    "url": "https://proceedings.mlr.press/v336/charikar26a.html"
+  },
+  {
+    "title": "Language Identification with Succinct Machine-Independent Traces",
+    "url": "https://proceedings.mlr.press/v336/charikar26b.html"
+  },
+  {
+    "title": "A Tight Lower Bound for Non-stochastic Multi-armed Bandits with Expert Advice",
+    "url": "https://proceedings.mlr.press/v336/chase26a.html"
+  },
+  {
+    "title": "Faster Newton Methods for Convex and Nonconvex Optimization in Gradient Complexity",
+    "url": "https://proceedings.mlr.press/v336/chen26a.html"
+  },
+  {
+    "title": "Separating Oblivious and Adaptive Models of Variable Selection (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/chen26b.html"
+  },
+  {
+    "title": "Instance-optimal high-precision shadow tomography with few-copy measurements: A metrological approach",
+    "url": "https://proceedings.mlr.press/v336/chen26c.html"
+  },
+  {
+    "title": "Information-computation gaps in quantum learning via low-degree likelihood",
+    "url": "https://proceedings.mlr.press/v336/chen26d.html"
+  },
+  {
+    "title": "Optimal Inference Schedules for Masked Diffusion Models",
+    "url": "https://proceedings.mlr.press/v336/chen26e.html"
+  },
+  {
+    "title": "Self-Normalized Martingales and Uniform Regret Bounds for Linear Regression",
+    "url": "https://proceedings.mlr.press/v336/chen26f.html"
+  },
+  {
+    "title": "High-Accuracy Log-Concave Sampling with Stochastic Queries",
+    "url": "https://proceedings.mlr.press/v336/chen26g.html"
+  },
+  {
+    "title": "Calibeating Made Simple",
+    "url": "https://proceedings.mlr.press/v336/chen26h.html"
+  },
+  {
+    "title": "Is Memorization Helpful or Harmful? Prior Information Sets the Threshold",
+    "url": "https://proceedings.mlr.press/v336/cheng26a.html"
+  },
+  {
+    "title": "DDPM Score Matching and Distribution Learning (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/chewi26a.html"
+  },
+  {
+    "title": "Density estimation for Hellinger via minimum-distance estimators: mixtures of Gaussians, log-concave, and more",
+    "url": "https://proceedings.mlr.press/v336/compton26a.html"
+  },
+  {
+    "title": "Eigen-Spike Emergence and Quadratic Equivalents for Conjugate Kernels on Nonlinearly Separable Data",
+    "url": "https://proceedings.mlr.press/v336/cranston26a.html"
+  },
+  {
+    "title": "Tight Bounds for Logistic Regression with Large Stepsize Gradient Descent in Low Dimension",
+    "url": "https://proceedings.mlr.press/v336/crawshaw26a.html"
+  },
+  {
+    "title": "Rigorous Asymptotics for First-Order Algorithms Through the Dynamical Cavity Method",
+    "url": "https://proceedings.mlr.press/v336/dandi26a.html"
+  },
+  {
+    "title": "Estimating Ising Models in Total Variation Distance",
+    "url": "https://proceedings.mlr.press/v336/daskalakis26a.html"
+  },
+  {
+    "title": "Stochastic Safe Action Model Learning",
+    "url": "https://proceedings.mlr.press/v336/deng26a.html"
+  },
+  {
+    "title": "The matrix-vector complexity of Ax=b",
+    "url": "https://proceedings.mlr.press/v336/derezinski26a.html"
+  },
+  {
+    "title": "Last-Iterate Convergence of Randomized Kaczmarz and SGD with Greedy Step Size",
+    "url": "https://proceedings.mlr.press/v336/derezinski26b.html"
+  },
+  {
+    "title": "High-Dimensional Gaussian Mean Estimation under Realizable Contamination",
+    "url": "https://proceedings.mlr.press/v336/diakonikolas26a.html"
+  },
+  {
+    "title": "Linear Regression under Missing or Corrupted Coordinates",
+    "url": "https://proceedings.mlr.press/v336/diakonikolas26b.html"
+  },
+  {
+    "title": "A Quasi-Polynomial Time Mean Estimator Under Mean-Shift Contamination with Unknown Covariance",
+    "url": "https://proceedings.mlr.press/v336/diakonikolas26c.html"
+  },
+  {
+    "title": "Online Convex Optimization with Sublinear Noisy Probes",
+    "url": "https://proceedings.mlr.press/v336/di-gregorio26a.html"
+  },
+  {
+    "title": "Minimax optimal differentially private synthetic data for smooth queries",
+    "url": "https://proceedings.mlr.press/v336/ding26a.html"
+  },
+  {
+    "title": "Rate-optimal community detection near the KS threshold via node-robust algorithms",
+    "url": "https://proceedings.mlr.press/v336/ding26b.html"
+  },
+  {
+    "title": "Efficient Sampling with Discrete Diffusion Models: Sharp and Adaptive Guarantees",
+    "url": "https://proceedings.mlr.press/v336/dmitriev26a.html"
+  },
+  {
+    "title": "Online Realizable Regression and Applications for ReLU Networks",
+    "url": "https://proceedings.mlr.press/v336/doron-arad26a.html"
+  },
+  {
+    "title": "Relatively Smart: A New Approach for Instance-Optimal Learning",
+    "url": "https://proceedings.mlr.press/v336/dughmi26a.html"
+  },
+  {
+    "title": "The Median is Easier than it Looks: Approximation with a Constant-Depth, Linear-Width ReLU Network",
+    "url": "https://proceedings.mlr.press/v336/dutta26a.html"
+  },
+  {
+    "title": "Theoretical Compression Bounds for Wide Multilayer Perceptrons",
+    "url": "https://proceedings.mlr.press/v336/el-cheairi26a.html"
+  },
+  {
+    "title": "Leveraging Similarities in Multi-Armed Bandits",
+    "url": "https://proceedings.mlr.press/v336/eldowa26a.html"
+  },
+  {
+    "title": "The Sample Complexity of Multiclass and Sparse Contextual Bandits",
+    "url": "https://proceedings.mlr.press/v336/erez26a.html"
+  },
+  {
+    "title": "Tight Sample Complexity Bounds for Entropic Best Policy Identification",
+    "url": "https://proceedings.mlr.press/v336/essakine26a.html"
+  },
+  {
+    "title": "Defensive Generation",
+    "url": "https://proceedings.mlr.press/v336/farina26a.html"
+  },
+  {
+    "title": "Optimal Reconstruction from Linear Queries",
+    "url": "https://proceedings.mlr.press/v336/filmus26a.html"
+  },
+  {
+    "title": "Space-Efficient Language Generation in the Limit",
+    "url": "https://proceedings.mlr.press/v336/flammarion26a.html"
+  },
+  {
+    "title": "Toward Simultaneously Optimal Regret in U-Calibration",
+    "url": "https://proceedings.mlr.press/v336/frongillo26a.html"
+  },
+  {
+    "title": "Learning Ising Models from Evolutions (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/gaitonde26a.html"
+  },
+  {
+    "title": "Optimal Hardness of Online Algorithms for Large Common Induced Subgraphs",
+    "url": "https://proceedings.mlr.press/v336/gamarnik26a.html"
+  },
+  {
+    "title": "Fast and Large-Scale Unbalanced Optimal Transport via its Semi-Dual and Adaptive Gradient Methods",
+    "url": "https://proceedings.mlr.press/v336/genans26a.html"
+  },
+  {
+    "title": "Nearly Linear-Time User-Level DP-SCO with Optimal Rates",
+    "url": "https://proceedings.mlr.press/v336/ghazi26a.html"
+  },
+  {
+    "title": "Fixed-Parameter Tractability of Private Synthetic Data Generation",
+    "url": "https://proceedings.mlr.press/v336/ghazi26b.html"
+  },
+  {
+    "title": "Universality of high-dimensional scaling limits of stochastic gradient descent (extended abstract)",
+    "url": "https://proceedings.mlr.press/v336/gheissari26a.html"
+  },
+  {
+    "title": "On the Statistical Query Complexity of Learning Semiautomata: a Random Walk Approach",
+    "url": "https://proceedings.mlr.press/v336/giapitzakis26a.html"
+  },
+  {
+    "title": "Sample-Efficient Omniprediction for Proper Losses",
+    "url": "https://proceedings.mlr.press/v336/gibbs26a.html"
+  },
+  {
+    "title": "Robust Algorithms for Finding Cliques in Random Intersection Graphs via Sum-of-Squares",
+    "url": "https://proceedings.mlr.press/v336/gobel26a.html"
+  },
+  {
+    "title": "Information-Theoretic Thresholds for Bipartite Latent-Space Graphs Under Noisy Observations",
+    "url": "https://proceedings.mlr.press/v336/gobel26b.html"
+  },
+  {
+    "title": "Testing Noise Assumptions of Learning Algorithms",
+    "url": "https://proceedings.mlr.press/v336/goel26a.html"
+  },
+  {
+    "title": "Compact Geometric Representations of Hierarchies",
+    "url": "https://proceedings.mlr.press/v336/gokhale26a.html"
+  },
+  {
+    "title": "Randomization for Faster Exact Optimization of Discounted Markov Decision Processes",
+    "url": "https://proceedings.mlr.press/v336/graur26a.html"
+  },
+  {
+    "title": "Computing Lewis weights to high precision using local relative smoothness",
+    "url": "https://proceedings.mlr.press/v336/gribling26a.html"
+  },
+  {
+    "title": "A Unified Lower Bound on the Noisy Query Complexity of Boolean Functions",
+    "url": "https://proceedings.mlr.press/v336/gu26a.html"
+  },
+  {
+    "title": "Functional Stochastic Localization",
+    "url": "https://proceedings.mlr.press/v336/gu26b.html"
+  },
+  {
+    "title": "High Probability Convergence Guarantees of Stochastic Gradient Descent Ascent in Structured Nonconvex Min-Max Games",
+    "url": "https://proceedings.mlr.press/v336/ha26a.html"
+  },
+  {
+    "title": "An Empirical Bayes Perspective on Heteroskedastic Mean Estimation",
+    "url": "https://proceedings.mlr.press/v336/han26a.html"
+  },
+  {
+    "title": "Is Multi-Distribution Learning as Easy as PAC Learning: Sharp Rates with Bounded Label Noise",
+    "url": "https://proceedings.mlr.press/v336/hanashiro26a.html"
+  },
+  {
+    "title": "Price of metric universality in vector quantization is at most 0.11 bit",
+    "url": "https://proceedings.mlr.press/v336/harbuzova26a.html"
+  },
+  {
+    "title": "Learning from Biased and Costly Data Sources: Minimax-optimal Data Collection under a Budget (extended abstract)",
+    "url": "https://proceedings.mlr.press/v336/harding26a.html"
+  },
+  {
+    "title": "A Perfectly Truthful Calibration Measure",
+    "url": "https://proceedings.mlr.press/v336/hartline26a.html"
+  },
+  {
+    "title": "Uniform Laws of Large Numbers in Product Spaces",
+    "url": "https://proceedings.mlr.press/v336/holzman26a.html"
+  },
+  {
+    "title": "Recovery thresholds for hidden weighted sparse graphs (extended abstract)",
+    "url": "https://proceedings.mlr.press/v336/hou26a.html"
+  },
+  {
+    "title": "Near-optimal Swap Regret Minimization for Convex Losses",
+    "url": "https://proceedings.mlr.press/v336/hu26a.html"
+  },
+  {
+    "title": "Efficient Swap Multicalibration of Elicitable Properties",
+    "url": "https://proceedings.mlr.press/v336/hu26b.html"
+  },
+  {
+    "title": "Wasserstein Policy Learning for Distributional Outcomes",
+    "url": "https://proceedings.mlr.press/v336/huang26a.html"
+  },
+  {
+    "title": "Reconstructing Riemannian Metrics From Random Geometric Graphs",
+    "url": "https://proceedings.mlr.press/v336/huang26b.html"
+  },
+  {
+    "title": "Almost Linear Convergence under Minimal Score Assumptions: Quantized Transition Diffusion",
+    "url": "https://proceedings.mlr.press/v336/huang26c.html"
+  },
+  {
+    "title": "Recovery of Planted Subgraphs",
+    "url": "https://proceedings.mlr.press/v336/huleihel26a.html"
+  },
+  {
+    "title": "Simultaneous Blackwell Approachability and Applications to Multiclass Omniprediction",
+    "url": "https://proceedings.mlr.press/v336/hu26c.html"
+  },
+  {
+    "title": "On Randomized Algorithms in Online Strategic Classification",
+    "url": "https://proceedings.mlr.press/v336/hutton26a.html"
+  },
+  {
+    "title": "Adversarial Learning in Games with Bandit Feedback: Logarithmic Pure-Strategy Maximin Regret",
+    "url": "https://proceedings.mlr.press/v336/ito26a.html"
+  },
+  {
+    "title": "On the Importance of Randomization in Discriminative Feature Feedback",
+    "url": "https://proceedings.mlr.press/v336/iverson26a.html"
+  },
+  {
+    "title": "Sharp analysis of linear ensemble sampling",
+    "url": "https://proceedings.mlr.press/v336/janz26a.html"
+  },
+  {
+    "title": "Low-Degree Method Fails to Predict Robust Subspace Recovery",
+    "url": "https://proceedings.mlr.press/v336/jia26a.html"
+  },
+  {
+    "title": "Adaptive Matrix Online Learning through Smoothing with Guarantees for Nonsmooth Nonconvex Optimization",
+    "url": "https://proceedings.mlr.press/v336/jiang26a.html"
+  },
+  {
+    "title": "Avoiding exp($k^*$) Scaling for Thompson Sampling in Combinatorial Semi-Bandits: From Multiple Seeds to a Single Seed",
+    "url": "https://proceedings.mlr.press/v336/jin26a.html"
+  },
+  {
+    "title": "Ripple Mechanisms for Discrete and Private Statistics",
+    "url": "https://proceedings.mlr.press/v336/joseph26a.html"
+  },
+  {
+    "title": "Can SGD Select Good Fishermen? Local Convergence under Self-Selection Biases (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/kalavasis26a.html"
+  },
+  {
+    "title": "Fast, Parallel, Query-Efficient Binary Classification",
+    "url": "https://proceedings.mlr.press/v336/karmarkar26a.html"
+  },
+  {
+    "title": "Recursively Enumerably Representable Classes and Computable Versions of the Fundamental Theorem of Statistical Learning",
+    "url": "https://proceedings.mlr.press/v336/kattermann26a.html"
+  },
+  {
+    "title": "Spectral Valleys and Sharp Failures in Greedy Determinant Maximization",
+    "url": "https://proceedings.mlr.press/v336/khanna26a.html"
+  },
+  {
+    "title": "Sandwiching Polynomials for Geometric Concepts with Low Intrinsic Dimension",
+    "url": "https://proceedings.mlr.press/v336/klivans26a.html"
+  },
+  {
+    "title": "Equivalence of Coarse and Fine-Grained Models for Learning with Distribution Shift",
+    "url": "https://proceedings.mlr.press/v336/patel26a.html"
+  },
+  {
+    "title": "Overlap Analysis of the Shortest Path Problem: Local Search, Landscapes, and Franz-Parisi Potential",
+    "url": "https://proceedings.mlr.press/v336/koehler26a.html"
+  },
+  {
+    "title": "Ambiguous Online Learning",
+    "url": "https://proceedings.mlr.press/v336/kosoy26a.html"
+  },
+  {
+    "title": "Clipping the Price of Adaptivity at the Tail",
+    "url": "https://proceedings.mlr.press/v336/kreisler26a.html"
+  },
+  {
+    "title": "A Distribution Testing Approach to Clustering Distributions",
+    "url": "https://proceedings.mlr.press/v336/kumar26a.html"
+  },
+  {
+    "title": "On the Curse of Dimensionality in Private Sparse Covariance Estimation and PCA",
+    "url": "https://proceedings.mlr.press/v336/kumar26b.html"
+  },
+  {
+    "title": "How Does the ReLU Activation Affect the Implicit Bias of Gradient Descent on High-dimensional Neural Network Regression?",
+    "url": "https://proceedings.mlr.press/v336/lai26a.html"
+  },
+  {
+    "title": "Adaptive Learning Rates with Surrogate Probability for Follow-the-Perturbed-Leader",
+    "url": "https://proceedings.mlr.press/v336/lee26a.html"
+  },
+  {
+    "title": "Unified Framework of Distributional Regret in Multi-Armed Bandits and Reinforcement Learning",
+    "url": "https://proceedings.mlr.press/v336/lee26b.html"
+  },
+  {
+    "title": "Blackwell Approachability and Gradient Equilibrium are Equivalent",
+    "url": "https://proceedings.mlr.press/v336/lee26c.html"
+  },
+  {
+    "title": "A Single Stepsize Suffices for Unprojected Linear TD(0): Simultaneous Robust and Fast Rates via Polyak–Ruppert Averaging",
+    "url": "https://proceedings.mlr.press/v336/lee26d.html"
+  },
+  {
+    "title": "Self-Concordant Perturbations for Linear Bandits",
+    "url": "https://proceedings.mlr.press/v336/levy26a.html"
+  },
+  {
+    "title": "Second-Order Bounds for $[0,1]$-Valued Regression via Betting Loss",
+    "url": "https://proceedings.mlr.press/v336/li26a.html"
+  },
+  {
+    "title": "Optimal Learning Rate Schedules under Functional Scaling Laws: Power Decay and Warmup–Stable–Decay (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/li26b.html"
+  },
+  {
+    "title": "Fast algorithms for learning a Gaussian under halfspace truncation with optimal sample complexity",
+    "url": "https://proceedings.mlr.press/v336/liu26a.html"
+  },
+  {
+    "title": "Online Learning for Uninformed Markov Games: Empirical Nash-Value Regret and Non-Stationarity Adaptation",
+    "url": "https://proceedings.mlr.press/v336/liu26b.html"
+  },
+  {
+    "title": "Regret Minimization with Adaptive Opponents in Repeated Games",
+    "url": "https://proceedings.mlr.press/v336/liu26c.html"
+  },
+  {
+    "title": "Random Reshuffling Dominates Stochastic Gradient Descent",
+    "url": "https://proceedings.mlr.press/v336/liu26d.html"
+  },
+  {
+    "title": "Wedge Sampling: Efficient Tensor Completion with Nearly-Linear Sample Complexity",
+    "url": "https://proceedings.mlr.press/v336/luo26a.html"
+  },
+  {
+    "title": "Polynomial-time sampling despite disorder chaos",
+    "url": "https://proceedings.mlr.press/v336/ma26a.html"
+  },
+  {
+    "title": "On the Power  of Adaptivity for $\\varepsilon$-Best Arm Identification in Linear Bandits",
+    "url": "https://proceedings.mlr.press/v336/maiti26a.html"
+  },
+  {
+    "title": "Online Market Making and the Value of Observing the Order Book",
+    "url": "https://proceedings.mlr.press/v336/maran26a.html"
+  },
+  {
+    "title": "Phase Transition in Convex Relaxations for Graph Alignment",
+    "url": "https://proceedings.mlr.press/v336/massoulie26a.html"
+  },
+  {
+    "title": "On the Complexity of Best-Arm Identification in Non-Stationary Linear Bandits",
+    "url": "https://proceedings.mlr.press/v336/maynard-zhang26a.html"
+  },
+  {
+    "title": "Language Generation with Infinite Contamination",
+    "url": "https://proceedings.mlr.press/v336/mehrotra26a.html"
+  },
+  {
+    "title": "Differentially Private Language Generation and Identification in the Limit (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/mehrotra26b.html"
+  },
+  {
+    "title": "On the Gradient Complexity of Private Optimization with Private Oracles",
+    "url": "https://proceedings.mlr.press/v336/menart26a.html"
+  },
+  {
+    "title": "On the implicit regularization of Langevin dynamics with projected noise",
+    "url": "https://proceedings.mlr.press/v336/menon26a.html"
+  },
+  {
+    "title": "Steering diffusion models with quadratic rewards: a fine-grained analysis",
+    "url": "https://proceedings.mlr.press/v336/moitra26a.html"
+  },
+  {
+    "title": "On the Stability of Nonlinear Dynamics in GD and SGD: Beyond Quadratic Potentials",
+    "url": "https://proceedings.mlr.press/v336/mulayoff26a.html"
+  },
+  {
+    "title": "Optimal Neural Network Approximation of Smooth Compositional Functions on Sets with Low Intrinsic Dimension",
+    "url": "https://proceedings.mlr.press/v336/nagler26a.html"
+  },
+  {
+    "title": "Graph neural networks extrapolate out-of-distribution for shortest paths",
+    "url": "https://proceedings.mlr.press/v336/nerem26a.html"
+  },
+  {
+    "title": "An Exponential Lower Bound for Spectral Density Estimation on Unweighted Graphs",
+    "url": "https://proceedings.mlr.press/v336/peng26a.html"
+  },
+  {
+    "title": "How Many Features Can a Language Model Store Under the Linear Representation Hypothesis?",
+    "url": "https://proceedings.mlr.press/v336/garg26a.html"
+  },
+  {
+    "title": "Boosting with List-Decodable Codes",
+    "url": "https://proceedings.mlr.press/v336/prairie26a.html"
+  },
+  {
+    "title": "Deep Q-Learning on Hölder Spaces",
+    "url": "https://proceedings.mlr.press/v336/qi26a.html"
+  },
+  {
+    "title": "Taming the Monster Every Context: Complexity Measure and Unified Framework for Offline-Oracle Efficient Contextual Bandits",
+    "url": "https://proceedings.mlr.press/v336/qin26a.html"
+  },
+  {
+    "title": "Near-Optimal Regret for Distributed Adversarial Bandits: A Black-Box Approach",
+    "url": "https://proceedings.mlr.press/v336/qiu26a.html"
+  },
+  {
+    "title": "Learning to Reason with Curriculum I: Provable Benefits of Autocurriculum",
+    "url": "https://proceedings.mlr.press/v336/rajaraman26a.html"
+  },
+  {
+    "title": "Provable Learning of Random Hierarchy Models and Hierarchical Shallow-to-Deep Chaining",
+    "url": "https://proceedings.mlr.press/v336/ren26a.html"
+  },
+  {
+    "title": "Continuous time policy evaluation is easier with noisy dynamics",
+    "url": "https://proceedings.mlr.press/v336/robertson26a.html"
+  },
+  {
+    "title": "Model Agreement via Anchoring",
+    "url": "https://proceedings.mlr.press/v336/eaton26a.html"
+  },
+  {
+    "title": "Private Linear Regression via a Down-Sensitivity to Privacy Reduction",
+    "url": "https://proceedings.mlr.press/v336/rubinstein26a.html"
+  },
+  {
+    "title": "A Depth Hierarchy for Computing the Maximum in ReLU Networks via Extremal Graph Theory",
+    "url": "https://proceedings.mlr.press/v336/safran26a.html"
+  },
+  {
+    "title": "Convergence of Continual Learning in Homogeneous Deep Networks",
+    "url": "https://proceedings.mlr.press/v336/schliserman26a.html"
+  },
+  {
+    "title": "The Hidden Cost of Approximation in Online Mirror Descent",
+    "url": "https://proceedings.mlr.press/v336/schlisselberg26a.html"
+  },
+  {
+    "title": "Optimal Sample Complexity Lower Bounds on Conditional Independence Testing",
+    "url": "https://proceedings.mlr.press/v336/seyfried26a.html"
+  },
+  {
+    "title": "Testing for a Hidden Geometry in Random Graphs",
+    "url": "https://proceedings.mlr.press/v336/silber26a.html"
+  },
+  {
+    "title": "Finite Sample Bounds for Learning with Score Matching",
+    "url": "https://proceedings.mlr.press/v336/smedira26a.html"
+  },
+  {
+    "title": "Efficient Learning and Symmetry Discovery under Exact Invariances",
+    "url": "https://proceedings.mlr.press/v336/soleymani26a.html"
+  },
+  {
+    "title": "Revisiting the (Sub)Optimality of Best-of-N for Inference-Time Alignment",
+    "url": "https://proceedings.mlr.press/v336/sriraman26a.html"
+  },
+  {
+    "title": "Privately Estimating Black-Box Statistics",
+    "url": "https://proceedings.mlr.press/v336/steinke26a.html"
+  },
+  {
+    "title": "Truly Adapting to Adversarial Constraints in Constrained MABs",
+    "url": "https://proceedings.mlr.press/v336/stradi26a.html"
+  },
+  {
+    "title": "Data Augmentation: A Fourier Analysis Perspective",
+    "url": "https://proceedings.mlr.press/v336/tahmasebi26a.html"
+  },
+  {
+    "title": "CONVERGENCE RATES FOR DISTRIBUTION MATCHING WITH SLICED OPTIMAL TRANSPORT",
+    "url": "https://proceedings.mlr.press/v336/thurin26a.html"
+  },
+  {
+    "title": "On the Asymptotics of Self-Supervised Pre-training: Two-Stage M-Estimation and Representation Symmetry",
+    "url": "https://proceedings.mlr.press/v336/tinati26a.html"
+  },
+  {
+    "title": "When Both Layers Learn: Training Dynamics of Representing Linear Models via ReLU Networks",
+    "url": "https://proceedings.mlr.press/v336/tinaz26a.html"
+  },
+  {
+    "title": "Trajectory Data Suffices for Statistically Efficient Policy Evaluation in Fixed-Horizon Offline RL with Linear $q^\\pi$-Realizability and Concentrability",
+    "url": "https://proceedings.mlr.press/v336/tkachuk26a.html"
+  },
+  {
+    "title": "The Monotonicity of the Franz–Parisi Potential Is Equivalent to Low-Degree MMSE Lower Bounds: Extended Abstract",
+    "url": "https://proceedings.mlr.press/v336/tsirkas26a.html"
+  },
+  {
+    "title": "Spectral Recovery of a Planted Triangle-Dense Subgraph",
+    "url": "https://proceedings.mlr.press/v336/van-der-poel26a.html"
+  },
+  {
+    "title": "On-Average Stability of Multipass Preconditioned SGD and Effective Dimension",
+    "url": "https://proceedings.mlr.press/v336/vary26a.html"
+  },
+  {
+    "title": "The Geometry of Efficient Nonconvex Sampling",
+    "url": "https://proceedings.mlr.press/v336/vempala26a.html"
+  },
+  {
+    "title": "Learning with Simulators: No Regret in a Computationally Bounded World",
+    "url": "https://proceedings.mlr.press/v336/voitovych26a.html"
+  },
+  {
+    "title": "Fast Score-Based Sampling via Log-Concave Reductions",
+    "url": "https://proceedings.mlr.press/v336/wainwright26a.html"
+  },
+  {
+    "title": "Almost sure null bankruptcy of testing-by-betting strategies",
+    "url": "https://proceedings.mlr.press/v336/wang26a.html"
+  },
+  {
+    "title": "A simple, optimal and efficient algorithm for online exp-concave optimization",
+    "url": "https://proceedings.mlr.press/v336/wang26b.html"
+  },
+  {
+    "title": "Accelerated Convex Optimization via Hamiltonian Dynamics with Deterministic Integration Time",
+    "url": "https://proceedings.mlr.press/v336/wang26c.html"
+  },
+  {
+    "title": "Diffusion-Network Alignment: An Efficient Algorithm and Explicit Probability Bounds",
+    "url": "https://proceedings.mlr.press/v336/wang26d.html"
+  },
+  {
+    "title": "Minimax Limits of $k$-Fold Cross-Validation via Majority",
+    "url": "https://proceedings.mlr.press/v336/nachum26a.html"
+  },
+  {
+    "title": "Risk Comparisons in Linear Regression: Implicit Regularization Dominates Explicit Regularization (Extended Abstract)",
+    "url": "https://proceedings.mlr.press/v336/wu26a.html"
+  },
+  {
+    "title": "Lyapunov-Based Sample Complexity Analysis for Weakly-Coupled MDPs (extended abstract)",
+    "url": "https://proceedings.mlr.press/v336/tianhao26a.html"
+  },
+  {
+    "title": "Worst-case Error Bounds for Online Learning of Smooth Functions",
+    "url": "https://proceedings.mlr.press/v336/xie26a.html"
+  },
+  {
+    "title": "Optimism Stabilizes Thompson Sampling for Adaptive Inference",
+    "url": "https://proceedings.mlr.press/v336/yan26a.html"
+  },
+  {
+    "title": "Tight Sample Complexity of Transformers",
+    "url": "https://proceedings.mlr.press/v336/yang26a.html"
+  },
+  {
+    "title": "Learning Decision-Sufficient Representations for Linear Optimization",
+    "url": "https://proceedings.mlr.press/v336/ye26a.html"
+  },
+  {
+    "title": "Distribution-Free Sequential Prediction with Abstentions",
+    "url": "https://proceedings.mlr.press/v336/yu26a.html"
+  },
+  {
+    "title": "Stable algorithms Lower Bounds for Estimation from MMSE Discontinuities: Extended Abstract",
+    "url": "https://proceedings.mlr.press/v336/yu26b.html"
+  },
+  {
+    "title": "Optimal Variance-Dependent Regret Bounds for Infinite-Horizon MDPs",
+    "url": "https://proceedings.mlr.press/v336/zamir26a.html"
+  },
+  {
+    "title": "Gradient-Variation Regret Bounds for Unconstrained Online Learning",
+    "url": "https://proceedings.mlr.press/v336/zhao26a.html"
+  },
+  {
+    "title": "Open Problem: How much overparametrization is needed for ALS in tensor decomposition?",
+    "url": "https://proceedings.mlr.press/v336/arvanitakis26a.html"
+  },
+  {
+    "title": "Invited Open Problem: Online Optimization of Piecewise-Lipschitz Functions with Applications to Data-Driven Algorithm Design",
+    "url": "https://proceedings.mlr.press/v336/balcan26a.html"
+  },
+  {
+    "title": "Invited Open Problem: Is the Power of Deep Learning over Linear Models Inherently Distribution Dependent?",
+    "url": "https://proceedings.mlr.press/v336/feldman26a.html"
+  },
+  {
+    "title": "Open Problem: Is Interaction Necessary for Order-Optimal 1-bit Mean Estimation?",
+    "url": "https://proceedings.mlr.press/v336/lau26a.html"
+  },
+  {
+    "title": "Invited Open Problem: Does Differential Privacy Make PAC Learning Much Harder?",
+    "url": "https://proceedings.mlr.press/v336/nissim26a.html"
+  }
+]

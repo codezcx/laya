@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 5455,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/5455",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nSat, Sep 12, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 446\nMulti-Hypothesis Test-Time Adaptation to Mitigate Underspecification\nAfshar Shamsi ⋅ Xiao-Yu Guo ⋅ Hamid Alinejad-Rokny ⋅ Arash Mohammadi ⋅ Damien Teney ⋅ Ehsan Abbasnejad\nKeywords:\nFederated, Continual & Efficient Learning; Model Security\nPaper PDF\nAbstract\nTest-Time Adaptation (TTA) seeks to improve model robust-ness under distribution shifts by adapting parameters using unlabeledtarget data. However, in the absence of supervision, entropy-based adap-tation is fundamentally underconstrained: multiple distinct parameterupdates can achieve similarly low entropy while inducing drasticallydifferent decision boundaries. This phenomenon, known as underspecifi-cation, renders standard TTA brittle and prone to collapse into spuriousmodes. In this work, we reinterpret TTA through a posterior-inspired lensinduced by entropy minimization, where low-entropy solutions define apseudo-likelihood over parameters. Instead of committing to a single pointestimate, we introduce a particle-based diversification framework thatexplores multiple plausible adaptation trajectories simultaneously. Ourmethod can be viewed as a structured exploration of multiple plausibleadaptation solutions, implemented through multi-level diversification atthe output, parameter, optimizer, and input levels. Crucially, the frame-work acts as a plug-and-play wrapper compatible with existing TTAmethods. Extensive experiments on challenging benchmarks demonstrateconsistent gains in stability and robustness, achieving improvements of3–4% under mixed shifts, 2–3% with batch size one, and 1–2.5% underlabel shifts, outperforming state-of-the-art baselines. Our results suggestthat treating TTA as a multi-hypothesis inference problem, rather thana single-point optimization task, is key to mitigating underspecificationand enabling reliable real-world deployment.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/10723.pdf"
+    }
+  ]
+}

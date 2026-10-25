@@ -1,0 +1,506 @@
+[
+  {
+    "title": "VITA: Zero-Shot Value Functions via Test-Time Adaptation of Vision–Language Models",
+    "url": "/virtual/2026/poster/10009179"
+  },
+  {
+    "title": "Softmax is not Enough (for Adaptive Conformal Classification)",
+    "url": "/virtual/2026/poster/10006474"
+  },
+  {
+    "title": "Change Point Localization and Inference in Dynamic Multilayer Networks",
+    "url": "/virtual/2026/poster/10008558"
+  },
+  {
+    "title": "Online Selective Conformal Inference: Errors and Solutions",
+    "url": "/virtual/2026/poster/10014047"
+  },
+  {
+    "title": "What (and What Not) are Calibrated Probabilities Actually Useful for?",
+    "url": "/virtual/2026/poster/10012125"
+  },
+  {
+    "title": "Neural Optimal Transport Meets Multivariate Conformal Prediction",
+    "url": "/virtual/2026/poster/10006524"
+  },
+  {
+    "title": "Adaptive Acquisition Selection for Bayesian Optimization with Large Language Models",
+    "url": "/virtual/2026/poster/10010684"
+  },
+  {
+    "title": "Gradient-Aligned Calibration for Post-Training Quantization of Diffusion Models",
+    "url": "/virtual/2026/poster/10010821"
+  },
+  {
+    "title": "Rewarding Doubt: A Reinforcement Learning Approach to Calibrated Confidence Expression of Large Language Models",
+    "url": "/virtual/2026/poster/10006555"
+  },
+  {
+    "title": "When and Where to Reset Matters for Long-Term Test-Time Adaptation",
+    "url": "/virtual/2026/poster/10011949"
+  },
+  {
+    "title": "COMPASS: Robust Feature Conformal Prediction for Medical Segmentation Metrics",
+    "url": "/virtual/2026/poster/10006913"
+  },
+  {
+    "title": "AdS-GNN - a Conformally Equivariant Graph Neural Network",
+    "url": "/virtual/2026/poster/10010692"
+  },
+  {
+    "title": "NEO — No-Optimization Test-Time Adaptation through Latent Re-Centering",
+    "url": "/virtual/2026/poster/10007570"
+  },
+  {
+    "title": "KnowGuard: Knowledge-Driven Abstention for Multi-Round Clinical Reasoning",
+    "url": "/virtual/2026/poster/10008150"
+  },
+  {
+    "title": "Multi-Condition Conformal Selection",
+    "url": "/virtual/2026/poster/10008124"
+  },
+  {
+    "title": "Verification and Co-Alignment via Heterogeneous Consistency for Preference-Aligned LLM Annotations",
+    "url": "/virtual/2026/poster/10007842"
+  },
+  {
+    "title": "Enhancing Communication Compression via Discrepancy-aware Calibration for Federated Learning",
+    "url": "/virtual/2026/poster/10010356"
+  },
+  {
+    "title": "Temporal Test-Time Adaptation with State-Space Models",
+    "url": "/virtual/2026/poster/10014028"
+  },
+  {
+    "title": "Flow-based Conformal Prediction for Multi-dimensional Time Series",
+    "url": "/virtual/2026/poster/10009186"
+  },
+  {
+    "title": "A-TPT: Angular Diversity Calibration Properties for Test-Time Prompt Tuning of Vision-Language Models",
+    "url": "/virtual/2026/poster/10009112"
+  },
+  {
+    "title": "Segment-Level Attribution for Selective Learning of Long Reasoning Traces",
+    "url": "/virtual/2026/poster/10010893"
+  },
+  {
+    "title": "Adaptive Conformal Prediction via Mixture-of-Experts Gating Similarity",
+    "url": "/virtual/2026/poster/10006832"
+  },
+  {
+    "title": "Beyond Accuracy: Are Time Series Foundation Models Well-Calibrated?",
+    "url": "/virtual/2026/poster/10007492"
+  },
+  {
+    "title": "Calibrated Information Bottleneck for Trusted Multi-modal Clustering",
+    "url": "/virtual/2026/poster/10007948"
+  },
+  {
+    "title": "ConfHit: Conformal Generative Design with Oracle-Free Guarantees",
+    "url": "/virtual/2026/poster/10010260"
+  },
+  {
+    "title": "CoFact: Conformal Factuality Guarantees for Language Models under Covariate Shift",
+    "url": "/virtual/2026/poster/10008295"
+  },
+  {
+    "title": "Lipschitz Bandits with Stochastic Delayed Feedback",
+    "url": "/virtual/2026/poster/10008390"
+  },
+  {
+    "title": "P$^2$-DPO: Grounding Hallucination in Perceptual Processing via Calibration Direct Preference Optimization",
+    "url": "/virtual/2026/poster/10008291"
+  },
+  {
+    "title": "ResCP: Reservoir Conformal Prediction for Time Series Forecasting",
+    "url": "/virtual/2026/poster/10009058"
+  },
+  {
+    "title": "Fair Graph Machine Learning under Adversarial Missingness Processes",
+    "url": "/virtual/2026/poster/10009032"
+  },
+  {
+    "title": "Online Conformal Prediction with Adversarial Semi-bandit Feedback via Regret Minimization",
+    "url": "/virtual/2026/poster/10009505"
+  },
+  {
+    "title": "Towards Robust Real-World Multivariate Time Series Forecasting: A Unified Framework for Dependency, Asynchrony, and Missingness",
+    "url": "/virtual/2026/poster/10007178"
+  },
+  {
+    "title": "SHE-LoRA: Selective Homomorphic Encryption for Federated Tuning with Heterogeneous LoRA",
+    "url": "/virtual/2026/poster/10009665"
+  },
+  {
+    "title": "Rethinking Model Calibration through Spectral Entropy Regularization in Medical Image Segmentation",
+    "url": "/virtual/2026/poster/10009412"
+  },
+  {
+    "title": "IMSE: Intrinsic Mixture of Spectral Experts Fine-tuning for Test-Time Adaptation",
+    "url": "/virtual/2026/poster/10008307"
+  },
+  {
+    "title": "Test-Time Adaptation without Source Data for Out-of-Domain Bioactivity Prediction",
+    "url": "/virtual/2026/poster/10011942"
+  },
+  {
+    "title": "Practical estimation of the optimal classification error with soft labels and calibration",
+    "url": "/virtual/2026/poster/10011830"
+  },
+  {
+    "title": "Completing Missing Annotation: Multi-Agent Debate for Accurate and Scalable Relevant Assessment for IR Benchmarks",
+    "url": "/virtual/2026/poster/10010800"
+  },
+  {
+    "title": "Adaptive Conformal Guidance for Learning under Uncertainty",
+    "url": "/virtual/2026/poster/10011807"
+  },
+  {
+    "title": "Prior-free Tabular Test-time Adaptation",
+    "url": "/virtual/2026/poster/10010928"
+  },
+  {
+    "title": "Inferring the Invisible: Neuro-Symbolic Rule Discovery for Missing Value Imputation",
+    "url": "/virtual/2026/poster/10011776"
+  },
+  {
+    "title": "Spatial Structure and Selective Text Jointly Facilitate Image Clustering",
+    "url": "/virtual/2026/poster/10011661"
+  },
+  {
+    "title": "Conformalized Survival Counterfactuals Prediction for General Right-Censored Data",
+    "url": "/virtual/2026/poster/10011805"
+  },
+  {
+    "title": "PALC: Preference Alignment via Logit Calibration",
+    "url": "/virtual/2026/poster/10011917"
+  },
+  {
+    "title": "UnigramLM: An Attempt at Writing The Missing Manual",
+    "url": "/virtual/2026/poster/10012102"
+  },
+  {
+    "title": "Holistic Agent Leaderboard: The Missing Infrastructure for AI Agent Evaluation",
+    "url": "/virtual/2026/poster/10006806"
+  },
+  {
+    "title": "Consistency-Driven Calibration and Matching for Few-Shot Class Incremental Learning",
+    "url": "/virtual/2026/poster/10009990"
+  },
+  {
+    "title": "ForestPersons: A Large-Scale Dataset for Under-Canopy Missing Person Detection",
+    "url": "/virtual/2026/poster/10008831"
+  },
+  {
+    "title": "Person-Centric Annotations of LAION-400M: Auditing Bias and Its Transfer to Models",
+    "url": "/virtual/2026/poster/10007012"
+  },
+  {
+    "title": "Calibrating Verbalized Confidence with Self-Generated Distractors",
+    "url": "/virtual/2026/poster/10007320"
+  },
+  {
+    "title": "Fair Conformal Classification via Learning Representation-Based Groups",
+    "url": "/virtual/2026/poster/10008688"
+  },
+  {
+    "title": "Selective Rotary Position Embedding",
+    "url": "/virtual/2026/poster/10011040"
+  },
+  {
+    "title": "Adaptive Conformal Anomaly Detection with Time Series Foundation Models for Signal Monitoring.",
+    "url": "/virtual/2026/poster/10011253"
+  },
+  {
+    "title": "Architecture-Agnostic Test-Time Adaptation via Backprop-Free Embedding Alignment",
+    "url": "/virtual/2026/poster/10011268"
+  },
+  {
+    "title": "Conformal Prediction for Long-Tailed Classification",
+    "url": "/virtual/2026/poster/10011213"
+  },
+  {
+    "title": "SABRE-FL: Selective and Accurate Backdoor Rejection for Federated Prompt Learning",
+    "url": "/virtual/2026/poster/10007515"
+  },
+  {
+    "title": "Conformal Prediction with Corrupted Labels: Uncertain Imputation and Robust Re-weighting",
+    "url": "/virtual/2026/poster/10006410"
+  },
+  {
+    "title": "Efficient Credal Prediction through Decalibration",
+    "url": "/virtual/2026/poster/10010909"
+  },
+  {
+    "title": "Trained on Tokens, Calibrated on Concepts: The Emergence of Semantic Calibration in LLMs",
+    "url": "/virtual/2026/poster/10011892"
+  },
+  {
+    "title": "Priors in time: Missing inductive biases for language model interpretability",
+    "url": "/virtual/2026/poster/10011564"
+  },
+  {
+    "title": "SmellNet: A Dataset for Sensor-Based Smell Recognition and Mixture Prediction",
+    "url": "/virtual/2026/poster/10008694"
+  },
+  {
+    "title": "SCoT: Teaching 3D-LLMs to Think Spatially with Million-scale CoT Annotations",
+    "url": "/virtual/2026/poster/10011459"
+  },
+  {
+    "title": "Automatic Image-Level Morphological Trait Annotation for Organismal Images",
+    "url": "/virtual/2026/poster/10007433"
+  },
+  {
+    "title": "Smooth Calibration Error: Uniform Convergence and Functional Gradient Analysis",
+    "url": "/virtual/2026/poster/10007234"
+  },
+  {
+    "title": "CLEAR: Calibrated Learning for Epistemic and Aleatoric Risk",
+    "url": "/virtual/2026/poster/10009479"
+  },
+  {
+    "title": "ICYM$^2$I: The illusion of multimodal informativeness under missingness",
+    "url": "/virtual/2026/poster/10007902"
+  },
+  {
+    "title": "Exposing Mixture and Annotating Confusion for Active Universal Test-Time Adaptation",
+    "url": "/virtual/2026/poster/10011223"
+  },
+  {
+    "title": "Dimension-Free Decision Calibration for Nonlinear Loss Functions",
+    "url": "/virtual/2026/poster/10006838"
+  },
+  {
+    "title": "Stopping Computation for Converged Tokens in Masked Diffusion-LM Decoding",
+    "url": "/virtual/2026/poster/10009632"
+  },
+  {
+    "title": "$\\mathbf{Li_2}$: A Framework on Dynamics of Feature Emergence and Delayed Generalization",
+    "url": "/virtual/2026/poster/10008484"
+  },
+  {
+    "title": "MedVR: Annotation-Free Medical Visual Reasoning via Agentic Reinforcement Learning",
+    "url": "/virtual/2026/poster/10008521"
+  },
+  {
+    "title": "TerraFM: A Scalable Foundation Model for Unified Multisensor Earth Observation",
+    "url": "/virtual/2026/poster/10008533"
+  },
+  {
+    "title": "Explain in Your Own Words: Improving Reasoning via Token-Selective Dual Knowledge Distillation",
+    "url": "/virtual/2026/poster/10006422"
+  },
+  {
+    "title": "CoLA: Co-Calibrated Logit Adjustment for Long-Tailed Semi-Supervised Learning",
+    "url": "/virtual/2026/poster/10007342"
+  },
+  {
+    "title": "Bilateral Information-aware Test-time Adaptation for Vision-Language Models",
+    "url": "/virtual/2026/poster/10006769"
+  },
+  {
+    "title": "Annotation-Efficient Honesty Alignment via Confidence Elicitation and Calibration",
+    "url": "/virtual/2026/poster/10008495"
+  },
+  {
+    "title": "FictionalQA: A Dataset for Studying Memorization and Knowledge Acquisition",
+    "url": "/virtual/2026/poster/10009404"
+  },
+  {
+    "title": "CaTS: Calibrated Test-Time Scaling for Efficient LLM Reasoning",
+    "url": "/virtual/2026/poster/10007848"
+  },
+  {
+    "title": "Selective Expert Guidance for Effective and Diverse Exploration in Reinforcement Learning of LLMs",
+    "url": "/virtual/2026/poster/10008654"
+  },
+  {
+    "title": "On the identifiability of causal graphs with multiple environments",
+    "url": "/virtual/2026/poster/10006966"
+  },
+  {
+    "title": "AtC: Aggregate-then-Calibrate for Human-centered Assessment",
+    "url": "/virtual/2026/poster/10008976"
+  },
+  {
+    "title": "Leveraging Data to Say No: Memory Augmented Plug-and-Play Selective Prediction",
+    "url": "/virtual/2026/poster/10011747"
+  },
+  {
+    "title": "Multi-LLM Adaptive Conformal Inference for Reliable LLM Response",
+    "url": "/virtual/2026/poster/10007370"
+  },
+  {
+    "title": "Singleton-Optimized Conformal Prediction",
+    "url": "/virtual/2026/poster/10007582"
+  },
+  {
+    "title": "Bayesian Test-Time Adaptation via Dirichlet feature projection and GMM-Driven Inference for Motor Imagery EEG Decoding",
+    "url": "/virtual/2026/poster/10009162"
+  },
+  {
+    "title": "Conformal Robustness Control: A New Strategy for Robust Decision",
+    "url": "/virtual/2026/poster/10008565"
+  },
+  {
+    "title": "Statistical and structural identifiability in representation learning",
+    "url": "/virtual/2026/poster/10009042"
+  },
+  {
+    "title": "Know When to Abstain: Optimal Selective Classification with Likelihood Ratios",
+    "url": "/virtual/2026/poster/10009462"
+  },
+  {
+    "title": "Long-tailed Test-Time Adaptation for Vision-Language Models",
+    "url": "/virtual/2026/poster/10007886"
+  },
+  {
+    "title": "FedMC: Federated Manifold Calibration",
+    "url": "/virtual/2026/poster/10007099"
+  },
+  {
+    "title": "Revisiting Confidence Calibration for Misclassification Detection in VLMs",
+    "url": "/virtual/2026/poster/10008435"
+  },
+  {
+    "title": "Skill Learning via Policy Diversity Yields Identifiable Representations for Reinforcement Learning",
+    "url": "/virtual/2026/poster/10006615"
+  },
+  {
+    "title": "Object-Centric World Models from Few-Shot Annotations for Sample-Efficient Reinforcement Learning",
+    "url": "/virtual/2026/poster/10007210"
+  },
+  {
+    "title": "ATTS: Asynchronous Test-Time Scaling via Conformal Prediction",
+    "url": "/virtual/2026/poster/10008898"
+  },
+  {
+    "title": "Towards Understanding The Calibration Benefits of Sharpness-Aware Minimization",
+    "url": "/virtual/2026/poster/10008554"
+  },
+  {
+    "title": "Measuring Uncertainty Calibration",
+    "url": "/virtual/2026/poster/10011574"
+  },
+  {
+    "title": "Conformalized Decision Risk Assessment",
+    "url": "/virtual/2026/poster/10006644"
+  },
+  {
+    "title": "Robust Selective Activation with Randomized Temporal K-Winner-Take-All in Spiking Neural Networks for Continual Learning",
+    "url": "/virtual/2026/poster/10006915"
+  },
+  {
+    "title": "Learning to Be Uncertain: Pre-training World Models with Horizon-Calibrated Uncertainty",
+    "url": "/virtual/2026/poster/10007319"
+  },
+  {
+    "title": "CONSIGN: Conformal Segmentation Informed by Spatial Groupings via Decomposition",
+    "url": "/virtual/2026/poster/10007344"
+  },
+  {
+    "title": "Beyond Penalization: Diffusion-based Out-of-Distribution Detection and Selective Regularization in Offline Reinforcement Learning",
+    "url": "/virtual/2026/poster/10008747"
+  },
+  {
+    "title": "Robust Decision-Making with Partially Calibrated Forecasters",
+    "url": "/virtual/2026/poster/10007595"
+  },
+  {
+    "title": "Learning Survival Distributions with Individually Calibrated Asymmetric Laplace Distribution",
+    "url": "/virtual/2026/poster/10008198"
+  },
+  {
+    "title": "Conformalized Hierarchical Calibration for Uncertainty-Aware Adaptive Hashing",
+    "url": "/virtual/2026/poster/10008265"
+  },
+  {
+    "title": "Robustness in the Face of Partial Identifiability in Reward Learning",
+    "url": "/virtual/2026/poster/10008358"
+  },
+  {
+    "title": "Bayesian Post Training Enhancement of Regression Models with Calibrated Rankings",
+    "url": "/virtual/2026/poster/10008647"
+  },
+  {
+    "title": "MoRA: Missing Modality Low-Rank Adaptation for Visual Recognition",
+    "url": "/virtual/2026/poster/10008783"
+  },
+  {
+    "title": "Non-Asymptotic Analysis of Efficiency in Conformalized Regression",
+    "url": "/virtual/2026/poster/10009200"
+  },
+  {
+    "title": "Interference-Isolated Elastic Weight Consolidation and Knowledge Calibration for Incremental Object Detection",
+    "url": "/virtual/2026/poster/10009096"
+  },
+  {
+    "title": "StreamSplat: Towards Online Dynamic 3D Reconstruction from Uncalibrated Video Streams",
+    "url": "/virtual/2026/poster/10009397"
+  },
+  {
+    "title": "Flatness Guided Test-Time Adaptation for Vision-Language Models",
+    "url": "/virtual/2026/poster/10009429"
+  },
+  {
+    "title": "Test-Time Adaptation for LLM Agents via Environment Interaction",
+    "url": "/virtual/2026/poster/10009800"
+  },
+  {
+    "title": "Beyond Raw Detection Scores: Markov-Informed Calibration for Boosting Machine-Generated Text Detection",
+    "url": "/virtual/2026/poster/10009986"
+  },
+  {
+    "title": "COSA: Context-aware Output-Space Adapter for Test-Time Adaptation in Time Series Forecasting",
+    "url": "/virtual/2026/poster/10010061"
+  },
+  {
+    "title": "Learning on a Razor’s Edge: Identifiability and Singularity of Polynomial Neural Networks",
+    "url": "/virtual/2026/poster/10010065"
+  },
+  {
+    "title": "Distributional Machine Unlearning via Selective Data Removal",
+    "url": "/virtual/2026/poster/10010305"
+  },
+  {
+    "title": "Distribution-informed Online Conformal Prediction",
+    "url": "/virtual/2026/poster/10010342"
+  },
+  {
+    "title": "Generative Bayesian Optimization: Generative Models as Acquisition Functions",
+    "url": "/virtual/2026/poster/10010524"
+  },
+  {
+    "title": "KVComm: Enabling Efficient LLM Communication through Selective KV Sharing",
+    "url": "/virtual/2026/poster/10010626"
+  },
+  {
+    "title": "Identifiability Challenges in Sparse Linear Ordinary Differential Equations",
+    "url": "/virtual/2026/poster/10010939"
+  },
+  {
+    "title": "Point2RBox-v3: Self-Bootstrapping from Point Annotations via Integrated Pseudo-Label Refinement and Utilization",
+    "url": "/virtual/2026/poster/10011075"
+  },
+  {
+    "title": "Stochastic Neural Networks for Causal Inference with Missing Confounders",
+    "url": "/virtual/2026/poster/10011796"
+  },
+  {
+    "title": "Mechanistic Independence: A Principle for Identifiable Disentangled Representations",
+    "url": "/virtual/2026/poster/10011933"
+  },
+  {
+    "title": "Adaptive Debiasing Tsallis Entropy for Test-Time Adaptation",
+    "url": "/virtual/2026/poster/10008423"
+  },
+  {
+    "title": "GOOD: Geometry-guided Out-of-Distribution Modeling for Open-set Test-time Adaptation in Point Cloud Semantic Segmentation",
+    "url": "/virtual/2026/poster/10010350"
+  },
+  {
+    "title": "Missingness Bias Calibration in Feature Attribution Explanations",
+    "url": "/virtual/2026/poster/10011139"
+  }
+]

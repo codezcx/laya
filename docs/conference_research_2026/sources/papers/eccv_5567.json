@@ -1,0 +1,12 @@
+{
+  "venue": "eccv",
+  "url": "https://eccv.ecva.net/virtual/2026/poster/5567",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nThu, Sep 10, 2026 • 4:30 PM – 6:30 PM CEST\nExHall # 207\nCausal Yet Future-Aware: Dual-Path Temporal Modeling for Online Action Segmentation\nZhichao Zheng ⋅ Peirong Ma ⋅ Ying Zhou ⋅ Li Kong ⋅ Junsheng Zhou\nKeywords:\nVideo Understanding, Generation and Multimodal Learning\nPaper PDF\nAbstract\nTemporal Action Segmentation (TAS) assigns action labelsto each frame by modeling the temporal structure of actions. While of-fline TAS leverages full temporal context, online TAS cannot directlyaccess future information during inference. Existing online TAS methodsmainly focus on modeling historical dependencies, but temporal ambigu-ity still arises due to the incomplete temporal dependencies, leading tofragmented predictions. To tackle this challenge, we propose Dual-PathTemporal Modeling (DPTM) for online TAS, a two-stage framework thatexplicitly models and transfers the future dependencies that are inacces-sible during online inference. In the first stage, we adopt an offline-styletraining scheme where bidirectional dependencies are decomposed intounidirectional historical and future components via a temporal decom-position strategy. In the second stage, we employ a predictive distillationstrategy that uses recent historical frames to predict the separated futuredependencies without violating causality. These designs enable DPTMto leverage more complete temporal context while remaining suitable foronline inference. Extensive experiments demonstrate that DPTM signifi-cantly improves temporal coherence in segmentation results and achievesstate-of-the-art performance, demonstrating the effectiveness of modelingdependencies beyond historical frames for reducing the temporal ambi-guity. The code is available at: https://github.com/zczheng777/DPTM/.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/11434.pdf"
+    }
+  ]
+}

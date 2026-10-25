@@ -1,0 +1,17 @@
+{
+  "venue": "icml",
+  "id": 65829,
+  "url": "https://icml.cc/virtual/2026/poster/65829",
+  "status": 200,
+  "text": "Select Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2002\n1996\nIMLS Archives\nGetting Started\nSchedule\nTutorials\nMain Conference\nInvited Talks\nOrals\nAwards\nTest of Time Award\nPapers\nSpotlight Posters\nPosition Paper Posters\nJournal Track Posters\nWorkshops\nSocials\nExhibitors\nExhibitors\nExpo Talks, Demos, and Workshops\nOrganizers\nHelpDesk\nPoster\nTue, Jul 7, 2026 • 10:30 AM – 12:15 PM KST\nHALL A #4411\nLearning Treatment Allocations with Risk Control Under Partial Identifiability\nSofia Ek ⋅ Dave Zachariah\nProject Page\n[\nOpenReview\n]\nAbstract\nLearning beneficial treatment allocations for a patient population is an important problem in precision medicine. For such allocations, a certain proportion of treated patients may not receive any benefit. This proportion of unnecessary treated represents a `treatment risk' which is a waste of resources and may, in addition, expose patients to unnecessary adverse effects. Therefore, we aim to  control the treatment risk when learning beneficial allocations. This  learning problem is complicated by the fact that the treatment risk is generally not identifiable from either randomized trial or observational data. We propose a certifiable learning method that controls treatment risk, using finite samples in the partially identified setting. The method is illustrated using both simulated and real data.\nShow more\nLay Summary\nIn precision medicine, choosing a treatment allocation that maximizes overall beneficial outcomes for a patient population is challenging because some people receive no benefits after treatments. This wastes resources and may expose patients to harmful side effects. Due to unmeasured factors in observational and trial data, it is not always possible to identify these risks. In this paper, we propose a reliable method that learns beneficial treatment allocations while ensuring the proportion of treated who receive no benefits is under user control.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "Project Page",
+      "url": "https://github.com/sofiaek/treatment-risk-control/"
+    },
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=9kWVQtpvJi"
+    }
+  ]
+}

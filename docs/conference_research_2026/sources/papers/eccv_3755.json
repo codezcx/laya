@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 3755,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/3755",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nThu, Sep 10, 2026 • 4:30 PM – 6:30 PM CEST\nExHall # 271\nHybrid Event–Frame Sensors: Modeling, Calibration, and Simulation\nyunfan lu ⋅ Nico Messikommer ⋅ Xiaogang Xu ⋅ Liming Chen ⋅ Yuhan Chen ⋅ Nikola Zubic ⋅ Davide Scaramuzza ⋅ Hui Xiong\nKeywords:\nComputational Imaging, Medical & Scientific Vision\nPaper PDF\nAbstract\nHybrid event–frame sensors integrate an Event Vision Sensor(EVS) and an Active Pixel Sensor (APS) within a single chip, combin-ing the high dynamic range and low latency of the EVS with the richspatial intensity information from the APS. While this tight integrationoffers compact, temporally precise imaging, the complex circuit architec-ture introduces non-trivial noise patterns that remain poorly understoodand unmodeled. In this work, we present the first unified, statistics-basedimaging noise model that jointly describes the noise behavior of APS andEVS pixels. Our formulation explicitly incorporates photon shot noise,dark current noise, fixed-pattern noise, and quantization noise, and linksEVS noise to illumination level and dark current. Based on this formula-tion, we further develop a calibration pipeline to estimate noise param-eters from real data and offer a detailed analysis of both APS and EVSnoise behaviors. Finally, we propose H-ESIM, a statistically groundedsimulator that generates RAW frames and events under realistic, jointlycalibrated noise statistics. Experiments on two hybrid sensors validateour model across multiple imaging tasks (e.g., video frame interpolationand deblurring), demonstrating strong transfer from simulation to realdata. https://yunfanlu.github.io/HESIM\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/2953.pdf"
+    }
+  ]
+}

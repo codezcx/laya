@@ -1,0 +1,21 @@
+{
+  "venue": "icml",
+  "id": 60890,
+  "url": "https://icml.cc/virtual/2026/poster/60890",
+  "status": 200,
+  "text": "Select Year: (2026)\n2026\n2025\n2024\n2023\n2022\n2021\n2020\n2019\n2018\n2017\n2016\n2015\n2014\n2013\n2012\n2011\n2010\n2009\n2008\n2007\n2006\n2005\n2004\n2002\n1996\nIMLS Archives\nGetting Started\nSchedule\nTutorials\nMain Conference\nInvited Talks\nOrals\nAwards\nTest of Time Award\nPapers\nSpotlight Posters\nPosition Paper Posters\nJournal Track Posters\nWorkshops\nSocials\nExhibitors\nExhibitors\nExpo Talks, Demos, and Workshops\nOrganizers\nHelpDesk\nPoster\nTue, Jul 7, 2026 • 2:00 PM – 3:45 PM KST\nHALL A #3501\nConditional Coverage Diagnostics for Conformal Prediction\nSacha Braun ⋅ David Holzmüller ⋅ Michael Jordan ⋅ Francis Bach\nProject Page\n[\nSlides\n]\n[\nPoster\n]\n[\nOpenReview\n]\nAbstract\nEvaluating conditional coverage remains one of the most persistent challenges in assessing the reliability of predictive systems.  Although conformal methods can give guarantees on marginal coverage, no method can guarantee to produce sets with correct conditional coverage, leaving practitioners without a clear way to interpret local deviations. To overcome sample-inefficiency and overfitting issues of existing metrics, we cast conditional coverage estimation as a classification problem. Conditional coverage is violated if and only if some classifier can achieve lower risk than the target coverage. Through the choice of a (proper) loss function, the resulting risk difference gives a conservative estimate of natural miscoverage measures such as L1 and L2 distance, and can even separate the effects of over- and under-coverage, as well as handle non-constant target coverages. We call the resulting family of metrics excess risk of the target coverage (ERT). We show experimentally that the use of modern classifiers provides much higher statistical power than simple classifiers underlying established metrics like CovGap. Additionally, we use our metric to benchmark different conformal prediction methods.  Finally, we release an open-source package for ERT as well as previous conditional coverage metrics. Together, these contributions provide a new lens for understanding, diagnosing, and improving the conditional reliability of predictive systems.\nShow more\nLay Summary\nWhen artificial intelligence systems make predictions, it is crucial they also communicate their uncertainty by providing a range of plausible outcomes. Current techniques can guarantee these ranges are reliable on average across a whole population. However, being right on average does not mean the system is equally reliable for everyone; it might be highly accurate for one group but fail frequently for another. Measuring this localized reliability, known as \"conditional coverage,\" has historically been very difficult.  In our paper, we introduce a new way to test whether a model is equally reliable across all specific situations. We turn the evaluation into a simple prediction game: we train a secondary model to guess when the original model's confidence ranges will fail. If this secondary model can predict failures better than a baseline guess, it exposes hidden reliability gaps in the original model. Based on this insight, we created a new family of metrics called ERT to accurately measure these discrepancies, and we provide open-source software to help developers diagnose and improve the trustworthiness of their AI systems.\nShow more\nVideo\nChat is not available.",
+  "links": [
+    {
+      "text": "Project Page",
+      "url": "https://github.com/ElSacho/covmetrics"
+    },
+    {
+      "text": "Slides",
+      "url": "/media/icml-2026/Slides/60890.pdf"
+    },
+    {
+      "text": "OpenReview",
+      "url": "https://openreview.net/forum?id=vaApZm6MKM"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-25",
+  "pattern": "conformal|missing|abstention|selective|identifiab|sensor|calibrat|change.point|stopping|label.shift|test.time.adapt|partial.monitor|active.feature|acquisition|annotation|delayed",
+  "venues": {
+    "neurips": {
+      "catalog_urls": 9146,
+      "keyword_hits": 325
+    },
+    "eccv": {
+      "catalog_urls": 2834,
+      "keyword_hits": 81
+    },
+    "icml": {
+      "catalog_urls": 6628,
+      "keyword_hits": 221
+    },
+    "iclr": {
+      "catalog_urls": 5468,
+      "keyword_hits": 126
+    },
+    "aistats": {
+      "catalog_urls": 588,
+      "keyword_hits": 36
+    },
+    "colt": {
+      "catalog_urls": 197,
+      "keyword_hits": 5
+    },
+    "uai": {
+      "catalog_urls": 330,
+      "keyword_hits": 34
+    }
+  },
+  "official_pages_read": 54,
+  "note": "Title keyword matching is automatic; not independent full-paper screening."
+}

@@ -1,0 +1,13 @@
+{
+  "venue": "eccv",
+  "id": 4929,
+  "url": "https://eccv.ecva.net/virtual/2026/poster/4929",
+  "status": 200,
+  "text": "Getting Started\nSchedule\nTutorials\nWorkshops\nMain Conference\nKeynotes and Panels\nOrals\nSpotlights\nPapers\nPaper Awards\nSponsors\nOrganizers\nHelp\nPoster\nFri, Sep 11, 2026 • 10:30 AM – 12:30 PM CEST\nExHall # 127\nRolling Shutter Camera Self-Calibration\nYongcong Zhang ⋅ Navid Rabbani ⋅ Bangyan Liao ⋅ Chengbo Wang ⋅ Yizhen Lao ⋅ Adrien Bartoli\nKeywords:\nGeometry, Localization, Matching & Motion\nSpotlight\npresentation:\nSpotlight Session: Geometry, Localization, Matching & Motion\nPaper PDF\nAbstract\nRolling shutter (RS) cameras are widely used in consumerdevices, but their row-wise exposure causes distortions under motion,making geometric 3D vision problems dependent on both camera in-trinsics and readout time ratio. Existing RS calibration methods relyon calibration targets or specialised hardware, limiting their use in un-constrained settings. We present the first self -calibration method forRS cameras that directly estimates camera intrinsics and the readouttime ratio from image sequences, without requiring calibration targets.The method is implemented as a self-calibrating bundle adjustment(BA), which critically depends on the RS imaging model. We com-bine two known complementary models. The first formulates RS imag-ing as continuous-time trajectory estimation under a row-wise pose rep-resentation. The second interprets RS images as temporally distortedglobal shutter (GS) images and requires to estimate correction fields.The combination is non-trivial and results in a unified dual-projectionmodel, in which each 3D point is simultaneously constrained at both row-dependent and reference timestamps along a shared continuous trajec-tory, enforcing stronger geometric and temporal consistency. Extensivesimulations analyse the applicability of several implementations undervarying conditions, and real data experiments demonstrate the accuracy,robustness, and practical effectiveness of the proposed approach.\nShow more\nLog in and register to view live content",
+  "links": [
+    {
+      "text": "Paper PDF",
+      "url": "https://media.eventhosts.cc/Conferences/ECCV2026/pdfs/8057.pdf"
+    }
+  ]
+}
