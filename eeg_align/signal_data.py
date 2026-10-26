@@ -3,7 +3,7 @@ import json
 from collections import Counter,defaultdict
 from pathlib import Path
 import numpy as np
-from .benchmark_data import catalog,to_electrodes,resample,segment
+from .benchmark_data import catalog,to_electrodes,resample,segment,bipolar_matrix
 
 ROOT=Path('datasets/benchmark/signals')
 
@@ -69,16 +69,18 @@ def load_rows(split,fold=0,validation_cap=None):
 
 
 class SignalStore:
-    def __init__(self):
+    def __init__(self,datasets=None):
         from .leaf_runtime import UP
         from leaf_datasets.electrode_unifier import ElectrodeUnifier
         self.arrays={};self.meta={};self.spatial={};self.keep={}
         unifier=ElectrodeUnifier('LEAF-ch65');aliases={k.upper():k for k in unifier.reverse_lookup}
         for tid,task in enumerate(catalog()):
             ds=task['task_id'];folder=ROOT/ds
+            if datasets is not None and ds not in datasets:continue
             self.meta[tid]=json.loads((folder/'complete.json').read_text());meta=self.meta[tid]
             self.arrays[tid]=np.load(folder/'signals.npy',mmap_mode='r')
-            first=meta['first_valid_index'];_,names,_=to_electrodes(self.arrays[tid][first:first+1],meta['channels'])
+            # Montage geometry comes from metadata, never from a held-out waveform.
+            names=bipolar_matrix(meta['channels'])[1] if any('-' in c for c in meta['channels']) else meta['channels']
             keep=[i for i,c in enumerate(names) if c.upper() not in {'A1','A2'}];self.keep[tid]=keep
             canonical=[aliases[names[i].upper()] for i in keep]
             self.spatial[tid]=unifier.map_to_template(np.eye(len(keep),dtype=np.float32)[None],canonical)[0]

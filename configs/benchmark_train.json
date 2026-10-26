@@ -1,12 +1,12 @@
 {
   "seed": 42,
-  "steps": 3000,
+  "steps": 600,
   "validation_every": 100,
   "checkpoint_every": 100,
-  "global_batch": 88,
-  "microbatch": 22,
-  "eval_microbatch": 32,
-  "run_name": "cross_subject_fold0_leaf_preprocessing",
+  "samples_per_task": 8,
+  "microbatch": 8,
+  "eval_microbatch": 8,
+  "run_name": "cross_subject_fold0_task_mixture",
   "lr_schedule": {
     "kind": "warmup_cosine",
     "warmup_ratio": 0.03,
@@ -26,21 +26,43 @@
   "fold": 0,
   "encoder_warmup_steps": 100,
   "encoder_learning_rate": 1e-06,
-  "stop_step": 800,
+  "stop_step": 600,
   "branch_seed": 142,
-  "resume_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev/artifacts/benchmark/cross_subject_fold0_bn_control/frozen/best.pt",
   "validate_at_start": true,
-  "reset_selection_on_resume": true,
-  "comparison": "Same step-600 model and optimizer; frozen BN in both branches; only 2a signal preprocessing differs",
+  "leaf_eval_mode": true,
+  "prepared_signals": "datasets/benchmark/leaf_2a_preprocessing",
+  "evaluation_tasks": ["BNCI2014001", "SEED"],
+  "selection_task": "BNCI2014001",
+  "loss_weights": {"BNCI2014001": 1.0, "SEED": 1.0},
+  "comparison": "2x2 matched control: 2a vs 2a+SEED; frozen vs fine-tuned LEAF. Same release initialization, fixed BN/dropout, 8 identical 2a examples/update and unit task-loss weights. Primary endpoint: step-600 2a validation BA.",
   "branches": [
     {
-      "name": "baseline",
-      "bn_policy": "frozen"
+      "name": "single_frozen",
+      "bn_policy": "frozen",
+      "encoder_policy": "frozen",
+      "train_tasks": ["BNCI2014001"],
+      "gpu": 0
     },
     {
-      "name": "leaf_raw",
+      "name": "joint_frozen",
       "bn_policy": "frozen",
-      "prepared_signals": "datasets/benchmark/leaf_2a_preprocessing"
+      "encoder_policy": "frozen",
+      "train_tasks": ["BNCI2014001", "SEED"],
+      "gpu": 1
+    },
+    {
+      "name": "single_finetuned",
+      "bn_policy": "frozen",
+      "encoder_policy": "finetuned",
+      "train_tasks": ["BNCI2014001"],
+      "gpu": 2
+    },
+    {
+      "name": "joint_finetuned",
+      "bn_policy": "frozen",
+      "encoder_policy": "finetuned",
+      "train_tasks": ["BNCI2014001", "SEED"],
+      "gpu": 3
     }
   ]
 }

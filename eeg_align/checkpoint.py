@@ -19,6 +19,16 @@ def capture_rng():
                 cuda=torch.cuda.get_rng_state() if torch.cuda.is_available() else None)
 
 
+def rng_fingerprint(state):
+    """Stable content hash (pickle storage identifiers are not reproducible)."""
+    h=hashlib.sha256()
+    h.update(repr(state['python']).encode())
+    numpy_state=state['numpy']
+    h.update(repr((numpy_state[0],numpy_state[1].tolist(),*numpy_state[2:])).encode())
+    h.update(tensor_fingerprint({k:state[k] for k in ['torch','cuda'] if state[k] is not None}).encode())
+    return h.hexdigest()
+
+
 def restore_rng(state):
     random.setstate(state['python'])
     np.random.set_state(state['numpy'])

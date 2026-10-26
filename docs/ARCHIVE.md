@@ -1,6 +1,6 @@
 # Repository archive
 
-Historical tracked implementations can be recovered from Git. `521f865` is the state immediately before the current BN-control replacement and cleanup. The working tree keeps the current benchmark implementation and its matched controls/tests.
+Historical tracked implementations can be recovered from Git. `5200248` preserves the completed preprocessing control before the current four-arm task-mixture comparison; `521f865` predates the BN-control replacement and cleanup. The working tree keeps the current benchmark implementation and its matched controls/tests.
 
 Historical artifacts were moved, not deleted, to:
 
@@ -10,7 +10,8 @@ The archive's `index.json` maps each original repository path to its archived lo
 
 Current retained artifacts:
 
-- `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`: current paired 2a preprocessing continuation and TensorBoard logs.
+- `artifacts/benchmark/cross_subject_fold0_task_mixture/`: current four-arm 2a/SEED × frozen/fine-tuned LEAF comparison.
+- `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`: completed paired 2a preprocessing continuation and TensorBoard logs.
 - `artifacts/benchmark/cross_subject_fold0_bn_control/`: completed BN comparison, source checkpoint, diagnostic controls and historical TensorBoard logs.
 - `artifacts/benchmark/reference_constant_lr/`: old constant-LR metrics and fixed-subset predictions; weights are archived.
 - `artifacts/benchmark/reference_cosine_partial/`: interrupted cosine-run logs/configuration; its step-100 checkpoint is retained under the current common directory.

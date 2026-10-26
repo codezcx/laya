@@ -14,6 +14,7 @@ import time
 def training_scalars(row):
     result = {'train/overall/loss': row['loss'],
               'train/overall/accuracy': row['train_accuracy']}
+    if 'objective_loss' in row:result['train/objective/sum_task_mean_ce']=row['objective_loss']
     for dataset, values in row['train_by_dataset'].items():
         for key in ['loss','accuracy']:
             result[f'train/datasets/{dataset}/{key}'] = values[key]
@@ -49,6 +50,7 @@ def validation_scalars(report, predictions):
                 result[f'{prefix}/overall/{name}_pooled'] = sum(v[0]*v[column] for v in scores)/n
     for dataset, value in report.get('consistency', {}).items():
         result[f'validation/datasets/{dataset}/option_consistency'] = value
+    if 'selection_score' in report:result['validation/selection_score']=report['selection_score']
     return result
 
 

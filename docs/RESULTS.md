@@ -1,5 +1,13 @@
 # Joint cross-subject LEAF/JEV results
 
+## Current four-arm task-mixture diagnostic
+
+Run root: `artifacts/benchmark/cross_subject_fold0_task_mixture/`. The current experiment is 2a only versus 2a + SEED, crossed with frozen versus fine-tuned LEAF. All arms start from release weights, use identical raw-preprocessed 2a inputs and eight identical 2a examples per update, fixed BN/dropout and unit task-loss coefficients. Budget: 600 updates, seed 42, fold 0. See [the current protocol](PROTOCOL.md).
+
+Primary endpoint is final-step 2a validation BA; best-by-2a checkpoints are secondary. Initial and 100-step validation also records SEED, class recalls and option-reversal consistency. Single-task SEED scores are untrained-task diagnostics. No test evaluation, PCGrad or larger task sweep is queued.
+
+Preparation: 35 unit tests passed, including complete 600-step anchor matching, non-diluted task-loss gradients and reproducible RNG fingerprints. A mixed-input check confirmed 2a shape 65×800 and SEED shape 65×200, with unchanged SEED input values. Real-model smoke and formal training status are recorded in the run root's `pipeline.json`; this document does not infer completion from process launch. New accuracy results are pending. `monitor.json`, `LIVE.md` and TensorBoard update during execution. The earlier protocol/results snapshot is preserved at Git `5200248`; ignored historical artifacts are unchanged.
+
 ## Completed preprocessing continuation (2026-10-26 audit)
 
 Both `cross_subject_fold0_leaf_preprocessing` branches completed step 800. The table reports 2a validation accuracy on the same 288 trials, not test accuracy. Neither job remains active. This snapshot closes the prior experiment before the matched single-task/joint-task factorial control.
@@ -12,11 +20,11 @@ Both `cross_subject_fold0_leaf_preprocessing` branches completed step 800. The t
 
 Final eleven-dataset macro BA was 53.40% / 54.70%; selected macro BA was 55.59% at step 600 / 56.17% at step 700. Preprocessing plus adaptation helps 2a in this diagnostic but does not resolve multi-task interference. Evidence: each branch's `complete.json` and `validation_{0600,0700,0800}.json`. Earlier startup notes below are historical.
 
-Current paired continuation: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`. Both branches restore the same frozen-BN best checkpoint at step 600 and run 200 further updates to step 800; only the `leaf_raw` branch replaces 2a preprocessing. The other ten tasks, weights/optimizer/RNG initialization and schedule are matched. Initial validation at step 600 and follow-ups at 700/800 distinguish input replacement from subsequent adaptation. TensorBoard records overall/per-dataset accuracy and loss under the new root's `tensorboard/`. See [PROTOCOL.md](PROTOCOL.md). Results below establish the motivation; they are not yet evidence of a JEV improvement from the new pipeline.
+Historical paired continuation: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`. Both branches restored the same frozen-BN best checkpoint at step 600 and completed 200 updates to step 800; only `leaf_raw` replaced 2a preprocessing. The other ten tasks, weights/optimizer/RNG initialization and schedule matched. Its original protocol is archived at Git `5200248`; the current protocol above describes a different, explicitly matched task-mixture experiment.
 
-Startup verification: 28 focused tests passed. A mixed batch verified identical grouping/shapes and byte-identical inputs for all ten unchanged tasks. Both real-model two-update smoke tests completed with nonzero encoder gradients after unfreezing and fixed BN statistics; checkpoint reloads reproduced logits exactly on all 38 task/classes. The formal paired jobs and TensorBoard exporter have been launched. Evidence: `startup_checks.json` and smoke logs under the new run root. Smoke scores are functional checks, not experiment results.
+Historical startup verification: 28 focused tests and both real-model smoke tests passed, including exact 38-class checkpoint reloads. A mixed batch verified byte-identical inputs for all ten unchanged tasks. Evidence: `startup_checks.json` and smoke logs under the preprocessing run root. Smoke scores are functional checks, not experiment results.
 
-Both formal initial snapshots have now been compared directly with the step-600 source: all trainable parameters, buffers, optimizer moments/groups, scheduler and Python/NumPy/torch RNG states match exactly (4,767 tensor pairs checked per branch). Both initial 38-case reload checks also pass. Evidence: `initial_comparison.json` and each branch's `reload_check_0600.json`. The first full validation measures input replacement before the 200 new training updates.
+Both preprocessing initial snapshots matched the step-600 source: trainable parameters, buffers, optimizer, scheduler and RNG states (4,767 tensor pairs per branch). Evidence: `initial_comparison.json` and `reload_check_0600.json` in that historical run root.
 
 ## Raw LEAF preprocessing control on 2a
 
@@ -40,7 +48,7 @@ The completed BN comparison has been exported to `artifacts/benchmark/cross_subj
 
 ## Completed BatchNorm comparison
 
-Current experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compare updating vs fixed BN statistics from the same update-100 checkpoint; both unfreeze LEAF parameters and keep JEV LoRA active. Both completed the planned **1200-update diagnostic stage**, with unchanged 3000-step LR schedule. See [PROTOCOL.md](PROTOCOL.md). Best validation macro BA: **51.85% updating (step 1200) / 55.59% frozen (step 600)**. Final step-1200 macro BA: **51.85% / 55.39%**. All scheduled checkpoint reload checks passed; neither branch is still running. These are validation results, not independent test scores.
+Historical experiment: `artifacts/benchmark/cross_subject_fold0_bn_control/`. Two single-H200 branches compared updating vs fixed BN statistics from the same update-100 checkpoint; both unfroze LEAF and kept JEV LoRA active. Both completed the **1200-update diagnostic stage**, with unchanged 3000-step LR schedule. Best validation macro BA: **51.85% updating (step 1200) / 55.59% frozen (step 600)**. Final step-1200 macro BA: **51.85% / 55.39%**. All checkpoint reload checks passed; neither branch is running. These are validation results, not independent test scores.
 
 - Live summaries: `LIVE.md`, `monitor.json` under the current root.
 - Per-step metrics: `{updating,frozen}/metrics.jsonl`.

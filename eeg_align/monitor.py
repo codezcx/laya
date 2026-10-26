@@ -42,7 +42,9 @@ def summarize_branch(folder):
                 old=history[-1]['datasets'][ds]['balanced_accuracy']
                 if old-m['balanced_accuracy']>=.1:
                     alerts.append(dict(step=row['step'],dataset=ds,kind='BA_drop_at_least_10pp',previous=old,current=m['balanced_accuracy']))
-        history.append(dict(step=row['step'],macro_ba=row['validation']['selection_score'],datasets=table,
+        history.append(dict(step=row['step'],selection_score=row['validation']['selection_score'],
+                            selection_task=row['validation'].get('selection_task','dataset_macro'),
+                            macro_ba=float(np.mean([m['balanced_accuracy'] for m in table.values()])),datasets=table,
                             checkpoint_reload=row.get('checkpoint_check')))
     if latest and any(not np.isfinite(latest[k]) for k in ['loss','gradient_norm']):
         alerts.append(dict(step=latest['step'],kind='nonfinite_training'))
@@ -55,22 +57,45 @@ def update_monitor(root,policies):
     checks={};files=[root/p/'initial_state.json' for p in policies]
     if all(p.exists() for p in files):
         proofs=[json.loads(p.read_text()) for p in files]
-        for key in ['step','trainable_sha256','buffers_sha256','source_sha256','branch_seed']:
+        for key in ['step','trainable_sha256','buffers_sha256','source_sha256','branch_seed','rng_sha256','encoder_sha256']:
             checks[key]=all(p[key]==proofs[0][key] for p in proofs)
         if not all(checks.values()):raise RuntimeError(f'Branch initial states differ: {checks}')
-    result=dict(initial_state_match=checks,branches=report)
+    samples=[root/p/'sampling.json' for p in policies];sampling_match=None
+    if all(p.exists() for p in samples):
+        proofs=[json.loads(p.read_text()) for p in samples]
+        sampling_match=all(p==proofs[0] for p in proofs)
+        if not sampling_match:raise RuntimeError('Anchor sample sequences differ')
+    # Check actual observed streams, not just the precomputed schedule.
+    observed={}
+    for policy in policies:
+        for row in read_jsonl(root/policy/'metrics.jsonl'):
+            if 'anchor_sample_sha256' not in row:continue
+            step=row['step'];value=row['anchor_sample_sha256']
+            if step in observed and observed[step]!=value:raise RuntimeError('Observed anchor batches differ')
+            observed[step]=value
+    result=dict(initial_state_match=checks,sampling_match=sampling_match,branches=report)
+    common=set.intersection(*[{r['step'] for r in d['validation_history']} for d in report.values()])
+    if len(policies)==4 and common:
+        step=max(common)
+        values={p:next(r['selection_score'] for r in report[p]['validation_history'] if r['step']==step) for p in policies}
+        if set(values)=={'single_frozen','joint_frozen','single_finetuned','joint_finetuned'}:
+            frozen=values['joint_frozen']-values['single_frozen']
+            tuned=values['joint_finetuned']-values['single_finetuned']
+            result['matched_contrasts']=dict(step=step,anchor_ba=values,joint_minus_single_frozen=frozen,
+                                            joint_minus_single_finetuned=tuned,interaction=tuned-frozen,
+                                            interpretation='one seed/fold diagnostic; no significance claim')
     tmp=root/'monitor.tmp';tmp.write_text(json.dumps(result,indent=2));tmp.replace(root/'monitor.json')
     pipeline=root/'pipeline.json'
     description=json.loads(pipeline.read_text()).get('comparison','Matched model, data and optimization controls.') if pipeline.exists() else 'Matched model, data and optimization controls.'
     lines=['# Current matched training comparison','',description+' '+
            'Training numbers are sampled batch averages. Validation uses the fixed held-out subjects. '
            'Alerts are diagnostic flags, not proof of their cause.','',
-           '| Branch | Last update | Latest 100-update block accuracy | Loss | Latest validation macro BA |',
+           '| Branch | Last update | Latest 100-update block accuracy | Loss | Latest selection BA |',
            '| --- | ---: | ---: | ---: | ---: |']
     for policy,d in report.items():
         w=d['training_windows'][-1] if d['training_windows'] else None
         v=d['validation_history'][-1] if d['validation_history'] else None
-        lines.append(f"| {policy} | {d['last_step']} | {w['accuracy']*100:.2f}% | {w['loss']:.4f} | "+(f"{v['macro_ba']*100:.2f}%" if v else 'pending')+' |' if w else f'| {policy} | pending | — | — | pending |')
+        lines.append(f"| {policy} | {d['last_step']} | {w['accuracy']*100:.2f}% | {w['loss']:.4f} | "+(f"{v['selection_score']*100:.2f}%" if v else 'pending')+' |' if w else f'| {policy} | pending | — | — | pending |')
     for policy,d in report.items():
         if not d['validation_history']:continue
         last=d['validation_history'][-1]

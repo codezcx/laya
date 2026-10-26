@@ -14,8 +14,8 @@ class GroupLRSchedule:
                  encoder_freeze_steps=0, kind='warmup_cosine'):
         if kind not in {'constant', 'warmup_cosine'}:
             raise ValueError(f'Unknown learning-rate schedule: {kind}')
-        if not 0 <= encoder_freeze_steps < total_steps:
-            raise ValueError('Encoder must have at least one active update')
+        if not 0 <= encoder_freeze_steps <= total_steps:
+            raise ValueError('Encoder freeze duration must lie within the budget')
         if not 0 <= warmup_steps <= total_steps or not 0 <= min_ratio <= 1:
             raise ValueError('Invalid warmup or minimum LR ratio')
         self.optimizer = optimizer

@@ -117,10 +117,12 @@ class BalancedSampler:
             self.pools.setdefault(r['task'],{}).setdefault(r['label'],{}).setdefault(r['subject'],[]).append(i)
 
     def __call__(self,rows,step,seed=42,batch=88):
-        rng=np.random.default_rng(np.random.SeedSequence([seed,step]));out=[]
+        out=[]
         tasks=sorted(self.pools)
         assert batch%len(tasks)==0
         for task in tasks:
+            # Adding a different task must not change this task's sample stream.
+            rng=np.random.default_rng(np.random.SeedSequence([seed,step,task]))
             classes=self.pools[task];order=rng.permutation(sorted(classes))
             for j in range(batch//len(tasks)):
                 label=int(order[(j+step)%len(order)]);subjects=sorted(classes[label]);subject=subjects[int(rng.integers(len(subjects)))];choices=classes[label][subject]

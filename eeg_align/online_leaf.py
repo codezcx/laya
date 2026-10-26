@@ -12,7 +12,7 @@ from load_config import build_model_config,load_yaml
 
 
 class OnlineLEAF(torch.nn.Module):
-    def __init__(self, bn_policy='updating'):
+    def __init__(self, bn_policy='updating', eval_mode=False):
         super().__init__()
         self.leaf=LEAF(build_model_config(load_yaml(UP/'configs/LEAF_mpnet.yaml')))
         self.leaf.load_state_dict(torch.load(CONFIG['checkpoint'],map_location='cpu',weights_only=True),strict=True)
@@ -24,9 +24,12 @@ class OnlineLEAF(torch.nn.Module):
         self.register_buffer('instructions',torch.from_numpy(np.stack([vectors[info['texts'].index(t['instruction'])] for t in catalog()])))
         self.unfrozen=False
         self.bn_policy=bn_policy
+        self.eval_mode=eval_mode
+        if self.eval_mode:self.leaf.eval()
+        apply_bn_policy(self.leaf,self.bn_policy)
 
     def forward(self,batch,count,unfrozen):
-        self.unfrozen=bool(unfrozen);self.leaf.train(self.training and self.unfrozen)
+        self.unfrozen=bool(unfrozen);self.leaf.train(self.training and self.unfrozen and not self.eval_mode)
         apply_bn_policy(self.leaf,self.bn_policy)
         outputs=[None]*count;lengths=[None]*count
         for tid,indices,pieces in batch:

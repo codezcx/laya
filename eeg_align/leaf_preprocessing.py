@@ -155,9 +155,9 @@ class PreparedSignalStore:
 
 class OverrideSignalStore:
     """Replace only 2a inputs; preserve every other task's adapter and call order."""
-    def __init__(self, prepared_folder):
+    def __init__(self, prepared_folder, datasets=None):
         from .signal_data import SignalStore
-        self.base = SignalStore()
+        self.base = SignalStore(None if datasets is None else set(datasets)-{'BNCI2014001'})
         self.prepared = PreparedSignalStore(prepared_folder)
 
     def batch(self, rows):

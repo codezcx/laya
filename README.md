@@ -1,8 +1,8 @@
 # Task-conditioned EEG → LEAF → JEV
 
-当前保留一套 EEG-FM-Benchmark 联合训练代码：11 个分类数据集，文本指定任务与选项，被试隔离的第 0 折。
+当前保留一套 EEG-FM-Benchmark 训练代码：文本指定任务与选项，被试隔离的第 0 折。完整任务目录保留 11 个数据集，本轮只训练 2a／2a＋SEED 的匹配对照。
 
-当前实验比较 2a 的原输入管线与 LEAF 原始预处理。两组各用一张 H200，从同一个冻结 BN 的 step 600 checkpoint 恢复模型、优化器和随机状态，续训 200 步至 step 800。两组 BN 都冻结，LEAF 参数和 JEV LoRA 继续训练；只有一组替换 2a 输入，其余十个任务保持一致。有效 batch 88、microbatch 22，沿用原 3000 步学习率曲线。step 600、700、800 使用相同验证集。
+当前四组：`single_frozen`、`joint_frozen`、`single_finetuned`、`joint_finetuned`，分别使用 GPU 0–3 的 H100 80GB。全部从相同的发布版 LEAF／原生 JEV 初始化，固定 BN 和 LEAF dropout；微调组从第 101 步更新 LEAF。每组 600 步，每步相同的 8 条 2a 样本，联合组额外加 8 条 SEED，损失为各任务平均 CE 之和。先比较固定第 600 步的 2a 验证 BA，再决定后续修复；不自动启动 PCGrad 或 11 数据集训练。
 
 - [当前训练协议](docs/PROTOCOL.md)
 - [结果与指标说明](docs/RESULTS.md)
@@ -13,6 +13,6 @@
 laya/.venv-eeg/bin/python scripts/run_benchmark.py
 ```
 
-当前输出：`artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`。每组的 `metrics.jsonl`、`LIVE.md` 和 `monitor.json` 记录过程；TensorBoard 自动保存到该目录的 `tensorboard/`，包含总体/各数据集的准确率和 loss，BA 单独记录。启动器拒绝覆盖已有运行目录。
+当前输出：`artifacts/benchmark/cross_subject_fold0_task_mixture/`。每组的 `metrics.jsonl`、根目录的 `LIVE.md` 和 `monitor.json` 记录过程；TensorBoard 自动保存到该目录的 `tensorboard/`。四组真实模型 smoke 通过、初始状态和全部 2a 抽样序列一致后才开始正式训练。启动器拒绝覆盖已有运行目录。
 
-原信号和划分在 `datasets/benchmark/signals/`，2a 的 LEAF 处理缓存位于 `datasets/benchmark/leaf_2a_preprocessing/`。已完成的 BN 对照、线性探针和历史 TensorBoard 保留在 `artifacts/benchmark/cross_subject_fold0_bn_control/`。更早的代码通过 Git 恢复，旧权重和日志在仓库外归档。
+原信号和划分在 `datasets/benchmark/signals/`，四组共用的 2a 缓存位于 `datasets/benchmark/leaf_2a_preprocessing/`（含被试级无标签归一化，非严格单试次 zero-shot）。本轮不使用测试集。已完成的 BN 对照和输入管线对照分别保留在 `artifacts/benchmark/cross_subject_fold0_bn_control/`、`artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`；此前协议在 Git `5200248`，旧数据和权重不删除。

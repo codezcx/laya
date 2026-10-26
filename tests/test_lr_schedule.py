@@ -55,3 +55,11 @@ def test_constant_control_and_smoke_encoder_unfreezing():
     smoke=GroupLRSchedule(opt,2,1,.02,1)
     assert smoke.set_step(1)['eeg_encoder']==0.
     assert smoke.set_step(2)['eeg_encoder']==1e-6
+
+
+def test_encoder_can_stay_frozen_for_entire_matched_control():
+    _,opt,_=setup_schedule()
+    frozen=GroupLRSchedule(opt,600,18,.02,600)
+    for step in range(1,601):
+        values=frozen.set_step(step)
+        assert values['eeg_encoder']==0 and values['connector']>0
