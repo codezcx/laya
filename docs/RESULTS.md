@@ -1,5 +1,17 @@
 # Joint cross-subject LEAF/JEV results
 
+## Completed preprocessing continuation (2026-10-26 audit)
+
+Both `cross_subject_fold0_leaf_preprocessing` branches completed step 800. The table reports 2a validation accuracy on the same 288 trials, not test accuracy. Neither job remains active. This snapshot closes the prior experiment before the matched single-task/joint-task factorial control.
+
+| Update | Original adapter | Raw LEAF preprocessing |
+| --- | ---: | ---: |
+| 600, before continuation | 27.43% | 25.35% |
+| 700 | 26.39% | 39.24% |
+| 800 | 24.65% | 32.99% |
+
+Final eleven-dataset macro BA was 53.40% / 54.70%; selected macro BA was 55.59% at step 600 / 56.17% at step 700. Preprocessing plus adaptation helps 2a in this diagnostic but does not resolve multi-task interference. Evidence: each branch's `complete.json` and `validation_{0600,0700,0800}.json`. Earlier startup notes below are historical.
+
 Current paired continuation: `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`. Both branches restore the same frozen-BN best checkpoint at step 600 and run 200 further updates to step 800; only the `leaf_raw` branch replaces 2a preprocessing. The other ten tasks, weights/optimizer/RNG initialization and schedule are matched. Initial validation at step 600 and follow-ups at 700/800 distinguish input replacement from subsequent adaptation. TensorBoard records overall/per-dataset accuracy and loss under the new root's `tensorboard/`. See [PROTOCOL.md](PROTOCOL.md). Results below establish the motivation; they are not yet evidence of a JEV improvement from the new pipeline.
 
 Startup verification: 28 focused tests passed. A mixed batch verified identical grouping/shapes and byte-identical inputs for all ten unchanged tasks. Both real-model two-update smoke tests completed with nonzero encoder gradients after unfreezing and fixed BN statistics; checkpoint reloads reproduced logits exactly on all 38 task/classes. The formal paired jobs and TensorBoard exporter have been launched. Evidence: `startup_checks.json` and smoke logs under the new run root. Smoke scores are functional checks, not experiment results.
