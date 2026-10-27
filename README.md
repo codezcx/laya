@@ -1,8 +1,8 @@
 # Task-conditioned EEG → LEAF → JEV
 
-当前保留一套 EEG-FM-Benchmark 训练代码：文本指定任务与选项，被试隔离的第 0 折。完整任务目录保留 11 个数据集，本轮只训练 2a／2a＋SEED 的匹配对照。
+当前保留一套 LEAF→JEV SFT 训练代码：按照 EEG-FM-Benchmark 原仓库的 Cross masks，每个数据集独立训练并在留出被试上测试。每折重新加载发布权重；测试集只在固定最后一轮评估，不参与早停、调参或 checkpoint 选择。
 
-当前四组：`single_frozen`、`joint_frozen`、`single_finetuned`、`joint_finetuned`，分别使用 GPU 0–3 的 H100 80GB。全部从相同的发布版 LEAF／原生 JEV 初始化，固定 BN 和 LEAF dropout；微调组从第 101 步更新 LEAF。每组 600 步，每步相同的 8 条 2a 样本，联合组额外加 8 条 SEED，损失为各任务平均 CE 之和。先比较固定第 600 步的 2a 验证 BA，再决定后续修复；不自动启动 PCGrad 或 11 数据集训练。
+新配方固定 20 epochs、batch 16，训练 LEAF 有效路径、连接层、JEV LoRA 和 choice head，冻结 Qwen 基座及 LEAF BN。仅使用 GPU 2、3。10 个标准 PKL 数据集共准备了 426 个 fold×seed；首批先运行 2a/2b 的 seed 0、fold 0。划分准备完毕不等于全部训练已经排队或完成。这是跨被试 SFT，不是跨数据集 zero-shot。
 
 - [当前训练协议](docs/PROTOCOL.md)
 - [结果与指标说明](docs/RESULTS.md)
@@ -10,9 +10,11 @@
 - [任务、问题与选项](configs/benchmark_tasks.json)
 
 ```sh
-laya/.venv-eeg/bin/python scripts/run_benchmark.py
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --out artifacts/benchmark/official_cross_leaf_jev_20261027 --datasets BNCI2014001 BNCI2014004 --seeds 0 --folds 0
 ```
 
-当前输出：`artifacts/benchmark/cross_subject_fold0_task_mixture/`。每组的 `metrics.jsonl`、根目录的 `LIVE.md` 和 `monitor.json` 记录过程；TensorBoard 自动保存到该目录的 `tensorboard/`。四组真实模型 smoke 通过、初始状态和全部 2a 抽样序列一致后才开始正式训练。启动器拒绝覆盖已有运行目录。
+当前输出：`artifacts/benchmark/official_cross_leaf_jev_20261027/`。根目录 `pipeline.json` 记录实际执行范围和状态，每折保存 `metrics.jsonl`、`progress.json`、`tensorboard/`、checkpoint 和完整测试预测。启动器拒绝覆盖已有目录；两步 smoke 只用训练样本。
 
-原信号和划分在 `datasets/benchmark/signals/`，四组共用的 2a 缓存位于 `datasets/benchmark/leaf_2a_preprocessing/`（含被试级无标签归一化，非严格单试次 zero-shot）。本轮不使用测试集。已完成的 BN 对照和输入管线对照分别保留在 `artifacts/benchmark/cross_subject_fold0_bn_control/`、`artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`；此前协议在 Git `5200248`，旧数据和权重不删除。
+官方划分锁定于 `artifacts/benchmark/official_splits_20261027/`，直接读取原始 benchmark PKL，不复用旧被试合并、排除坏样本或被试级归一化的 manifests。SEED-VIG、ThingsEEG2、Nakanishi 的标准源数据尚未就绪，CHB-MIT 坏样本问题另列处理。具体限制见训练协议。旧实验已归档至 Git `999380b`；旧数据、权重和日志均保留。
+
+历史 custom fold-0 全量评估已完成，产物保留在 `artifacts/benchmark/full_eval_fold0_20261027_checked/`，协议/脚本可从 Git `999380b` 恢复；其结果不能混入本轮官方 Cross 的新结果。

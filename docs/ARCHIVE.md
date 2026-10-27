@@ -1,6 +1,6 @@
 # Repository archive
 
-Historical tracked implementations can be recovered from Git. `5200248` preserves the completed preprocessing control before the current four-arm task-mixture comparison; `521f865` predates the BN-control replacement and cleanup. The working tree keeps the current benchmark implementation and its matched controls/tests.
+Historical tracked implementations can be recovered from Git. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol before the official Cross SFT replacement. Use an isolated worktree at that commit for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps only the official Cross LEAF→JEV training entry and its checks.
 
 Historical artifacts were moved, not deleted, to:
 
@@ -10,7 +10,10 @@ The archive's `index.json` maps each original repository path to its archived lo
 
 Current retained artifacts:
 
-- `artifacts/benchmark/cross_subject_fold0_task_mixture/`: current four-arm 2a/SEED × frozen/fine-tuned LEAF comparison.
+- `artifacts/benchmark/official_splits_20261027/`: locked original Cross masks, all available folds and seeds.
+- `artifacts/benchmark/official_cross_leaf_jev_20261027*/`: current plan, smoke and first-stage SFT runs; consult each pipeline record for actual status.
+- `artifacts/benchmark/full_eval_fold0_20261027_checked/`: completed historical custom fold-0 evaluation.
+- `artifacts/benchmark/cross_subject_fold0_task_mixture/`: historical four-arm 2a/SEED × frozen/fine-tuned LEAF comparison.
 - `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`: completed paired 2a preprocessing continuation and TensorBoard logs.
 - `artifacts/benchmark/cross_subject_fold0_bn_control/`: completed BN comparison, source checkpoint, diagnostic controls and historical TensorBoard logs.
 - `artifacts/benchmark/reference_constant_lr/`: old constant-LR metrics and fixed-subset predictions; weights are archived.

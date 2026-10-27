@@ -1,68 +1,43 @@
 {
-  "seed": 42,
-  "steps": 600,
-  "validation_every": 100,
-  "checkpoint_every": 100,
-  "samples_per_task": 8,
+  "run_name": "official_cross_leaf_jev_20261027",
+  "protocol": "official_Cross_per_dataset_final_epoch",
+  "split_root": "artifacts/benchmark/official_splits_20261027",
+  "benchmark_root": "third_party/EEG-FM-Benchmark-official",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 20,
+  "batch_size": 16,
   "microbatch": 8,
   "eval_microbatch": 8,
-  "run_name": "cross_subject_fold0_task_mixture",
+  "checkpoint_every": 100,
+  "test_policy": "once_after_final_epoch_no_selection",
+  "validation_policy": "none_fixed_recipe_no_early_stopping",
+  "learning_rates": [
+    0.0001,
+    0.000005,
+    0.00001
+  ],
+  "encoder_learning_rate": 0.000001,
+  "encoder_warmup_steps": 100,
   "lr_schedule": {
     "kind": "warmup_cosine",
     "warmup_ratio": 0.03,
     "min_ratio": 0.02
   },
-  "learning_rates": [
-    0.0001,
-    5e-06,
-    1e-05
-  ],
+  "weight_decay": 0.01,
   "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
   "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
   "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
-  "world_size": 1,
-  "validation_cap_per_dataset": 2048,
-  "backend": "online_signal",
-  "fold": 0,
-  "encoder_warmup_steps": 100,
-  "encoder_learning_rate": 1e-06,
-  "stop_step": 600,
-  "branch_seed": 142,
-  "validate_at_start": true,
   "leaf_eval_mode": true,
-  "prepared_signals": "datasets/benchmark/leaf_2a_preprocessing",
-  "evaluation_tasks": ["BNCI2014001", "SEED"],
-  "selection_task": "BNCI2014001",
-  "loss_weights": {"BNCI2014001": 1.0, "SEED": 1.0},
-  "comparison": "2x2 matched control: 2a vs 2a+SEED; frozen vs fine-tuned LEAF. Same release initialization, fixed BN/dropout, 8 identical 2a examples/update and unit task-loss weights. Primary endpoint: step-600 2a validation BA.",
-  "branches": [
-    {
-      "name": "single_frozen",
-      "bn_policy": "frozen",
-      "encoder_policy": "frozen",
-      "train_tasks": ["BNCI2014001"],
-      "gpu": 0
-    },
-    {
-      "name": "joint_frozen",
-      "bn_policy": "frozen",
-      "encoder_policy": "frozen",
-      "train_tasks": ["BNCI2014001", "SEED"],
-      "gpu": 1
-    },
-    {
-      "name": "single_finetuned",
-      "bn_policy": "frozen",
-      "encoder_policy": "finetuned",
-      "train_tasks": ["BNCI2014001"],
-      "gpu": 2
-    },
-    {
-      "name": "joint_finetuned",
-      "bn_policy": "frozen",
-      "encoder_policy": "finetuned",
-      "train_tasks": ["BNCI2014001", "SEED"],
-      "gpu": 3
-    }
-  ]
+  "bn_policy": "frozen",
+  "gpus": [
+    2,
+    3
+  ],
+  "preprocessing": "original_benchmark_epochs_per_trial_robust_scale_200Hz_65_channels",
+  "invalid_signal_policy": "fail_without_excluding_rows",
+  "recipe_status": "prespecified_new_model_recipe_not_official_LEAF_JEV_hyperparameters"
 }

@@ -18,7 +18,7 @@
 - 若只有不重拟合的分类头失效，而匹配重拟合恢复，应区分接口失配与可解码信息丧失。若两种设置都下降，仍不能仅凭这一实验判断信息已不可恢复。
 - 不根据七名源用户的探索结果声称普遍收益、显著跨库排名反转或算法首创。CAR 也不被预设为只去除噪声。
 
-脚本：[diagnose_input_factors.py](../../scripts/diagnose_input_factors.py)。产物写入现有对照根目录的 `input_factor_control/`，保留 plan、输入校验、特征、逐折预测与完整性记录；不会覆盖既有产物。
+历史脚本：Git `999380b:scripts/diagnose_input_factors.py`，在隔离 worktree 中复现。产物保留于原对照根目录的 `input_factor_control/`，含 plan、输入校验、特征、逐折预测与完整性记录；本轮官方 Cross SFT 不覆盖这些既有产物。
 
 ## 已完成结果
 

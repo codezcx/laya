@@ -1,83 +1,87 @@
-# LEAF → JEV: matched task-mixture experiment
+# LEAF → JEV：官方 Cross 划分上的 SFT
 
-_Current protocol, fixed before launch on 2026-10-26. One seed and one subject-disjoint fold; a diagnostic, not a confirmatory benchmark._
+_2026-10-27 固定的新协议，替代旧 fold-0 四组诊断。SFT 是训练方式，跨被试是测试方式。_
 
-## 🎯 Question and matched controls
+## 🎯 目标与划分
 
-Does adding SEED impair 2a performance through the shared JEV interface even when LEAF is frozen, and does updating LEAF add further interference? Reuse the current model and task catalog; do not introduce PCGrad, another encoder, or an eleven-task sweep in this stage.
+每个数据集独立微调，在该折完全留出的被试上测试。此次不是多数据集联合训练，也不是整个目标数据集未见的跨数据集 zero-shot。
 
-| Branch | Training data | LEAF updates | GPU |
-| --- | --- | --- | ---: |
-| `single_frozen` | 2a | None | 0 |
-| `joint_frozen` | 2a + SEED | None | 1 |
-| `single_finetuned` | 2a | Steps 101–600 | 2 |
-| `joint_finetuned` | 2a + SEED | Steps 101–600 | 3 |
+使用官方仓库提交 `b36719588abec452e4c2b564f25ede1c0b1c03bc` 的原始 Cross splitter：LOSO；TUAB/SleepEDF 为被试级 10-fold。保留原 `usage`（尤其 SEED、CHB-MIT）、subject ID 和全部 source row indices，不额外减少一个外层验证被试。[^1]
 
-All four train the connector, native JEV LoRA and choice-head weights/bias. Native Qwen backbone weights remain frozen. LEAF BN running statistics and dropout are fixed in all arms: LEAF stays in eval mode, with autograd enabled only for fine-tuned arms after warmup. Eval mode does not disable parameter gradients. Unused reconstruction heads, mask token and text-output projection remain outside optimization.
+划分锁定于 `artifacts/benchmark/official_splits_20261027/`，每折含行号、被试、数量、SHA256。训练前重新核验 PKL 和 mask。10-fold 在 splitter 调用前固定 RNG，为所有模型提供共同 masks；不宣称与论文未公开的逐行 fold manifests 完全相同。
 
-Initialize all arms from released LEAF and native JEV, with the same randomly initialized connector (seed 42). Do not resume the previously mixed-trained step-600 checkpoint. GPUs are identical H100 80GB devices, one process each. Hardware assignment is fixed; this is not an independently replicated or randomized device study.
+| seed 0 / fold 0 | SFT 被试 | SFT trial | 测试被试 | 测试 trial |
+| --- | --- | ---: | --- | ---: |
+| 2a | 2–9 | 2,304 | 1 | 288 |
+| 2b | 2–9 | 1,240 | 1 | 160 |
 
-## 📋 Data and input access
+## 🔐 测试隔离规则
 
-Use unchanged `datasets/benchmark/signals/fold0` manifests. Both datasets hold subject 1 for test, subject 2 for validation, and subjects 3 onward for training. The 2a task has 2,016 training / 288 validation trials; SEED has 44,122 training windows and a fixed class-balanced 2,046-window subset of its 3,394 validation windows. Validation rows are identical across all arms. No test evaluation or test-label selection is scheduled. Single-task arms also report SEED validation as an **untrained-task diagnostic**, not trained SEED performance.
+| 环节 | 使用数据 | 禁止事项 |
+| --- | --- | --- |
+| 梯度、训练诊断、smoke | 本折 train mask | 输入测试被试 trial |
+| 归一化 | 当前单个 trial | 汇总测试被试/测试集统计 |
+| checkpoint | 固定最后一轮 | 按测试分数选 best |
+| 最终测试 | 完整 test mask | 截断、挑样本、反馈调参 |
+| 下一折 | 重新加载发布权重 | 沿用上一折 SFT 权重 |
 
-All arms use the same verified `datasets/benchmark/leaf_2a_preprocessing` override for 2a: T-session labeled runs, upstream six-second extraction context, CAR on 22 channels, FIR 0.3–40 Hz, resampling to 200 Hz, final four-second activity segment, robust scaling and interpolation to 65 channels. Cache IDs and labels match the original fold. Only train/validation rows exist in this cache. SEED retains per-epoch clipping, median/IQR scaling, 200 Hz and 65-channel mapping, followed by clipping to ±10.
+官方 Cross 没有独立验证集；原 trainer 每轮评估 `test_loader` 并把它写成 validation，最终返回最后一轮模型。本轮沿用 masks，但不沿用逐轮看测试集的行为：固定 20 epochs 后才做最终测试，不早停、不搜索。若以后调参，需在外层训练被试内部做内层验证，选定后重新训练全部外层 train，不能使用外层 test。[^2]
 
-Important limitation: 2a normalization pools each subject's unlabeled T-session epochs, including the validation subject's batch. This is transductive/batch preprocessing, **not strict single-trial zero-shot deployment**. No class labels enter normalization. Released LEAF pretraining overlap is not excluded. The outer validation subject has been repeatedly inspected; it is a development endpoint, not an untouched test result.
+## ⚙️ 模型与固定配方
 
-Only relevant signal stores are initialized; montage geometry is constructed from channel metadata, not sample waveforms. Labels are used for sampling and loss, not LEAF instructions. The eleven-task catalog remains stable so cached instruction indices and class semantics are unchanged.
+原 benchmark PKL 完整 epoch → 单 trial 稳健归一化/200 Hz/65 通道映射 → 任务描述条件化 LEAF → 256 维 query tokens → 5,120 维连接层 → JEV 文本塔及 choice head。语言输入为 question、随机排列选项和末尾 decision 位置；真实标签只用于 CE target，不进入文本。没有图像编码器。
 
-## ⚙️ Model, objective and budget
+| 设置 | 值 |
+| --- | --- |
+| 可训练 | LEAF 有效路径、连接层、JEV LoRA、choice 权重/偏置 |
+| 冻结 | Qwen 原始大矩阵，LEAF BN 与 dropout |
+| epochs / batch / microbatch | 20 / 16 / 8 |
+| 采样 | 每 epoch 打乱全部 train 行，每行一次，保留尾批 |
+| 优化器 / weight decay / clipping | AdamW / 0.01 / norm 1 |
+| LR：连接层 / LoRA / choice / LEAF | 1e-4 / 5e-6 / 1e-5 / 1e-6 |
+| 冻结 LEAF 预热 | 前 min(100, 总步数÷10) 步 |
+| LR schedule | 3% warmup + cosine，最低倍率 0.02 |
+| seeds / GPU | 0、1、2 / 仅 2、3 |
 
-Task-only text conditions LEAF's QFormer. Each 2a/SEED example produces eight 256-dimensional query tokens. The connector maps them to 5,120 dimensions; JEV receives signal embeddings, task question and randomly permuted options ending at `[decision]:`. Use its native 16-position choice head with invalid positions masked. No image encoder, auxiliary subject branch, temperature fitting or generated chain of thought is added.
+2a 第 0 折 2,880 updates；2b 第 0 折 1,560 updates。20 epochs/batch 16 取原入口默认值；其余沿用现有模型经验，预先固定。官方没有 LEAF/JEV 适配器或超参数，因此是官方划分上的新模型实验，不是精确复现论文模型配方，也不是全量 27B SFT。[^3]
 
-Each update contains exactly eight 2a examples, balanced across four classes and sampled by subject. Joint arms add eight SEED examples. Per-task RNG is keyed by seed, update and stable task index, so adding SEED cannot change the 2a sample stream. Option permutations are keyed by seed, update and sample ID, independently of the true class. Train/evaluation microbatch size is eight.
+每折新进程加载发布 LEAF、原生 JEV adapter、seed 对应的随机连接层；同 seed 的初始参数/buffers 指纹必须一致。严禁恢复历史 EEG 多任务 checkpoint。只允许同 dataset/seed/fold、代码、数据、配方的断点续训。
 
-```text
-single objective = mean(CE_2a)
-joint objective  = mean(CE_2a) + mean(CE_SEED)
-```
+## 📊 输入与输出完整性
 
-Do not average joint loss over sixteen examples: that halves the 2a coefficient. Sum gradients from both task microbatches before one optimizer step. All arms receive 600 updates and 4,800 2a sample exposures; joint arms add 4,800 SEED exposures. This matches anchor exposure, not total examples or FLOPs. Tasks still interact through summed gradients, global clipping and Adam moments; equal loss coefficients do not guarantee equal effective update contributions. `objective_loss` is the sum of task means; ordinary `loss` is mean CE per sampled example.
+直接读取原 PKL，不复用旧缓存的删行、CHB 被试合并或被试级归一化。长 epoch 按有序 ≤10 秒片段处理，保留全部时间。坏信号触发失败，不静默排除。
 
-| Setting | Value |
-| --- | ---: |
-| Optimizer / weight decay | AdamW / 0.01 |
-| Connector peak LR | 1e-4 |
-| JEV LoRA peak LR | 5e-6 |
-| Choice-head peak LR | 1e-5 |
-| Active LEAF peak LR | 1e-6 |
-| Global gradient-norm clip | 1 |
-| Budget / LR horizon | 600 / 600 |
-| LR warmup / final ratio | 18 active updates / 0.02 |
-| Fine-tuned encoder warmup | Frozen through update 100 |
+逐步保存训练 loss、在线 batch accuracy、梯度、学习率与 TensorBoard；在线 batch accuracy 不是完整训练集最终准确率。测试只使用最后一轮，主指标固定为正常选项顺序；反转顺序只作诊断，不能二选一挑高分。
 
-Frozen arms have zero encoder LR and no encoder gradient throughout. Fine-tuned arms receive 500 encoder updates; encoder LR warms up over updates 101–118. No automatic early stop, hyperparameter search or extension.
+保存全部测试行号、标签、概率、反转概率、混淆矩阵、accuracy、BA、kappa、weighted F1；二分类额外 AUROC/AUPRC。使用官方 metric 函数；其单类别 AUROC/AUPRC 回退为 0.5，应结合类别支持数解释，不能当实测排序能力。
 
-## 📊 Endpoints and interpretation
+`last.pt` 保存可训练参数、完整 buffers、RNG；训练中另含 optimizer/scheduler，最终去掉优化器以控制存储。冻结基座从本地原生权重恢复。真实磁盘 checkpoint 在训练样本上重载并逐元素复现 logits 后才能输出测试结果。中断/失败不标记完成。
 
-Primary comparison: **2a validation BA at fixed final step 600**. Also retain the best checkpoint selected by 2a BA at steps 0, 100, 200, 300, 400, 500 and 600, with earliest-step tie breaking. Never select joint arms by a two-task average. Save normal/reversed-option accuracy and BA, confusion matrices, class recall, semantic option consistency and per-subject metrics for both datasets. Training accuracy is a sampled-batch statistic, not full-training-set accuracy.
+## ⚠️ 范围与限制
 
-Define `Δ_frozen = joint_frozen − single_frozen` and `Δ_finetuned = joint_finetuned − single_finetuned` on the same 2a endpoint. Interaction is `Δ_finetuned − Δ_frozen`. A negative frozen contrast motivates checking shared connector/LoRA/head optimization. A more negative fine-tuned contrast motivates independently probing the encoder; it is not proof of lost representation information. If single-task performance is already poor, prioritize input/representation diagnosis.
+- 10 个标准 PKL 数据集共 426 个 fold×seed 仅代表划分就绪。首批只启动 2a/2b seed 0、fold 0；实际状态见 pipeline。
+- SEED-VIG、ThingsEEG2 缺标准数据/相应接口；Nakanishi 替代缓存 cohort 与论文不同，未冒充标准 PKL；CHB-MIT 坏样本尚待处理。
+- 2a/2b 保留官方预处理所选 session，不用 T/E 会话划分替代 Cross。
+- CHB 原 ID 01/21 的同一生物学被试问题未消除；保留原 ID 只保证 ID 隔离。
+- 本地 CHB/TUAB 等 cohort 数量与论文有差异，不能标为论文精确数据复现。
+- 过去已观察部分被试结果；本轮保证当前 SFT fold 的训练/选择隔离，不宣称研究过程中从未接触这些被试。
+- 发布 LEAF 的预训练数据重叠尚未排除；下游隔离不等于 foundation pretraining 全流程无泄漏。
+- 2b 三通道插值为 65 通道不增加新的实测空间信息。现有适配器的这一限制仍然存在。
 
-One seed, one validation subject and repeated checkpoints are not independent replicates. Report descriptive effect sizes, not significance, convergence or general cross-dataset gains. Conditional follow-ups are frozen-feature probes, block-wise gradient conflict diagnostics, then separately tested targeted fixes. They are not automatically launched.
+## 🔧 执行与归档
 
-## 🔧 Launch, verification and recovery
+先用训练行运行两步真实模型 smoke；通过后从发布权重开始正式训练：
 
 ```sh
-laya/.venv-eeg/bin/python scripts/run_benchmark.py
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --out artifacts/benchmark/official_cross_leaf_jev_20261027_smoke --datasets BNCI2014001 BNCI2014004 --seeds 0 --folds 0 --smoke
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --out artifacts/benchmark/official_cross_leaf_jev_20261027 --datasets BNCI2014001 BNCI2014004 --seeds 0 --folds 0
 ```
 
-First run four real-model two-update smoke tests concurrently, including frozen/unfrozen encoder paths. Then start four fresh formal workers. Each stage blocks at a shared gate until initial trainable parameters/buffers and the complete anchor-sampling schedule match. Checkpoint-reload tests require identical logits on seven fixed examples covering all 2a/SEED classes. During training, monitor actual anchor batch hashes across arms. Every frozen-arm checkpoint verifies all encoder parameters remain unchanged; all arms verify unchanged BN buffers.
+不加筛选会排入全部 426 个 folds，计算代价极大；完成吞吐和数据检查前不自动这样启动。每折有 `metrics.jsonl`、`progress.json`、`tensorboard/`、`last.pt`、`test_predictions.npz`、`complete.json`。worker 支持 `--resume` 在原目录续训，拒绝跨折加载。
 
-Version-2 checkpoints contain trainable parameters, complete buffers, optimizer/scheduler and Python/NumPy/torch RNG states. Save `initial.pt`, `last.pt` and 2a-selected `best.pt`. Reload checks run at validation checkpoints. A source-hash guard stops the controller if implementation/configuration/exporter files change. SIGTERM requests saving at the next update boundary. Existing outputs are never overwritten.
+旧实现/ledger/历史评估协议在 Git `999380b`，用隔离 worktree 重跑；没有删除旧数据、权重、日志或环境。实验设计、资源检查、Transformers 技能辅助隔离检查与运行准备，Markdown 技能用于同步文档；这些程序不代表实验结论已有效。[^4]
 
-Run root: `artifacts/benchmark/cross_subject_fold0_task_mixture/`. Read `pipeline.json` for process/stage status, `LIVE.md` / `monitor.json` for metrics and matched contrasts, and `<branch>/metrics.jsonl` for authoritative events. TensorBoard exports to `<run root>/tensorboard/`. Branches store configuration/source hashes, `sampling.json`, initial-state proof, validation predictions and reload checks.
-
-## 📚 Provenance
-
-Previous preprocessing implementation/protocol/results are committed at `5200248`. Use an isolated worktree for historical reruns. Historical checkpoints/logs under `cross_subject_fold0_leaf_preprocessing` and `cross_subject_fold0_bn_control` remain untouched; no ignored data/model files are removed. See [results](RESULTS.md) and [archive](ARCHIVE.md).
-
-Experimental-design and resource-checking procedures assisted this protocol; they do not establish scientific validity or replace replication.[^1]
-
-[^1]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). *Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents*. https://doi.org/10.48550/arXiv.2609.00065
+[^1]: Official Cross splitter. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/utils/dataset_split.py
+[^2]: Official trainer. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/utils/trainer.py
+[^3]: Official training entry. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/run_finetuning.py
+[^4]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

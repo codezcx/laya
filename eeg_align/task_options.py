@@ -22,3 +22,15 @@ def make_question(task, class_id, sample_id, epoch, seed=42):
     suffix=f"\nEEG recording ends.\n[question] {task['question']}\n[options]\n{options}\n[decision]:"
     return dict(suffix=suffix,label=order.index(ids.index(class_id)),num_choices=len(classes),
                 option_class_ids=[ids[i] for i in order],task_id=task['task_id'])
+
+
+def make_variant(task, label, sample, step, seed, variant=None):
+    if variant is None:
+        return make_question(task, task['classes'][label]['class_id'], sample, step, seed)
+    order = list(range(len(task['classes'])))
+    if variant:
+        order.reverse()
+    options = '\n'.join(f"{chr(65+i)}) {task['classes'][j]['option']}" for i, j in enumerate(order))
+    return dict(suffix=f"\nEEG recording ends.\n[question] {task['question']}\n[options]\n{options}\n[decision]:",
+                label=order.index(label), num_choices=len(order),
+                option_class_ids=[task['classes'][j]['class_id'] for j in order])

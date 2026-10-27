@@ -1,94 +1,134 @@
-"""Run the four matched task-mixture controls, with smoke and startup gates."""
-import os,sys,json,time,signal,subprocess
+"""Queue independent official Cross SFT folds on explicitly assigned GPUs."""
+import argparse
+import json
+import os
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];os.chdir(ROOT);sys.path.insert(0,str(ROOT))
-from eeg_align.leaf_runtime import CONFIG,digest
-from eeg_align.monitor import update_monitor
-OUT=ROOT/'artifacts/benchmark'/CONFIG['run_name']
-OUT.mkdir(parents=True,exist_ok=True)
-PYTHON=str(ROOT/'laya/.venv-eeg/bin/python')
-BRANCHES=CONFIG['branches'];NAMES=[b['name'] for b in BRANCHES]
-assert NAMES==['single_frozen','joint_frozen','single_finetuned','joint_finetuned'] and CONFIG['world_size']==1
-for name in NAMES:
-    assert not (OUT/name).exists() and not (OUT/f'smoke_{name}').exists(),'Existing run output must not be overwritten'
-WATCHED=list(Path('eeg_align').glob('*.py'))+[Path('configs/benchmark_tasks.json'),Path('configs/benchmark_train.json'),Path(__file__),ROOT/'scripts/log_tensorboard.py']
-hashes={str(p):digest(p) for p in WATCHED}
-state=dict(controller_pid=os.getpid(),run_name=CONFIG['run_name'],status='starting',branches=BRANCHES,
-           comparison=CONFIG['comparison'],
-           world_size_per_branch=1,samples_per_task=CONFIG['samples_per_task'],stop_step=CONFIG['stop_step'],
-           gpu_assignment={b['name']:b['gpu'] for b in BRANCHES})
-jobs=[];handles=[];stopping=False;tb_job=None
+import signal
+import subprocess
+import sys
+import time
 
-def write(**values):
-    state.update(values);p=OUT/'pipeline.tmp';p.write_text(json.dumps(state,indent=2));p.replace(OUT/'pipeline.json')
+ROOT = Path(__file__).resolve().parents[1]
+os.chdir(ROOT)
+sys.path.insert(0, str(ROOT))
+from eeg_align.leaf_runtime import CONFIG, digest
+from eeg_align.official_data import build_plan, write_json
 
-def guard():
-    assert hashes=={str(p):digest(p) for p in WATCHED},'Live sources changed'
 
-def shutdown(signum=None,frame=None):
-    global stopping
-    stopping=True
-    for p in jobs:
-        if p.poll() is None:p.terminate()
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--datasets', nargs='+')
+    parser.add_argument('--seeds', nargs='+', type=int)
+    parser.add_argument('--folds', nargs='+', type=int)
+    parser.add_argument('--gpus', nargs='+', type=int, default=CONFIG['gpus'])
+    parser.add_argument('--smoke', action='store_true')
+    parser.add_argument('--plan-only', action='store_true')
+    args = parser.parse_args()
+    if len(set(args.gpus)) != len(args.gpus) or not set(args.gpus) <= set(CONFIG['gpus']):
+        parser.error('Use distinct configured GPU indices only')
+    plan = build_plan(CONFIG)
+    chosen = [j for j in plan['jobs'] if
+        (args.datasets is None or j['dataset'] in args.datasets) and
+        (args.seeds is None or j['seed'] in args.seeds) and
+        (args.folds is None or j['fold'] in args.folds)]
+    if not chosen:
+        parser.error('No prepared folds match selection')
+    if args.datasets and set(args.datasets) - {j['dataset'] for j in chosen}:
+        parser.error('Some selected datasets lack prepared splits')
+    args.out.mkdir(parents=True, exist_ok=False)
+    plan.update(selected_jobs=chosen, selected_runs=len(chosen), smoke=args.smoke,
+                gpu_assignment=args.gpus, config=CONFIG)
+    write_json(args.out / 'plan.json', plan)
+    print('PLAN', json.dumps({k: plan[k] for k in ('planned_runs', 'planned_updates', 'selected_runs', 'pending')}), flush=True)
+    if args.plan_only:
+        return
+    watched = list(Path('eeg_align').glob('*.py')) + [
+        Path(__file__), Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'),
+        Path('scripts/prepare_official_splits.py')]
+    hashes = {str(p): digest(p) for p in watched}
+    state = dict(status='running', controller_pid=os.getpid(), smoke=args.smoke,
+                 completed=[], active={}, queued=chosen.copy(), selected_runs=len(chosen),
+                 planned_runs=plan['planned_runs'], code_sha256=hashes)
+    jobs = {}
+    release_proofs = {}
+    stopping = False
 
-def launch(branch,gpu,smoke):
-    name=f"smoke_{branch['name']}" if smoke else branch['name']
-    log=(OUT/f'{name}.log').open('x');handles.append(log)
-    args=[PYTHON,'-u','-m','eeg_align.train_joint','--out',str(OUT/name),'--bn-policy',branch['bn_policy'],
-          '--branch',branch['name'],'--start-gate',str(OUT/('smoke_initialization_verified.json' if smoke else 'initialization_verified.json'))]
-    if smoke:args+=['--smoke']
-    env=dict(os.environ,CUDA_VISIBLE_DEVICES=str(gpu),RANK='0',LOCAL_RANK='0',WORLD_SIZE='1',
-             MASTER_ADDR='127.0.0.1',MASTER_PORT=str(29685+gpu),OMP_NUM_THREADS='3',TOKENIZERS_PARALLELISM='false')
-    return subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT,env=env)
+    def stop(signum=None, frame=None):
+        nonlocal stopping
+        stopping = True
+        for proc, _, _ in jobs.values():
+            if proc.poll() is None:
+                proc.terminate()
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    try:
+        while state['queued'] or jobs:
+            if hashes != {str(p): digest(p) for p in watched}:
+                raise RuntimeError('Live source guard changed')
+            for _, _, info in jobs.values():
+                proof_path = Path(info['out']) / 'initial_state.json'
+                if proof_path.exists():
+                    proof = json.loads(proof_path.read_text())
+                    key = info['seed']
+                    core = {k: proof[k] for k in ('trainable_sha256', 'buffers_sha256', 'encoder_sha256')}
+                    if key in release_proofs and core != release_proofs[key]:
+                        raise RuntimeError('Same-seed folds did not start from identical fresh weights')
+                    release_proofs[key] = core
+            state['verified_release_initialization_by_seed'] = release_proofs
+            for gpu, (proc, handle, info) in list(jobs.items()):
+                rc = proc.poll()
+                if rc is None:
+                    continue
+                handle.close()
+                del jobs[gpu]
+                del state['active'][str(gpu)]
+                done = Path(info['out']) / 'complete.json'
+                if not stopping and (rc != 0 or not done.exists()):
+                    raise RuntimeError(f"Worker failed: {info['dataset']}, seed {info['seed']}, fold {info['fold']}; see {info['out']}.log")
+                if done.exists():
+                    state['completed'].append(dict(**info, result=json.loads(done.read_text())))
+            if stopping:
+                if not jobs:
+                    break
+            else:
+                for gpu in args.gpus:
+                    if gpu in jobs or not state['queued']:
+                        continue
+                    job = state['queued'].pop(0)
+                    name = f"{job['dataset']}_seed{job['seed']}_fold{job['fold']:03d}"
+                    folder = args.out / name
+                    handle = (args.out / f'{name}.log').open('x')
+                    cmd = [sys.executable, '-u', '-m', 'eeg_align.train_joint',
+                           '--dataset', job['dataset'], '--seed', str(job['seed']),
+                           '--fold', str(job['fold']), '--out', str(folder)]
+                    if args.smoke:
+                        cmd.append('--smoke')
+                    env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), OMP_NUM_THREADS='3',
+                               OPENBLAS_NUM_THREADS='3', TOKENIZERS_PARALLELISM='false')
+                    proc = subprocess.Popen(cmd, stdout=handle, stderr=subprocess.STDOUT, env=env)
+                    info = dict(**job, out=str(folder), pid=proc.pid, gpu=gpu)
+                    jobs[gpu] = (proc, handle, info)
+                    state['active'][str(gpu)] = info
+            write_json(args.out / 'pipeline.json', state)
+            if jobs:
+                time.sleep(5)
+        state['status'] = 'stopped' if stopping else 'complete'
+        write_json(args.out / 'pipeline.json', state)
+    except BaseException as error:
+        stop()
+        state.update(status='failed', error=repr(error))
+        write_json(args.out / 'pipeline.json', state)
+        raise
+    finally:
+        for proc, handle, _ in jobs.values():
+            try:
+                proc.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            handle.close()
 
-signal.signal(signal.SIGTERM,shutdown);signal.signal(signal.SIGINT,shutdown)
-try:
-    assert Path(CONFIG['checkpoint']).is_file()
-    assert Path('datasets/benchmark/signals/fold0/complete.json').exists()
-    for smoke in [True,False]:
-        guard();jobs=[launch(branch,branch['gpu'],smoke) for branch in BRANCHES]
-        write(stage='smoke' if smoke else 'training',status='running',workers={name:p.pid for name,p in zip(NAMES,jobs)})
-        if not smoke:
-            tb_log=(OUT/'tensorboard_export.log').open('x');handles.append(tb_log)
-            tb_job=subprocess.Popen([PYTHON,'-u',str(ROOT/'scripts/log_tensorboard.py'),
-                '--run',str(OUT),'--out',str(OUT/'tensorboard'),'--branches',*NAMES,'--follow'],
-                stdout=tb_log,stderr=subprocess.STDOUT,env=dict(os.environ,CUDA_VISIBLE_DEVICES=''))
-            write(tensorboard_pid=tb_job.pid,tensorboard_logdir=str(OUT/'tensorboard'))
-        while any(p.poll() is None for p in jobs):
-            failed=[p for p in jobs if p.poll() not in [None,0]]
-            if failed:raise RuntimeError(f'Branch failure: {[(p.pid,p.returncode) for p in failed]}')
-            if stopping:break
-            guard()
-            names=[f'smoke_{n}' for n in NAMES] if smoke else NAMES
-            report=update_monitor(OUT,names)
-            gate=OUT/('smoke_initialization_verified.json' if smoke else 'initialization_verified.json')
-            if report['initial_state_match'] and report['sampling_match'] and not gate.exists():
-                assert all(report['initial_state_match'].values()) and report['sampling_match']
-                temp=gate.with_suffix('.tmp');temp.write_text(json.dumps(dict(
-                    initial_state_match=report['initial_state_match'],sampling_match=report['sampling_match']),indent=2));temp.replace(gate)
-                write(initialization_verified=True)
-            time.sleep(10)
-        if stopping:
-            for p in jobs:p.wait(timeout=180)
-            write(status='stopped_by_user');break
-        assert all(p.wait()==0 for p in jobs)
-        for name in NAMES:
-            folder=OUT/(f'smoke_{name}' if smoke else name)
-            assert (folder/'complete.json').exists()
-        if not smoke:
-            report=update_monitor(OUT,NAMES)
-            assert all(report['initial_state_match'].values()) and report['sampling_match']
-            assert tb_job.wait(timeout=60)==0,'TensorBoard export failed; authoritative JSON metrics are preserved'
-            write(stage='comparison_ready',status='complete',finished=time.time())
-except BaseException as error:
-    shutdown()
-    for p in jobs:
-        try:p.wait(timeout=180)
-        except subprocess.TimeoutExpired:p.kill();p.wait()
-    write(status='failed',error=repr(error));raise
-finally:
-    if tb_job is not None and tb_job.poll() is None:
-        tb_job.terminate()
-        try:tb_job.wait(timeout=15)
-        except subprocess.TimeoutExpired:tb_job.kill();tb_job.wait()
-    for log in handles:log.close()
+
+if __name__ == '__main__':
+    main()

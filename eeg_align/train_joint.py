@@ -1,294 +1,276 @@
-"""Online EEG → LEAF → JEV with matched input controls and complete checkpoints."""
-import argparse,json,os,time,subprocess,math,signal
+"""LEAF -> JEV SFT on one locked official outer fold; test only at final epoch."""
+import argparse
+import json
+import math
+import signal
+import subprocess
+import time
 from pathlib import Path
-from datetime import timedelta
+
 import numpy as np
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
-from .leaf_runtime import CONFIG,digest
-from .benchmark_data import catalog,metrics,BalancedSampler
-from .signal_data import ROOT,load_rows,SignalStore
+from torch.utils.tensorboard import SummaryWriter
+
+from .leaf_runtime import CONFIG, digest
+from .benchmark_data import catalog, classification_metrics
+from .official_data import OfficialFold, epoch_batches, require_final_test, import_file, write_json
+from .signal_data import SignalStore
 from .online_leaf import OnlineLEAF
-from .task_options import make_question
-from .jev import load_jev,JEVBridge
-from .distributed import average_gradients,atomic_save
+from .task_options import make_variant
+from .jev import load_jev, JEVBridge
+from .distributed import atomic_save
+from .checkpoint import seed_rng, capture_rng, restore_rng, capture_model, restore_model, tensor_fingerprint
 from .lr_schedule import GroupLRSchedule
-from .checkpoint import (seed_rng,capture_rng,restore_rng,capture_model,restore_model,
-                         recover_frozen_warmup,tensor_fingerprint,rng_fingerprint)
-from .normalization import bn_summary
-from .matched_control import select_rows,task_sum_loss,ids_digest,sampling_proof
-TASKS=catalog()
-
-
-def make_variant(task,label,sample,step,seed,variant=None):
-    if variant is None:return make_question(task,task['classes'][label]['class_id'],sample,step,seed)
-    order=list(range(len(task['classes'])))
-    if variant:order.reverse()
-    opts='\n'.join(f"{chr(65+i)}) {task['classes'][j]['option']}" for i,j in enumerate(order))
-    return dict(suffix=f"\nEEG recording ends.\n[question] {task['question']}\n[options]\n{opts}\n[decision]:",label=order.index(label),num_choices=len(order),option_class_ids=[task['classes'][j]['class_id'] for j in order])
 
 
 def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument('--out',type=Path,required=True)
-    parser.add_argument('--branch',choices=[b['name'] for b in CONFIG['branches']],required=True)
-    parser.add_argument('--start-gate',type=Path)
-    parser.add_argument('--smoke',action='store_true')
-    parser.add_argument('--bn-policy',choices=['updating','frozen'],required=True)
-    parser.add_argument('--resume',type=Path)
-    parser.add_argument('--recover-warmup',action='store_true')
-    parser.add_argument('--evaluate-checkpoint',type=Path)
-    parser.add_argument('--prepared-signals',type=Path)
-    parser.add_argument('--split',choices=['validation','test'],default='validation')
-    a=parser.parse_args()
-    branch=next(b for b in CONFIG['branches'] if b['name']==a.branch)
-    if a.bn_policy!=branch['bn_policy']:parser.error('BN policy must match the branch')
-    if a.prepared_signals is None:a.prepared_signals=Path(CONFIG['prepared_signals'])
-    if a.resume and (a.smoke or a.evaluate_checkpoint):parser.error('Resume is only for production training')
-    if a.recover_warmup and not a.resume:parser.error('--recover-warmup requires --resume')
-    rank,world,local=[int(os.environ[k]) for k in ['RANK','WORLD_SIZE','LOCAL_RANK']]
-    global_batch=CONFIG['samples_per_task']*len(branch['train_tasks'])
-    assert world==CONFIG['world_size'] and global_batch%world==0
-    torch.cuda.set_device(local);torch.set_num_threads(3)
-    dist.init_process_group('nccl',timeout=timedelta(minutes=60));seed_rng(CONFIG['seed'])
-    if rank==0:a.out.mkdir(parents=True,exist_ok=False)
-    dist.barrier()
-    stopping=False
-    def request_stop(signum,frame):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dataset', required=True)
+    parser.add_argument('--seed', type=int, required=True)
+    parser.add_argument('--fold', type=int, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--smoke', action='store_true')
+    parser.add_argument('--resume', action='store_true')
+    args = parser.parse_args()
+    if (args.out / 'complete.json').exists():
+        raise FileExistsError('Completed run cannot be overwritten')
+    if args.resume:
+        if not (args.out / 'last.pt').exists():
+            raise FileNotFoundError('Resume needs this run directory/last.pt')
+    else:
+        args.out.mkdir(parents=True, exist_ok=False)
+    stopping = False
+    def stop(signum, frame):
         nonlocal stopping
-        stopping=True
-    signal.signal(signal.SIGTERM,request_stop)
-    signal.signal(signal.SIGINT,request_stop)
-    train=select_rows(load_rows('train',CONFIG['fold']),branch['train_tasks'])
-    val=select_rows(load_rows(a.split,CONFIG['fold'],None if a.evaluate_checkpoint else CONFIG['validation_cap_per_dataset']),CONFIG['evaluation_tasks'])
-    sampler=BalancedSampler(train)
-    if a.prepared_signals:
-        from .leaf_preprocessing import OverrideSignalStore
-        signals=OverrideSignalStore(a.prepared_signals,set(branch['train_tasks'])|set(CONFIG['evaluation_tasks']))
-    else:signals=SignalStore(set(branch['train_tasks'])|set(CONFIG['evaluation_tasks']))
-    text,w,b,tok=load_jev();model=JEVBridge(text,w,b,tok,True,True,head_choices=16,input_dim=256)
-    model.add_module('eeg_encoder',OnlineLEAF(a.bn_policy,eval_mode=CONFIG['leaf_eval_mode']).cuda())
-    initial_encoder_sha256=tensor_fingerprint(dict(model.eeg_encoder.named_parameters()))
-    initial_bn_sha256=tensor_fingerprint({n:v for n,v in model.eeg_encoder.named_buffers() if 'running_' in n or 'num_batches_tracked' in n})
-    groups=[dict(name='connector',params=list(model.connector.parameters()),lr=CONFIG['learning_rates'][0]),
-            dict(name='jev_lora',params=[p for p in model.text.parameters() if p.requires_grad],lr=CONFIG['learning_rates'][1]),
-            dict(name='decision_head',params=[model.head_weight,model.head_bias],lr=CONFIG['learning_rates'][2]),
-            dict(name='eeg_encoder',params=[p for p in model.eeg_encoder.parameters() if p.requires_grad],lr=CONFIG['encoder_learning_rate'])]
-    opt=torch.optim.AdamW(groups,weight_decay=.01)
-    active=[p for g in opt.param_groups for p in g['params']]
-    horizon=2 if a.smoke else CONFIG['steps']
-    stop_step=2 if a.smoke else CONFIG['stop_step']
-    encoder_freeze_steps=1 if a.smoke else CONFIG['encoder_warmup_steps']
-    if branch['encoder_policy']=='frozen':encoder_freeze_steps=horizon
-    schedule=GroupLRSchedule(opt,horizon,1 if a.smoke else math.ceil(horizon*CONFIG['lr_schedule']['warmup_ratio']),
-                             CONFIG['lr_schedule']['min_ratio'],encoder_freeze_steps,CONFIG['lr_schedule']['kind'])
-    config=dict(CONFIG,bn_policy=a.bn_policy,actual_world_size=world,smoke=a.smoke,
-                branch=a.branch,encoder_policy=branch['encoder_policy'],train_tasks=branch['train_tasks'],global_batch=global_batch,
-                data_manifest_sha256=digest(ROOT/f"fold{CONFIG['fold']}"/'complete.json'),
-                task_sha256=digest('configs/benchmark_tasks.json'),instructions_sha256=digest('artifacts/benchmark/instructions.npy'),
-                git_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
-                code_sha256={str(p):digest(p) for p in Path('eeg_align').glob('*.py')},
-                trainable_parameters=sum(p.numel() for p in active),train_epochs_available=len(train),validation_epochs=len(val))
-    config['prepared_signals']=None if a.prepared_signals is None else dict(
-        path=str(a.prepared_signals.resolve()),complete_sha256=digest(a.prepared_signals/'complete.json'),
-        overridden_dataset='BNCI2014001')
-    start_step=0;best=-1;resume_info=None
-    if a.resume:
-        restored=torch.load(a.resume,map_location='cpu',mmap=True,weights_only=False)
-        for key in ['seed','steps','global_batch','learning_rates','encoder_learning_rate','encoder_warmup_steps',
-                    'branch','train_tasks','samples_per_task','loss_weights','leaf_eval_mode','selection_task',
-                    'fold','checkpoint','upstream_commit','data_manifest_sha256','task_sha256','instructions_sha256']:
-            if restored['config'][key]!=config[key]:raise ValueError(f'Resume mismatch: {key}')
-        start_step=int(restored['step']);assert start_step<stop_step<=horizon
-        if a.recover_warmup:
-            resume_info=recover_frozen_warmup(model,restored,encoder_freeze_steps)
-            seed_rng(CONFIG['branch_seed'])
-        else:
-            if restored['config']['bn_policy']!=a.bn_policy or restored['config']['actual_world_size']!=world:
-                raise ValueError('Exact resume requires matching BN policy and world size')
-            restore_model(model,restored);restore_rng(restored['rng_per_rank'][rank])
-        opt.load_state_dict(restored['optimizer']);schedule.load_state_dict(restored['scheduler'])
-        assert schedule.last_step==start_step
-        best=float(restored['best_score'])
-        if CONFIG.get('reset_selection_on_resume',False):best=-1.
-        config.update(resume_checkpoint=str(a.resume.resolve()),resume_checkpoint_sha256=digest(a.resume),
-                      resume_step=start_step,resume_info=resume_info)
-        del restored
-    elif a.evaluate_checkpoint:
-        restored=torch.load(a.evaluate_checkpoint,map_location='cpu',mmap=True,weights_only=False)
-        if restored['config']['bn_policy']!=a.bn_policy:raise ValueError('Evaluation BN policy mismatch')
-        restore_model(model,restored);start_step=int(restored['step']);del restored
-    if rank==0:
-        (a.out/'config.json').write_text(json.dumps(config,indent=2))
-        proof=sampling_proof(train,sampler,CONFIG['seed'],stop_step,CONFIG['samples_per_task'],CONFIG['selection_task'])
-        (a.out/'sampling.json').write_text(json.dumps(proof,indent=2))
-    prompts={};start=time.monotonic()
-    diagnostic_indices=sorted(next(i for i,r in enumerate(val) if r['task']==t and r['label']==c)
-                              for t in sorted({r['task'] for r in val}) for c in range(len(TASKS[t]['classes'])))
+        stopping = True
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    torch.set_num_threads(3)
+    if torch.cuda.device_count() != 1:
+        raise RuntimeError('Worker must be restricted to exactly one assigned GPU')
+    torch.cuda.set_device(0)
+    fold = OfficialFold(CONFIG, args.dataset, args.seed, args.fold)
+    task = catalog()[fold.task]
+    # Do not use historical caches with excluded rows, merged subjects or pooled scaling.
+    signals = SignalStore({args.dataset}, official_source=fold.data)
+    train = fold.train
+    epoch_steps = math.ceil(len(train) / CONFIG['batch_size'])
+    total = 2 if args.smoke else epoch_steps * CONFIG['epochs']
+    freeze = 1 if args.smoke else min(CONFIG['encoder_warmup_steps'], total // 10)
+    watched = list(Path('eeg_align').glob('*.py')) + [
+        Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'),
+        Path('scripts/prepare_official_splits.py')]
+    hashes = {str(p): digest(p) for p in watched}
+    def guard():
+        if hashes != {str(p): digest(p) for p in watched}:
+            raise RuntimeError('Live code or recipe changed')
 
-    def forward(rows,step,variant=None):
-        questions=[make_variant(TASKS[r['task']],r['label'],r['id'],step,CONFIG['seed'],variant) for r in rows]
+    identity = dict(dataset=args.dataset, seed=args.seed, fold=args.fold, smoke=args.smoke,
+        config=CONFIG, total_steps=total, train_n=len(train), test_n=len(fold.test),
+        split=fold.spec, source_sha256=fold.manifest['source_sha256'],
+        code_sha256=hashes, leaf_checkpoint_sha256=digest(CONFIG['checkpoint']),
+        task_sha256=digest('configs/benchmark_tasks.json'),
+        instruction_sha256=digest('artifacts/benchmark/instructions.npy'))
+    if args.resume:
+        if json.loads((args.out / 'config.json').read_text()) != identity:
+            raise ValueError('Resume identity/recipe/source mismatch')
+    else:
+        write_json(args.out / 'config.json', identity)
+    seed_rng(args.seed)
+    print('LOADING_RELEASE_WEIGHTS', args.dataset, args.seed, args.fold, flush=True)
+    text, weight, bias, tokenizer = load_jev()
+    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16, input_dim=256)
+    model.add_module('eeg_encoder', OnlineLEAF('frozen', eval_mode=True).cuda())
+    initial = capture_model(model)
+    initial_proof = dict(trainable_sha256=tensor_fingerprint(initial['trainable']),
+        buffers_sha256=tensor_fingerprint(initial['buffers']),
+        encoder_sha256=tensor_fingerprint(dict(model.eeg_encoder.named_parameters())),
+        initialization='release LEAF + native JEV adapter + seed-specific fresh connector',
+        git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+        trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad))
+    if args.resume:
+        previous = json.loads((args.out / 'initial_state.json').read_text())
+        for key in ('trainable_sha256', 'buffers_sha256', 'encoder_sha256'):
+            if previous[key] != initial_proof[key]:
+                raise ValueError('Release initialization no longer matches')
+    else:
+        write_json(args.out / 'initial_state.json', initial_proof)
+    del initial
+    bn_initial = tensor_fingerprint(dict(model.eeg_encoder.named_buffers()))
+    groups = [
+        dict(name='connector', params=list(model.connector.parameters()), lr=CONFIG['learning_rates'][0]),
+        dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad], lr=CONFIG['learning_rates'][1]),
+        dict(name='decision_head', params=[model.head_weight, model.head_bias], lr=CONFIG['learning_rates'][2]),
+        dict(name='eeg_encoder', params=[p for p in model.eeg_encoder.parameters() if p.requires_grad], lr=CONFIG['encoder_learning_rate'])]
+    optimizer = torch.optim.AdamW(groups, weight_decay=CONFIG['weight_decay'])
+    active = [p for group in groups for p in group['params']]
+    scheduler = GroupLRSchedule(optimizer, total,
+        1 if args.smoke else math.ceil(total * CONFIG['lr_schedule']['warmup_ratio']),
+        CONFIG['lr_schedule']['min_ratio'], freeze)
+    step = 0
+    if args.resume:
+        saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
+        if saved['identity'] != identity:
+            raise ValueError('Cannot resume another fold/seed/dataset')
+        restore_model(model, saved)
+        step = saved['step']
+        if step < total:
+            optimizer.load_state_dict(saved['optimizer'])
+            scheduler.load_state_dict(saved['scheduler'])
+        restore_rng(saved['rng'])
+        del saved
+    prompts = {}
+    def forward(rows, variant=None, training=False):
+        if any(r['split'] != ('train' if training else rows[0]['split']) for r in rows):
+            raise ValueError('Mixed split batch')
+        if rows[0]['split'] == 'test':
+            require_final_test(step, total, args.smoke)
+            if training:
+                raise RuntimeError('Test loss/backprop forbidden')
+        questions = [make_variant(task, r['label'], r['id'], step, args.seed, variant) for r in rows]
         for q in questions:
-            if q['suffix'] not in prompts:prompts[q['suffix']]=torch.tensor(tok.encode(q['suffix'],add_special_tokens=False),device='cuda')
-        unfreeze=step>encoder_freeze_steps or a.evaluate_checkpoint is not None
-        inputs,valid=model.eeg_encoder(signals.batch(rows),len(rows),unfrozen=unfreeze)
-        logits=model(inputs,valid,suffix_ids=[prompts[q['suffix']] for q in questions],num_choices=[q['num_choices'] for q in questions])['logits']
-        return logits,torch.tensor([q['label'] for q in questions],device='cuda'),questions
+            if q['suffix'] not in prompts:
+                prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
+        tokens, valid = model.eeg_encoder(signals.batch(rows), len(rows), unfrozen=training and step > freeze)
+        logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],
+                       num_choices=len(task['classes']))['logits']
+        targets = torch.tensor([q['label'] for q in questions], device='cuda')
+        return logits, targets
 
-    def semantic(logits,questions,rows):
-        values=[]
-        for prob,q,r in zip(logits.softmax(-1).detach().cpu().numpy(),questions,rows):
-            ids=[c['class_id'] for c in TASKS[r['task']]['classes']]
-            v=[float(prob[q['option_class_ids'].index(i)]) for i in ids];values.append(v+[0.]*(16-len(v)))
-        return values
-
-    @torch.no_grad()
-    def evaluate(step):
-        model.eval();indices=diagnostic_indices if a.smoke else list(range(len(val)))
-        mine=indices[rank::world];result=[]
-        for offset in range(0,len(mine),CONFIG['eval_microbatch']):
-            ix=mine[offset:offset+CONFIG['eval_microbatch']];rows=[val[i] for i in ix];zz=[]
-            for variant in (0,1):
-                logits,_,questions=forward(rows,step,variant);zz.append(semantic(logits,questions,rows))
-            result.extend((i,p,q) for i,p,q in zip(ix,*zz))
-        gathered=[None]*world;dist.all_gather_object(gathered,result)
-        pred=sorted(sum(gathered,[]));assert [r[0] for r in pred]==indices
-        rows=[val[i] for i,_,_ in pred];probs=np.array([p for _,p,_ in pred]);alt=np.array([q for _,_,q in pred])
-        report=dict(normal=metrics(rows,probs),reversed=metrics(rows,alt))
-        report['consistency']={task['task_id']:float(np.mean(probs[[r['task']==t for r in rows]].argmax(1)==alt[[r['task']==t for r in rows]].argmax(1))) for t,task in enumerate(TASKS) if task['task_id'] in report['normal']}
-        report['selection_task']=CONFIG['selection_task']
-        report['selection_score']=report['normal'][CONFIG['selection_task']]['epoch']['balanced_accuracy']
-        report['bn_state']=bn_summary(model.eeg_encoder)
-        if rank==0:(a.out/f'{a.split}_{step:04d}.json').write_text(json.dumps(dict(step=step,metrics=report,predictions=[dict(r,probabilities=p.tolist(),alternate_probabilities=q.tolist()) for r,p,q in zip(rows,probs,alt)])))
-        return report
-
-    def save(step,improved=False,initial=False):
-        rng_states=[None]*world;dist.all_gather_object(rng_states,capture_rng())
-        if rank==0:
-            bn_hash=tensor_fingerprint({n:v for n,v in model.eeg_encoder.named_buffers() if 'running_' in n or 'num_batches_tracked' in n})
-            if a.bn_policy=='frozen':assert bn_hash==initial_bn_sha256,'BN buffers changed'
-            if branch['encoder_policy']=='frozen':
-                assert tensor_fingerprint(dict(model.eeg_encoder.named_parameters()))==initial_encoder_sha256,'Frozen encoder changed'
-            state=dict(**capture_model(model),step=step,config=config,optimizer=opt.state_dict(),
-                       scheduler=schedule.state_dict(),rng_per_rank=rng_states,best_score=best)
-            atomic_save(state,a.out/('initial.pt' if initial else 'last.pt'))
-            if improved:atomic_save(state,a.out/'best.pt')
-            if initial:
-                proof=dict(step=step,trainable_sha256=tensor_fingerprint(state['trainable']),
-                           buffers_sha256=tensor_fingerprint(state['buffers']),bn_state=bn_summary(model.eeg_encoder),
-                           encoder_sha256=initial_encoder_sha256,
-                           rng_sha256=rng_fingerprint(rng_states[0]),
-                           source=config.get('resume_checkpoint'),source_sha256=config.get('resume_checkpoint_sha256'),
-                           branch_seed=CONFIG['seed'])
-                temp=a.out/'initial_state.tmp';temp.write_text(json.dumps(proof,indent=2));temp.replace(a.out/'initial_state.json')
-        dist.barrier()
+    def save(final=False):
+        guard()
+        if tensor_fingerprint(dict(model.eeg_encoder.named_buffers())) != bn_initial:
+            raise RuntimeError('Frozen LEAF buffers changed')
+        state = dict(**capture_model(model), step=step, identity=identity, rng=capture_rng(),
+                     selection='fixed_final_epoch', training_finished=step == total)
+        if not final:
+            state.update(optimizer=optimizer.state_dict(), scheduler=scheduler.state_dict())
+        atomic_save(state, args.out / 'last.pt')
+        return state
 
     @torch.no_grad()
-    def reload_check(step,path):
-        """Prove a saved model reproduces logits after destroying relevant live state."""
-        rng=capture_rng();was_training=model.training;model.eval()
-        rows=[val[i] for i in diagnostic_indices]
-        def predict():
-            chunks=[]
-            for offset in range(0,len(rows),CONFIG['eval_microbatch']):
-                logits,_,_=forward(rows[offset:offset+CONFIG['eval_microbatch']],step,0)
-                chunks.append(F.pad(logits.float(),(0,16-logits.shape[-1]),value=float('-inf')).cpu())
-            return torch.cat(chunks)
-        before=predict()
-        state=torch.load(path,map_location='cpu',mmap=True,weights_only=False)
-        # Loading is tested from changed affine parameters and BN statistics.
-        model.head_weight[0,0].add_(1.)
-        for name,buffer in model.named_buffers():
-            if name.endswith('running_mean'):buffer.add_(1.)
-            elif name.endswith('running_var'):buffer.mul_(2.)
-            elif name.endswith('num_batches_tracked'):buffer.add_(5)
-        restore_model(model,state)
-        after=predict();torch.testing.assert_close(before,after,rtol=0,atol=0)
-        result=dict(step=step,samples=len(rows),logits_exact_match=True,max_abs_logit_difference=0.,
-                    prediction_agreement=float((before.argmax(-1)==after.argmax(-1)).float().mean()),
-                    checkpoint_format=state['format_version'],saved_buffers=len(state['buffers']),
-                    bn_state=bn_summary(model.eeg_encoder),probabilities=after.softmax(-1).tolist(),
-                    sample_ids=[r['id'] for r in rows])
-        if rank==0:(a.out/f'reload_check_{step:04d}.json').write_text(json.dumps(result,indent=2))
-        del state;model.train(was_training);restore_rng(rng)
-        return {k:v for k,v in result.items() if k not in {'probabilities','sample_ids'}}
+    def roundtrip(saved):
+        rng = capture_rng()
+        model.eval()
+        rows = fold.rows(train[:CONFIG['eval_microbatch']], 'train')
+        before, _ = forward(rows, variant=0)
+        model.head_weight[0, 0].add_(1.)
+        restore_model(model, saved)
+        after, _ = forward(rows, variant=0)
+        torch.testing.assert_close(before, after, rtol=0, atol=0)
+        restore_rng(rng)
+        proof = dict(step=step, split='train', n=len(rows), logits_exact_match=True)
+        write_json(args.out / 'reload_check.json', proof)
 
-    if a.evaluate_checkpoint:
-        report=evaluate(start_step)
-        if rank==0:(a.out/'complete.json').write_text(json.dumps(dict(checkpoint=str(a.evaluate_checkpoint),split=a.split,metrics=report),indent=2))
-        dist.barrier();dist.destroy_process_group();return
-    log=(a.out/'metrics.jsonl').open('w',buffering=1) if rank==0 else None
-    if not a.evaluate_checkpoint:
-        save(start_step,initial=True)
-        checked=reload_check(start_step,a.out/'initial.pt')
-        if rank==0:log.write(json.dumps(dict(step=start_step,checkpoint_check=checked))+'\n')
-        if a.start_gate:
-            deadline=time.monotonic()+900
-            while not a.start_gate.exists():
-                if stopping or time.monotonic()>deadline:raise RuntimeError('Initialization gate stopped or timed out')
-                time.sleep(1)
-        if CONFIG.get('validate_at_start',False):
-            report=evaluate(start_step);best=report['selection_score']
-            save(start_step,improved=True)
-            if rank==0:
-                log.write(json.dumps(dict(step=start_step,validation=report,checkpoint_check=checked))+'\n')
-                (a.out/'best.json').write_text(json.dumps(dict(step=start_step,metrics=report),indent=2))
-                print('INITIAL_VALIDATION',start_step,best,flush=True)
-    probe=next(model.eeg_encoder.leaf.tower.tokenizer.parameters())
-    for step in range(start_step+1,stop_step+1):
-        learning_rates=schedule.set_step(step);model.train();opt.zero_grad(set_to_none=True)
-        ix=sampler(train,step,CONFIG['seed'],global_batch)[rank::world]
-        stats=torch.zeros((len(TASKS),3),device='cuda')
-        before=probe.detach().clone() if a.smoke else None
-        for offset in range(0,len(ix),CONFIG['microbatch']):
-            ids=ix[offset:offset+CONFIG['microbatch']];rows=[train[i] for i in ids];logits,y,_=forward(rows,step)
-            losses=F.cross_entropy(logits,y,reduction='none')
-            if not torch.isfinite(losses).all():raise FloatingPointError('Nonfinite per-example loss')
-            task_sum_loss(losses,rows,CONFIG['samples_per_task'],CONFIG['loss_weights'],world).backward()
-            for j,r in enumerate(rows):
-                stats[r['task'],0]+=losses[j].detach();stats[r['task'],1]+=(logits[j].argmax()==y[j]);stats[r['task'],2]+=1
-        unfrozen=model.eeg_encoder.unfrozen
-        sync=active if unfrozen else [p for g in opt.param_groups[:3] for p in g['params']]
-        average_gradients(sync,world)
-        encoder_grads=[p.grad for p in opt.param_groups[3]['params'] if p.grad is not None]
-        if unfrozen and not encoder_grads:raise RuntimeError('Fine-tuned encoder has no gradient')
-        if not unfrozen and encoder_grads:raise RuntimeError('Frozen encoder received gradients')
-        encoder_grad=float(torch.stack([g.float().square().sum() for g in encoder_grads]).sum().sqrt()) if encoder_grads else 0.
-        grad=torch.nn.utils.clip_grad_norm_(sync,1.);assert torch.isfinite(grad);opt.step();dist.all_reduce(stats)
-        if a.smoke:
-            delta=float((probe.detach()-before).abs().max())
-            assert (delta>0 and encoder_grad>0) if unfrozen else delta==0,(unfrozen,delta,encoder_grad)
-        if rank==0:
-            sums=stats.sum(0)
-            item=dict(step=step,steps=horizon,stop_step=stop_step,loss=float(sums[0]/sums[2]),
-                      objective_loss=sum(CONFIG['loss_weights'][task['task_id']]*float(stats[t,0]/stats[t,2]) for t,task in enumerate(TASKS) if task['task_id'] in branch['train_tasks']),
-                      anchor_sample_sha256=ids_digest([train[i] for i in ix if train[i]['dataset']==CONFIG['selection_task']]),
-                      train_accuracy=float(sums[1]/sums[2]),learning_rates=learning_rates,
-                      encoder_unfrozen=unfrozen,encoder_gradient_norm=encoder_grad,gradient_norm=float(grad),
-                      bn_state=bn_summary(model.eeg_encoder),elapsed_seconds=time.monotonic()-start,
-                      peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,
-                      train_by_dataset={task['task_id']:dict(n=int(stats[t,2]),loss=float(stats[t,0]/stats[t,2]),accuracy=float(stats[t,1]/stats[t,2])) for t,task in enumerate(TASKS) if task['task_id'] in branch['train_tasks']})
-            log.write(json.dumps(item)+'\n')
-            (a.out/'progress.json').write_text(json.dumps(item,indent=2))
-            if step==start_step+1 or step%10==0:print('TRAIN',item,flush=True)
-        flag=torch.tensor(int(stopping),device='cuda');dist.all_reduce(flag,op=dist.ReduceOp.MAX);stopping=bool(flag.item())
-        validation_due=step%CONFIG['validation_every']==0 or step==stop_step
-        if validation_due and not stopping:
-            report=evaluate(step);improved=report['selection_score']>best;best=max(best,report['selection_score'])
-            save(step,improved)
-            checked=reload_check(step,a.out/'last.pt')
-            if rank==0:
-                log.write(json.dumps(dict(step=step,validation=report,checkpoint_check=checked))+'\n')
-                if improved:(a.out/'best.json').write_text(json.dumps(dict(step=step,metrics=report),indent=2))
-                print('VALIDATION',step,report['selection_score'],'RELOAD',checked,flush=True)
-        elif step==start_step+1 or step%CONFIG['checkpoint_every']==0 or stopping:
-            save(step)
-        if stopping:break
-    if rank==0:
-        (a.out/('stopped.json' if stopping else 'complete.json')).write_text(json.dumps(dict(step=step,steps=horizon,stop_step=stop_step,smoke=a.smoke,bn_policy=a.bn_policy,seconds=time.monotonic()-start,best_score=best),indent=2))
-        log.close()
-    dist.barrier();dist.destroy_process_group()
+    started = time.monotonic()
+    start_step = step
+    writer = SummaryWriter(str(args.out / 'tensorboard'))
+    try:
+        with (args.out / 'metrics.jsonl').open('a' if args.resume else 'x', buffering=1) as log:
+            if step == 0:
+                model.eval()
+                with torch.no_grad():
+                    logits, y = forward(fold.rows(train[:CONFIG['microbatch']], 'train'), variant=0)
+                    value = float(F.cross_entropy(logits, y))
+                log.write(json.dumps(dict(step=0, split='train_diagnostic', loss=value)) + '\n')
+                writer.add_scalar('train_diagnostic/initial_loss', value, 0)
+            cached_epoch = None
+            batches = None
+            for update in range(step + 1, total + 1):
+                step = update
+                epoch, offset = divmod(step - 1, epoch_steps)
+                if cached_epoch != epoch:
+                    batches = epoch_batches(train, args.seed, epoch, CONFIG['batch_size'])
+                    cached_epoch = epoch
+                indices = batches[offset]
+                rows = fold.rows(indices, 'train')
+                rates = scheduler.set_step(step)
+                model.train()
+                optimizer.zero_grad(set_to_none=True)
+                loss_sum, correct = 0., 0
+                for pos in range(0, len(rows), CONFIG['microbatch']):
+                    batch = rows[pos:pos + CONFIG['microbatch']]
+                    logits, y = forward(batch, training=True)
+                    loss = F.cross_entropy(logits, y, reduction='sum')
+                    if not torch.isfinite(loss):
+                        raise FloatingPointError('Nonfinite training loss')
+                    (loss / len(rows)).backward()
+                    loss_sum += float(loss.detach())
+                    correct += int((logits.argmax(-1) == y).sum())
+                encoder_grads = [p.grad for p in groups[3]['params'] if p.grad is not None]
+                encoder_norm = float(torch.stack([g.float().square().sum() for g in encoder_grads]).sum().sqrt()) if encoder_grads else 0.
+                if (step > freeze and not encoder_grads) or (step <= freeze and encoder_grads):
+                    raise RuntimeError('Encoder freeze/unfreeze gradient contract failed')
+                grad = torch.nn.utils.clip_grad_norm_(active, 1., error_if_nonfinite=True)
+                optimizer.step()
+                item = dict(step=step, total_steps=total, epoch=epoch + 1, epoch_steps=epoch_steps,
+                    batch_n=len(rows), loss=loss_sum / len(rows), train_accuracy=correct / len(rows),
+                    learning_rates=rates, encoder_gradient_norm=encoder_norm,
+                    gradient_norm=float(grad), elapsed_seconds=time.monotonic() - started,
+                    resumed_from=start_step, peak_allocated_gib=torch.cuda.max_memory_allocated() / 2**30,
+                    test_evaluations=0, status='training')
+                log.write(json.dumps(item, allow_nan=False) + '\n')
+                write_json(args.out / 'progress.json', item)
+                for key in ('loss', 'train_accuracy', 'encoder_gradient_norm'):
+                    writer.add_scalar('train/' + key, item[key], step)
+                for name, value in rates.items():
+                    writer.add_scalar('learning_rate/' + name, value, step)
+                if step == start_step + 1 or step % 10 == 0:
+                    print('TRAIN', json.dumps(item), flush=True)
+                if stopping:
+                    save()
+                    write_json(args.out / 'stopped.json', item)
+                    return
+                if step % CONFIG['checkpoint_every'] == 0 and step < total:
+                    save()
+            saved = save(final=True)
+            # Test the actual on-disk checkpoint, never a pre-serialization copy.
+            del saved
+            saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
+            roundtrip(saved)
+            del saved
+            if args.smoke:
+                write_json(args.out / 'complete.json', dict(smoke=True, step=step,
+                    test_evaluations=0, checkpoint_reload_verified=True))
+                return
+            require_final_test(step, total)
+            model.eval()
+            results = [[], []]
+            with torch.no_grad():
+                for offset in range(0, len(fold.test), CONFIG['eval_microbatch']):
+                    ix = fold.test[offset:offset + CONFIG['eval_microbatch']]
+                    rows = fold.rows(ix, 'test')
+                    for variant in (0, 1):
+                        logits, _ = forward(rows, variant=variant)
+                        probabilities = logits.softmax(-1).float().cpu().numpy()
+                        results[variant].append(probabilities if variant == 0 else probabilities[:, ::-1])
+                    write_json(args.out / 'progress.json', dict(status='final_test', step=step,
+                        evaluated=min(offset + len(rows), len(fold.test)), total=len(fold.test)))
+            normal, reverse = [np.concatenate(v) for v in results]
+            if normal.shape != (len(fold.test), len(task['classes'])) or not np.isfinite(normal).all():
+                raise RuntimeError('Incomplete/invalid final test predictions')
+            y = fold.labels[fold.test]
+            official = import_file('official_metrics_training', Path(CONFIG['benchmark_root']) / 'utils/metrics.py')
+            metric_names = ['accuracy', 'balanced_accuracy', 'cohen_kappa', 'f1']
+            if len(task['classes']) == 2:
+                metric_names += ['auroc', 'auprc']
+            report = dict(official_metrics=official.get_metrics(normal, y, metric_names, is_binary=len(task['classes']) == 2),
+                normal=classification_metrics(y, normal, len(task['classes'])),
+                reversed=classification_metrics(y, reverse, len(task['classes'])),
+                option_agreement=float(np.mean(normal.argmax(-1) == reverse.argmax(-1))),
+                step=step, epochs=CONFIG['epochs'], test_evaluations=1,
+                model_selection='none; fixed final epoch', elapsed_s=time.monotonic() - started)
+            np.savez_compressed(args.out / 'test_predictions.npz', source_indices=fold.test,
+                subjects=fold.subjects[fold.test], labels=y, probabilities=normal, reversed_probabilities=reverse)
+            report['checkpoint_sha256'] = digest(args.out / 'last.pt')
+            report['predictions_sha256'] = digest(args.out / 'test_predictions.npz')
+            write_json(args.out / 'complete.json', report)
+            write_json(args.out / 'progress.json', dict(status='complete', step=step, test_evaluations=1))
+            print('COMPLETE', json.dumps(report), flush=True)
+    finally:
+        writer.close()
 
 
-if __name__=='__main__':main()
+if __name__ == '__main__':
+    main()

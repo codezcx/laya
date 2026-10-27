@@ -53,22 +53,3 @@ def test_sampler_balances_tasks():
     rows=[dict(task=t,label=c,subject='one') for t in range(3) for c in range(t+2)]
     sampler=BalancedSampler(rows);sample=sampler(rows,1,batch=12)
     assert [sum(rows[i]['task']==t for i in sample) for t in range(3)]==[4,4,4]
-
-
-def test_cross_subject_folds_have_no_subject_overlap():
-    from eeg_align.signal_data import cross_subject_groups
-    subjects=list(map(str,range(1,10)))
-    seen=[]
-    for fold in range(9):
-        mapping,protocol=cross_subject_groups(subjects,'BNCI2014001',fold)
-        assert list(mapping.values()).count('test')==1
-        assert list(mapping.values()).count('validation')==1
-        assert list(mapping.values()).count('train')==7
-        seen.extend(s for s,v in mapping.items() if v=='test')
-    assert sorted(seen)==subjects
-    subjects=list(map(str,range(78)));seen=[]
-    for fold in range(10):
-        mapping,_=cross_subject_groups(subjects,'SleepEDF',fold)
-        seen.extend(s for s,v in mapping.items() if v=='test')
-        assert set(mapping.values())=={'train','validation','test'}
-    assert len(seen)==78 and len(set(seen))==78
