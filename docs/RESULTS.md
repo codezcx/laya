@@ -19,7 +19,9 @@ _2026-10-27；只报告有产物验证的状态，不把进程启动视为完成
 
 两个真实模型 smoke 均已完成：`artifacts/benchmark/official_cross_leaf_jev_20261027_smoke/pipeline.json`。第 2 步 LEAF 梯度范数为 1.0384（2a）和 0.1888（2b），BN 不变；磁盘 checkpoint 重载 logits 逐元素一致；同 seed 初始参数/buffers 指纹一致；测试访问均为 0。峰值显存约 53.14 / 52.69 GiB。这只证明功能正常，不是准确率实验。
 
-首批正式范围：2a/2b seed 0 / fold 0；输出根目录 `artifacts/benchmark/official_cross_leaf_jev_20261027/`。仅在该目录出现运行记录后才算启动。smoke 不向正式训练传递权重。smoke 后仅优化 epoch 排列的缓存方式（同一序列每 epoch 计算一次），不改变样本顺序或损失。
+首批正式训练已启动：2a/2b seed 0 / fold 0，分别 GPU 2、3；输出根目录 `artifacts/benchmark/official_cross_leaf_jev_20261027/`。启动复核时两组均完成第 4 步，loss 有限，测试访问为 0，初始权重指纹与发布初始化一致。实际后续进度以 `pipeline.json` 和每折 `progress.json` 为准，不能把这里的启动快照当成最新状态。
+
+smoke 不向正式训练传递权重。smoke 后仅优化 epoch 排列的缓存方式（同一序列每 epoch 计算一次），不改变样本顺序或损失。正式运行从 Git `65355f8` 启动；每折保存代码及配方哈希，活跃代码不得改动。
 
 ## 📚 历史结果不可混用
 
