@@ -1,5 +1,11 @@
 # Joint cross-subject LEAF/JEV results
 
+## Full fold-0 test evaluation (2026-10-27)
+
+A separate evaluation is launched on GPU 2 and 3: released LEAF prototype matching versus the historical eleven-dataset BN-frozen JEV checkpoint (`best.pt`, step 600). It covers all 60,275 test rows across the eleven-task catalog, without the validation cap. It does not evaluate all LOSO/10-fold checkpoints or the unsupported SEED-VIG / ThingsEEG2 interfaces. See [the fixed evaluation protocol](FULL_EVALUATION.md).
+
+Run root: `artifacts/benchmark/full_eval_fold0_20261027_checked/`. The initial attempt in `full_eval_fold0_20261027/` completed native inference, then stopped before JEV test access on a historical-probability tolerance check (maximum difference 0.0015554; 38/38 labels agreed). The checked run reuses verified native predictions and adds exact loaded-tensor and local round-trip checks; its separate cross-run BF16 probability tolerance is 0.005. See the protocol for this distinction. `pipeline.json` and `worker*/progress.json` are authoritative for execution status; merged `results.json` and `RESULTS.md` are generated only after both workers pass completeness and checkpoint-state checks. No final test score is claimed from startup. The four-arm training protocol below is unchanged.
+
 ## Current four-arm task-mixture diagnostic
 
 Run root: `artifacts/benchmark/cross_subject_fold0_task_mixture/`. The current experiment is 2a only versus 2a + SEED, crossed with frozen versus fine-tuned LEAF. All arms start from release weights, use identical raw-preprocessed 2a inputs and eight identical 2a examples per update, fixed BN/dropout and unit task-loss coefficients. Budget: 600 updates, seed 42, fold 0. See [the current protocol](PROTOCOL.md).
