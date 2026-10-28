@@ -1,0 +1,14 @@
+{
+  "common": {
+    "input_dim": 768,
+    "hidden_dim": 768,
+    "num_queries": 32,
+    "num_heads": 12,
+    "ff_multiplier": 4,
+    "dropout": 0.0
+  },
+  "variants": {
+    "cross_attention": {"depth": 1},
+    "qformer": {"depth": 4}
+  }
+}

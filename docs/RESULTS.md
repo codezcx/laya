@@ -30,3 +30,16 @@ smoke 不向正式训练传递权重。smoke 后仅优化 epoch 排列的缓存�
 旧完整 ledger、四组诊断和旧评估协议/脚本已提交在 Git `999380b`，在隔离 worktree 中查看。旧权重、数据、缓存和日志没有删除；用户独立文档和未提交修改保留。
 
 配方与限制见[当前协议](PROTOCOL.md)；历史入口见[归档索引](ARCHIVE.md)。
+
+## 🔧 32-token 组件验证（2026-10-28）
+
+已实现单层 cross-attention 和四层 Q-Former-style 两种压缩器；未改变 LEAF 训练入口，未启动新的正式训练。两组使用同一份随机特征，seed 42，在 CPU 上执行前向/反向，无优化器更新。
+
+| 模块 | 输入形状 | 输出形状 | 参数量 | 有限输出及梯度 |
+| --- | --- | --- | ---: | --- |
+| cross-attention | `[2,1568,768]` | `[2,32,768]` | 7,115,520 | 通过 |
+| Q-Former-style | `[2,1568,768]` | `[2,32,768]` | 37,834,752 | 通过 |
+
+产物：`artifacts/token_resamplers/smoke_20261028/` 下的 `summary.json`、`cross_attention.npz`、`qformer.npz`。JSON 记录模块配置、代码/配置哈希、输入来源、参数量和运行状态。NPZ 是**未训练模块对随机特征的输出**，不是真实 EEG 表征或可用的对齐权重。
+
+新增 29 项单元测试通过，覆盖可变输入长度、padding/NaN 隔离、batch 独立性、无效输入拒绝、输入及参数梯度、bf16 输入、输入宽度投影、checkpoint 精确重载、下游优化器注册及 JEV embedding 拼接。全仓库回归测试 `python -m pytest tests -q` 为 60 passed（10.45 秒）。没有运行真实 EEG → BSR → JEV 全链路推理，也没有新的准确率或架构优劣结论。

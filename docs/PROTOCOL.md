@@ -81,6 +81,49 @@ laya/.venv-eeg/bin/python scripts/run_benchmark.py --out artifacts/benchmark/off
 
 旧实现/ledger/历史评估协议在 Git `999380b`，用隔离 worktree 重跑；没有删除旧数据、权重、日志或环境。实验设计、资源检查、Transformers 技能辅助隔离检查与运行准备，Markdown 技能用于同步文档；这些程序不代表实验结论已有效。[^4]
 
+## 🔧 32-token 压缩组件对照
+
+2026-10-28 新增的组件验证，不改变上面的 LEAF 官方 Cross 训练配方。目标是把 BSR-VideoMAE **池化前**的 `[B,1568,768]` 压缩为 `[B,32,768]`；不能先均值池化成 `[B,768]`，再把它当作 1568 个 token。输入应保留 encoder 的位置编码信息。这里不另外引入文本或标签作为 query。
+
+| 配置名 | 每层操作 | 层数 | 输出 | 参数量 |
+| --- | --- | ---: | --- | ---: |
+| `cross_attention` | cross-attention + FFN | 1 | `[B,32,768]` | 7,115,520 |
+| `qformer` | self-attention + cross-attention + FFN | 4 | `[B,32,768]` | 37,834,752 |
+
+两种实现均使用 32 个可学习 query、12 个注意力头、pre-LN、残差、4 倍 FFN 和输出 LayerNorm，dropout 为 0。Q-Former-style 只实现 query resampler，不包含 BLIP 的文本分支、预训练目标或发布权重；两组都是新初始化、需要训练。两组匹配输出长度及宽度，但**不匹配参数量和计算预算**，因此未来准确率差异不能单独归因于 self-attention。
+
+实现为 [`TokenResampler`](../eeg_align/token_resampler.py)，配置为 [`token_resamplers.json`](../configs/token_resamplers.json)。`valid[B,N]` 中 True 表示有效输入；padding 在归一化前清零且不参与 attention。全空样本报错；返回的 `valid32[B,32]` 全 True。支持可变 N，N 小于 32 时属于重采样/扩展而非压缩。不要直接对 LEAF 原有的 8 个 query 宣称“压缩到 32”。
+
+### 接入 JEV
+
+```python
+from eeg_align.token_resampler import ResamplerConfig, TokenResampler, ResampledDecisionModel
+from eeg_align.jev import JEVBridge
+
+config = ResamplerConfig.from_json("configs/token_resamplers.json", "qformer")
+resampler = TokenResampler(config).to(weight.device)
+# text、weight、bias、tokenizer 由现有 load_jev 加载；不复用 256 维 LEAF connector。
+bridge = JEVBridge(text, weight, bias, tokenizer, input_dim=config.hidden_dim)
+model = ResampledDecisionModel(resampler, bridge)
+# bsr_tokens 是 encoder 的池化前特征；valid 是可选的输入 token mask。
+result = model(bsr_tokens, valid, labels=labels)
+```
+
+`ResampledDecisionModel` 同时注册压缩器和 JEV bridge，使 `model.parameters()` / `state_dict()` 包含压缩器。正式训练仍须把 `model.resampler.parameters()` 纳入优化器，并随 checkpoint 保存 `config.to_dict()`。如果要联合微调 encoder，还须注册 encoder 并保留特征提取的计算图。现有 `train_joint.py` 使用 LEAF 专用参数组，**不会自动启用这两个组件**；本次没有修改该入口，也没有运行新的 SFT。
+
+压缩后还需要 connector 做 `768 → 5120` 的特征维度映射；32 是 token 数，不是 embedding 维度。1568 → 32 减少了 49 倍的信号 token 数，不代表端到端提速 49 倍；encoder 和文本提示的计算仍然存在。
+
+### 功能验证与限制
+
+```sh
+laya/.venv-eeg/bin/python -m pytest tests/test_token_resampler.py -q
+laya/.venv-eeg/bin/python scripts/check_token_resamplers.py --out artifacts/token_resamplers/my_check
+```
+
+检查脚本默认在 CPU 上对同一份随机 `[2,1568,768]` 输入执行两个模块，保存 `cross_attention.npz`、`qformer.npz` 及带配置/代码哈希的 `summary.json`。`--tokens` 可读取已提取特征的 NPZ，键为 `tokens[B,N,D]` 和可选布尔 `valid[B,N]`；输出目录拒绝覆盖。仅做前向、反向，无优化器更新，不加载 BSR encoder 或 27B JEV。单次耗时包含冷启动，不用作两个架构的速度排名。
+
+本轮只验证形状、mask、梯度、checkpoint 往返和下游接口；不能据此宣称保留了任务信息、实现文本对齐或改善 EEG 准确率。Hugging-science 技能用于区分预训练权重与新模块的验证范围，Markdown 技能用于同步说明。[^4]
+
 [^1]: Official Cross splitter. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/utils/dataset_split.py
 [^2]: Official trainer. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/utils/trainer.py
 [^3]: Official training entry. https://github.com/Dingkun0817/EEG-FM-Benchmark/blob/b36719588abec452e4c2b564f25ede1c0b1c03bc/run_finetuning.py
