@@ -1,5 +1,7 @@
 # Repository archive
 
+2026-10-28: `14c60cf` archives the completed BSR 2a controls (25.6944% / 25.0000%) and user-cancelled 2b queue before migration to xw1216/EEG-FM-Bench. The old controller is stopped with no active or queued workers. The requested LEAF-first, then VideoMAE global-token multitask approach is in data/protocol preparation, not training; see [current protocol](PROTOCOL.md). The old executable is retained temporarily pending the missing-data/scope decision, not as a concurrent active experiment. No data, weights, caches, environments or logs were deleted.
+
 Historical tracked implementations can be recovered from Git. `3033ac9` preserves official Cross LEAF→JEV training and the standalone 32-query module checks before the BSR→32-query→JEV replacement. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol. Use isolated worktrees for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps the BSR Cross trainer with two resampler controls. No ignored data, checkpoints, environments or logs were deleted.
 
 Historical artifacts were moved, not deleted, to:

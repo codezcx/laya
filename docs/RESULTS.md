@@ -46,6 +46,6 @@ _2026-10-28；2a 已完成，2b 按用户要求取消。以下结果属于 Dingk
 
 ## ⚠️ 解释边界与历史
 
-BSR 的 Stage-B 包含 2b，预训练被试/trial 重叠未排除；下游被试隔离不等于 foundation pretraining 无泄漏。不将本轮称为干净 zero-shot，也不把两组准确率差异只归因于 self-attention（参数量不匹配）。完整规则见[当前协议](PROTOCOL.md)。
+BSR 的 Stage-B 包含 2b，预训练被试/trial 重叠未排除；下游被试隔离不等于 foundation pretraining 无泄漏。不将本轮称为干净 zero-shot，也不把两组准确率差异只归因于 self-attention（参数量不匹配）。本轮完整旧协议见 Git `14c60cf:docs/PROTOCOL.md`；[当前协议](PROTOCOL.md)记录尚未启动的 xw1216 多数据集迁移。
 
 LEAF 当前轮以前的协议和启动记录在 Git `3033ac9`；旧实际产物保留于 `artifacts/benchmark/official_cross_leaf_jev_20261027*/`。更早结果见[归档索引](ARCHIVE.md)。此次没有删除旧权重、数据、缓存或日志。
