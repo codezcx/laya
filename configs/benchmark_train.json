@@ -1,6 +1,7 @@
 {
-  "run_name": "official_cross_leaf_jev_20261027",
-  "protocol": "official_Cross_per_dataset_final_epoch",
+  "run_name": "official_cross_bsr_jev_32tokens_20261028",
+  "protocol": "official_Cross_per_dataset_final_epoch_bsr_resampler_comparison",
+  "datasets": ["BNCI2014001", "BNCI2014004"],
   "split_root": "artifacts/benchmark/official_splits_20261027",
   "benchmark_root": "third_party/EEG-FM-Benchmark-official",
   "seeds": [
@@ -10,8 +11,8 @@
   ],
   "epochs": 20,
   "batch_size": 16,
-  "microbatch": 8,
-  "eval_microbatch": 8,
+  "microbatch": 4,
+  "eval_microbatch": 4,
   "checkpoint_every": 100,
   "test_policy": "once_after_final_epoch_no_selection",
   "validation_policy": "none_fixed_recipe_no_early_stopping",
@@ -21,6 +22,7 @@
     0.00001
   ],
   "encoder_learning_rate": 0.000001,
+  "resampler_learning_rate": 0.0001,
   "encoder_warmup_steps": 100,
   "lr_schedule": {
     "kind": "warmup_cosine",
@@ -28,16 +30,19 @@
     "min_ratio": 0.02
   },
   "weight_decay": 0.01,
-  "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
-  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
-  "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
-  "leaf_eval_mode": true,
-  "bn_policy": "frozen",
+  "bsr_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3",
+  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3/ckpts/B1_regen_21e31e56baf2.pt",
+  "checkpoint_sha256": "21e31e56baf23c0d5446e750ac4eb54a5032d4fe34d2845788e6d22c373bba36",
+  "resampler_config": "configs/token_resamplers.json",
+  "variants": ["cross_attention", "qformer"],
+  "gpu_max_used_mib": 1024,
+  "gpu_max_utilization": 5,
   "gpus": [
     2,
     3
   ],
-  "preprocessing": "original_benchmark_epochs_per_trial_robust_scale_200Hz_65_channels",
+  "preprocessing": "original_full_benchmark_MI_epoch_200Hz_native_channels_no_extra_signal_normalization_R1_SharedScale",
   "invalid_signal_policy": "fail_without_excluding_rows",
-  "recipe_status": "prespecified_new_model_recipe_not_official_LEAF_JEV_hyperparameters"
+  "pretraining_overlap": "BSR Stage B contains BNCI2014004; subject/trial overlap unresolved. Not clean zero-shot.",
+  "recipe_status": "matched_data_steps_LRs_not_parameter_matched; new SFT recipe"
 }

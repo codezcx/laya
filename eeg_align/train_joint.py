@@ -1,4 +1,4 @@
-"""LEAF -> JEV SFT on one locked official outer fold; test only at final epoch."""
+"""BSR -> 32-query resampler -> JEV on a locked official outer fold."""
 import argparse
 import json
 import math
@@ -12,11 +12,11 @@ import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from .leaf_runtime import CONFIG, digest
+from .runtime import CONFIG, digest
 from .benchmark_data import catalog, classification_metrics
 from .official_data import OfficialFold, epoch_batches, require_final_test, import_file, write_json
-from .signal_data import SignalStore
-from .online_leaf import OnlineLEAF
+from .online_bsr import BSRSignalStore, OnlineBSR, upstream_files
+from .token_resampler import ResamplerConfig, TokenResampler
 from .task_options import make_variant
 from .jev import load_jev, JEVBridge
 from .distributed import atomic_save
@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--fold', type=int, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--variant', choices=CONFIG['variants'], required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
@@ -53,25 +54,25 @@ def main():
     fold = OfficialFold(CONFIG, args.dataset, args.seed, args.fold)
     task = catalog()[fold.task]
     # Do not use historical caches with excluded rows, merged subjects or pooled scaling.
-    signals = SignalStore({args.dataset}, official_source=fold.data)
+    signals = BSRSignalStore(args.dataset, fold.data)
     train = fold.train
     epoch_steps = math.ceil(len(train) / CONFIG['batch_size'])
     total = 2 if args.smoke else epoch_steps * CONFIG['epochs']
     freeze = 1 if args.smoke else min(CONFIG['encoder_warmup_steps'], total // 10)
     watched = list(Path('eeg_align').glob('*.py')) + [
         Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'),
-        Path('scripts/prepare_official_splits.py')]
+        Path('scripts/prepare_official_splits.py'), Path(CONFIG['resampler_config'])] + upstream_files(CONFIG)
     hashes = {str(p): digest(p) for p in watched}
     def guard():
         if hashes != {str(p): digest(p) for p in watched}:
             raise RuntimeError('Live code or recipe changed')
 
-    identity = dict(dataset=args.dataset, seed=args.seed, fold=args.fold, smoke=args.smoke,
+    identity = dict(dataset=args.dataset, seed=args.seed, fold=args.fold, smoke=args.smoke, variant=args.variant,
         config=CONFIG, total_steps=total, train_n=len(train), test_n=len(fold.test),
         split=fold.spec, source_sha256=fold.manifest['source_sha256'],
-        code_sha256=hashes, leaf_checkpoint_sha256=digest(CONFIG['checkpoint']),
+        code_sha256=hashes, encoder_checkpoint_sha256=digest(CONFIG['checkpoint']),
         task_sha256=digest('configs/benchmark_tasks.json'),
-        instruction_sha256=digest('artifacts/benchmark/instructions.npy'))
+        resampler_config=ResamplerConfig.from_json(CONFIG['resampler_config'], args.variant).to_dict())
     if args.resume:
         if json.loads((args.out / 'config.json').read_text()) != identity:
             raise ValueError('Resume identity/recipe/source mismatch')
@@ -80,13 +81,15 @@ def main():
     seed_rng(args.seed)
     print('LOADING_RELEASE_WEIGHTS', args.dataset, args.seed, args.fold, flush=True)
     text, weight, bias, tokenizer = load_jev()
-    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16, input_dim=256)
-    model.add_module('eeg_encoder', OnlineLEAF('frozen', eval_mode=True).cuda())
+    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16, input_dim=768)
+    model.add_module('eeg_encoder', OnlineBSR(CONFIG).cuda())
+    model.add_module('resampler', TokenResampler(ResamplerConfig(**identity['resampler_config'])).cuda())
     initial = capture_model(model)
     initial_proof = dict(trainable_sha256=tensor_fingerprint(initial['trainable']),
         buffers_sha256=tensor_fingerprint(initial['buffers']),
         encoder_sha256=tensor_fingerprint(dict(model.eeg_encoder.named_parameters())),
-        initialization='release LEAF + native JEV adapter + seed-specific fresh connector',
+        shared_trainable_sha256=tensor_fingerprint({n:v for n,v in initial['trainable'].items() if not n.startswith('resampler.')}),
+        initialization='release BSR + native JEV adapter + fresh connector + fresh 32-query resampler',
         git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
         trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad))
     if args.resume:
@@ -102,13 +105,16 @@ def main():
         dict(name='connector', params=list(model.connector.parameters()), lr=CONFIG['learning_rates'][0]),
         dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad], lr=CONFIG['learning_rates'][1]),
         dict(name='decision_head', params=[model.head_weight, model.head_bias], lr=CONFIG['learning_rates'][2]),
-        dict(name='eeg_encoder', params=[p for p in model.eeg_encoder.parameters() if p.requires_grad], lr=CONFIG['encoder_learning_rate'])]
+        dict(name='eeg_encoder', params=[p for p in model.eeg_encoder.parameters() if p.requires_grad], lr=CONFIG['encoder_learning_rate']),
+        dict(name='resampler', params=list(model.resampler.parameters()), lr=CONFIG['resampler_learning_rate'])]
     optimizer = torch.optim.AdamW(groups, weight_decay=CONFIG['weight_decay'])
     active = [p for group in groups for p in group['params']]
     scheduler = GroupLRSchedule(optimizer, total,
         1 if args.smoke else math.ceil(total * CONFIG['lr_schedule']['warmup_ratio']),
         CONFIG['lr_schedule']['min_ratio'], freeze)
     step = 0
+    # Match subsequent stochastic streams despite different resampler parameter counts.
+    seed_rng(args.seed)
     if args.resume:
         saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
         if saved['identity'] != identity:
@@ -132,7 +138,8 @@ def main():
         for q in questions:
             if q['suffix'] not in prompts:
                 prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
-        tokens, valid = model.eeg_encoder(signals.batch(rows), len(rows), unfrozen=training and step > freeze)
+        tokens, valid = model.eeg_encoder(signals.batch(rows), unfrozen=training and step > freeze)
+        tokens, valid = model.resampler(tokens, valid)
         logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],
                        num_choices=len(task['classes']))['logits']
         targets = torch.tensor([q['label'] for q in questions], device='cuda')
@@ -141,7 +148,7 @@ def main():
     def save(final=False):
         guard()
         if tensor_fingerprint(dict(model.eeg_encoder.named_buffers())) != bn_initial:
-            raise RuntimeError('Frozen LEAF buffers changed')
+            raise RuntimeError('Encoder constant buffers changed')
         state = dict(**capture_model(model), step=step, identity=identity, rng=capture_rng(),
                      selection='fixed_final_epoch', training_finished=step == total)
         if not final:
@@ -155,7 +162,10 @@ def main():
         model.eval()
         rows = fold.rows(train[:CONFIG['eval_microbatch']], 'train')
         before, _ = forward(rows, variant=0)
-        model.head_weight[0, 0].add_(1.)
+        # Include resampler and encoder tensors in the restore check, not just the head.
+        for p in model.parameters():
+            if p.requires_grad:
+                p.view(-1)[0].add_(1.)
         restore_model(model, saved)
         after, _ = forward(rows, variant=0)
         torch.testing.assert_close(before, after, rtol=0, atol=0)
@@ -173,8 +183,10 @@ def main():
                 with torch.no_grad():
                     logits, y = forward(fold.rows(train[:CONFIG['microbatch']], 'train'), variant=0)
                     value = float(F.cross_entropy(logits, y))
-                log.write(json.dumps(dict(step=0, split='train_diagnostic', loss=value)) + '\n')
+                accuracy = float((logits.argmax(-1) == y).float().mean())
+                log.write(json.dumps(dict(step=0, split='train_diagnostic', loss=value, accuracy=accuracy)) + '\n')
                 writer.add_scalar('train_diagnostic/initial_loss', value, 0)
+                writer.add_scalar('train_diagnostic/initial_accuracy', accuracy, 0)
             cached_epoch = None
             batches = None
             for update in range(step + 1, total + 1):
@@ -202,17 +214,24 @@ def main():
                 encoder_norm = float(torch.stack([g.float().square().sum() for g in encoder_grads]).sum().sqrt()) if encoder_grads else 0.
                 if (step > freeze and not encoder_grads) or (step <= freeze and encoder_grads):
                     raise RuntimeError('Encoder freeze/unfreeze gradient contract failed')
+                resampler_grads = [p.grad for p in groups[4]['params']]
+                if any(g is None or not torch.isfinite(g).all() for g in resampler_grads):
+                    raise RuntimeError('Missing/nonfinite resampler gradients')
+                resampler_norm = float(torch.stack([g.float().square().sum() for g in resampler_grads]).sum().sqrt())
+                if not resampler_norm > 0:
+                    raise RuntimeError('Zero resampler gradient')
                 grad = torch.nn.utils.clip_grad_norm_(active, 1., error_if_nonfinite=True)
                 optimizer.step()
                 item = dict(step=step, total_steps=total, epoch=epoch + 1, epoch_steps=epoch_steps,
                     batch_n=len(rows), loss=loss_sum / len(rows), train_accuracy=correct / len(rows),
-                    learning_rates=rates, encoder_gradient_norm=encoder_norm,
+                    learning_rates=rates, encoder_gradient_norm=encoder_norm, resampler_gradient_norm=resampler_norm,
+                    variant=args.variant, output_tokens=32,
                     gradient_norm=float(grad), elapsed_seconds=time.monotonic() - started,
                     resumed_from=start_step, peak_allocated_gib=torch.cuda.max_memory_allocated() / 2**30,
                     test_evaluations=0, status='training')
                 log.write(json.dumps(item, allow_nan=False) + '\n')
                 write_json(args.out / 'progress.json', item)
-                for key in ('loss', 'train_accuracy', 'encoder_gradient_norm'):
+                for key in ('loss', 'train_accuracy', 'encoder_gradient_norm', 'resampler_gradient_norm'):
                     writer.add_scalar('train/' + key, item[key], step)
                 for name, value in rates.items():
                     writer.add_scalar('learning_rate/' + name, value, step)

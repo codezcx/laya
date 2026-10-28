@@ -67,8 +67,8 @@ def test_locked_plan_counts_and_budget():
     if not Path(config['split_root']).exists():
         pytest.skip('Local official manifests not installed')
     plan = build_plan(config)
-    assert plan['planned_runs'] == 426
-    assert set(plan['pending']) == {'SEED_VIG', 'ThingsEEG2', 'Nakanishi2015'}
+    assert plan['planned_runs'] == 54
+    assert not plan['pending']
     first = next(j for j in plan['jobs'] if j['dataset'] == 'BNCI2014001')
     assert first['train_n'] == 2304 and first['test_n'] == 288
     assert first['updates'] == 2880 and first['exposures'] == 46080

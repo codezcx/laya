@@ -1,9 +1,7 @@
-"""Current LEAF configuration and content hashing shared by preparation/training."""
-import hashlib,json,sys
+"""Current BSR/JEV recipe and content hashing shared by training/queue."""
+import hashlib,json
 from pathlib import Path
 CONFIG=json.loads(Path('configs/benchmark_train.json').read_text())
-UP=Path(CONFIG['leaf_root'])
-sys.path.insert(0,str(UP))
 
 def digest(path):
     h=hashlib.sha256()

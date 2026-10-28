@@ -146,7 +146,7 @@ class ResampledDecisionModel(nn.Module):
     """Register both modules so optimizers/checkpoints can include the resampler.
 
     ``decision_model`` can be JEVBridge with input_dim=config.hidden_dim.
-    This wrapper does not alter the existing LEAF training entry point.
+    The current trainer registers this module directly on its JEVBridge.
     """
 
     def __init__(self, resampler: TokenResampler, decision_model: nn.Module):

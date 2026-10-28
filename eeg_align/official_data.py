@@ -44,6 +44,8 @@ def build_plan(config):
         raise ValueError('Wrong benchmark revision')
     jobs, pending = [], {}
     for name, entry in summary['datasets'].items():
+        if config.get('datasets') and name not in config['datasets']:
+            continue
         if entry['status'] != 'prepared':
             pending[name] = entry
             continue
@@ -64,7 +66,9 @@ def build_plan(config):
     return dict(protocol=config['protocol'], jobs=jobs, pending=pending,
                 split_summary_sha256=sha256(root / 'complete.json'),
                 planned_runs=len(jobs), planned_updates=sum(j['updates'] for j in jobs),
-                training_started=False, all_13_datasets_ready=not pending)
+                training_started=False, dataset_scope=config.get('datasets'),
+                scoped_datasets_ready=not pending,
+                all_13_datasets_ready=not config.get('datasets') and not pending)
 
 
 class OfficialFold:

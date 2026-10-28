@@ -1,0 +1,3 @@
+# Additional import dependency of the frozen external bsri source bundle.
+# Existing torch/transformers environment is retained, not upgraded.
+opencv-python==4.11.0.86

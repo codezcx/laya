@@ -1,6 +1,6 @@
 # Repository archive
 
-Historical tracked implementations can be recovered from Git. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol before the official Cross SFT replacement. Use an isolated worktree at that commit for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps only the official Cross LEAF→JEV training entry and its checks.
+Historical tracked implementations can be recovered from Git. `3033ac9` preserves official Cross LEAF→JEV training and the standalone 32-query module checks before the BSR→32-query→JEV replacement. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol. Use isolated worktrees for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps the BSR Cross trainer with two resampler controls. No ignored data, checkpoints, environments or logs were deleted.
 
 Historical artifacts were moved, not deleted, to:
 
@@ -11,14 +11,15 @@ The archive's `index.json` maps each original repository path to its archived lo
 Current retained artifacts:
 
 - `artifacts/benchmark/official_splits_20261027/`: locked original Cross masks, all available folds and seeds.
-- `artifacts/benchmark/official_cross_leaf_jev_20261027*/`: current plan, smoke and first-stage SFT runs; consult each pipeline record for actual status.
+- `artifacts/benchmark/official_cross_bsr_jev_32tokens_20261028/`: current two-resampler queue and SFT outputs.
+- `artifacts/benchmark/official_cross_leaf_jev_20261027*/`: historical LEAF plan, smoke and first-stage SFT runs; consult each pipeline record for actual status.
 - `artifacts/benchmark/full_eval_fold0_20261027_checked/`: completed historical custom fold-0 evaluation.
 - `artifacts/benchmark/cross_subject_fold0_task_mixture/`: historical four-arm 2a/SEED × frozen/fine-tuned LEAF comparison.
 - `artifacts/benchmark/cross_subject_fold0_leaf_preprocessing/`: completed paired 2a preprocessing continuation and TensorBoard logs.
 - `artifacts/benchmark/cross_subject_fold0_bn_control/`: completed BN comparison, source checkpoint, diagnostic controls and historical TensorBoard logs.
 - `artifacts/benchmark/reference_constant_lr/`: old constant-LR metrics and fixed-subset predictions; weights are archived.
 - `artifacts/benchmark/reference_cosine_partial/`: interrupted cosine-run logs/configuration; its step-100 checkpoint is retained under the current common directory.
-- `artifacts/benchmark/mpnet/`, instruction embeddings and source audit files: current shared dependencies.
+- `artifacts/benchmark/mpnet/`, instruction embeddings and source audit files: retained historical LEAF dependencies.
 - `artifacts/models/`: shared downloaded model.
 - `artifacts/ecg_r1/`: separate user ECG-R1 work.
 
