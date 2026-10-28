@@ -1,19 +1,23 @@
 # BSR → 32-token resampler → JEV：运行记录
 
-_2026-10-28；本文件记录启动核验，不把排队、加载或 smoke 当作准确率结果。_
+_2026-10-28；2a 已完成，2b 按用户要求取消。以下结果属于 Dingkun0817 的 Cross 协议，不属于 xw1216 的新协议。_
 
 ---
 
 ## 📋 当前范围
 
-2a/2b，seed 0、官方 Cross fold 0；每个数据集分别运行 cross-attention 与 Q-Former-style，输出均为 32 tokens，正式训练固定 20 epochs。四组先执行两步 train-only smoke，全部通过后重新加载原始权重进行正式训练。实际状态以 `artifacts/benchmark/official_cross_bsr_jev_32tokens_20261028/pipeline.json` 为准。
+原定 2a/2b，seed 0、官方 Cross fold 0；每个数据集分别运行 cross-attention 与 Q-Former-style，输出均为 32 tokens，正式训练固定 20 epochs。2a 两组完成；用户要求不再训练 2b 后，向已核验的控制器 PID 1373666 发送 SIGTERM，由控制器终止其两名 2b worker。控制器已记录 `status=stopped`、`active={}`、`queued=[]`，相关进程已退出，未终止其他任务。所有既有数据、日志和 checkpoint 保留。
 
 | 数据集 | 压缩器 | 正式 updates | 测试 trial | 最终 accuracy |
 | --- | --- | ---: | ---: | --- |
-| 2a | cross-attention | 2,880 | 288 | 尚未产出 |
-| 2a | Q-Former-style | 2,880 | 288 | 尚未产出 |
-| 2b | cross-attention | 1,560 | 160 | 尚未产出 |
-| 2b | Q-Former-style | 1,560 | 160 | 尚未产出 |
+| 2a | cross-attention | 2,880 | 288 | 25.6944% |
+| 2a | Q-Former-style | 2,880 | 288 | 25.0000% |
+| 2b | cross-attention | 最后进度 474 / 1,560 | 未正式测试 | 用户取消 |
+| 2b | Q-Former-style | 最后进度 424 / 1,560 | 未正式测试 | 用户取消 |
+
+2a cross-attention 的预测计数为 `[283, 0, 5, 0]`，Q-Former-style 为 `[288, 0, 0, 0]`，均接近四分类随机水平。两者反转候选顺序后的准确率都是 25%，语义类别一致率都是 0；这提示明显的输出偏置，但尚不能仅凭这些现象确定其原因。完整结果读取各组 `complete.json` 和 `test_predictions.npz`；不能把选项诊断当作另一次模型选择。
+
+后续按用户要求切换到 xw1216/EEG-FM-Bench 的多数据集联合 SFT，先 LEAF，再 BSR-VideoMAE。新训练尚未启动。不得加载本轮 2a 下游权重：旧训练被试 2–9 包含新协议验证被试 6、7 和测试被试 8、9。原始基础模型的预训练重叠仍需另行审计。
 
 ## 🔍 已完成的输入与组件检查
 
@@ -21,7 +25,7 @@ _2026-10-28；本文件记录启动核验，不把排队、加载或 smoke 当�
 
 先前随机特征检查在 `artifacts/token_resamplers/smoke_20261028/`：两组均为 `[2,1568,768] → [2,32,768]`，输出与梯度有限；参数量分别 7,115,520 和 37,834,752。该产物不是训练权重或真实 EEG 准确率。
 
-## ✅ 启动核验：08:57 UTC
+## ✅ 历史启动核验：08:57 UTC
 
 当前实现提交 `5835493`；全仓库 65 项测试通过。控制器 PID `1373666`，输出目录为上文路径。GPU 3 启动时被外部任务占用，待其空闲后才启动本轮 worker，没有终止或修改其他任务。
 
@@ -36,7 +40,7 @@ _2026-10-28；本文件记录启动核验，不把排队、加载或 smoke 当�
 
 同 seed/variant 初始化一致，两种 variant 的共享参数指纹也一致；共享 SHA256 为 `ffb60049ecac0b8f3b6c183f69b4a2da9c41dc822e8f17cd5aa9353f647d15e8`。
 
-**正式训练已经开始，不只是排队或 smoke**：GPU 2 上的 2a cross-attention、GPU 3 上的 2a Q-Former-style 在核验时均完成 16/2,880 updates；loss 有限，压缩器梯度非零，测试访问为 0。正式前 100 步处于 BSR 冻结预热，之后自动解冻。2b 两组仍在同一队列，待卡释放自动启动；无须再次人工发命令。
+该历史核验时刻，GPU 2 上的 2a cross-attention、GPU 3 上的 2a Q-Former-style 均完成 16/2,880 updates；loss 有限，压缩器梯度非零，测试访问为 0。正式前 100 步处于 BSR 冻结预热，之后自动解冻。这不是当前状态：2a 已结束，2b 已取消，队列不再自动启动任何训练。
 
 这只是带时间戳的启动快照，最新进度应读取 `pipeline.json` 和每组 `progress.json`，不能将早期训练 batch accuracy 当作最终测试结果。
 
