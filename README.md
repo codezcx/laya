@@ -1,8 +1,8 @@
 # EEG → 文本条件化 encoder → JEV
 
-当前目标：采用 `xw1216/EEG-FM-Bench` 的数据定义与被试划分，先训练一个 LEAF→JEV 多数据集联合模型，再做 BSR-VideoMAE 单全局 token 对照。用任务描述、问题和候选标签控制任务，不为每个数据集分别训练一套模型。
+当前目标：采用 `xw1216/EEG-FM-Bench` 的数据定义与被试划分，将其 train 部分和去重后的额外训练数据联合用于 LEAF→JEV 多任务监督对齐，再做 BSR-VideoMAE 单全局 token 对照。用任务描述、问题和候选标签控制任务，不为每个数据集分别训练一套模型。
 
-**联合训练尚未启动。** 原始数据尚未齐全，部分预处理和标签需核验；缺失路径或首轮子集范围待用户确认。完整清点及启动门槛见[当前协议](docs/PROTOCOL.md)。
+**联合训练尚未启动。** 用户已确认使用已有数据＋额外训练数据；首批为 9 个 benchmark 数据集＋8 个训练补充集候选，2b 继续排除。先锁定官方验证／测试被试，再训练；实际 split manifest、完整性与泄漏核验尚未完成，不表示 17 个数据集已可开训。完整名单及启动门槛见[当前协议](docs/PROTOCOL.md)。
 
 ## 📋 当前状态
 
@@ -20,7 +20,7 @@
 - [既有 LEAF 架构草图](docs/MODEL_ARCHITECTURE.md)：历史草图，不是新训练已完成的证据
 - EEGJEV 方法草稿：[Word](docs/EEGJEV_PATENT.docx) · [Markdown](docs/EEGJEV_PATENT.md)
 
-旧 BSR→32-token→JEV 实现和完整协议已保存于 Git `14c60cf`。工作树中的 `scripts/run_benchmark.py`、`configs/benchmark_train.json` 仍是旧接口，不能用于新实验；不要重启已取消的 2b。缺失数据/范围确认后再整体替换旧实现，不积累多套独立实验代码。
+旧 BSR→32-token→JEV 实现和完整协议已保存于 Git `14c60cf`。工作树中的 `scripts/run_benchmark.py`、`configs/benchmark_train.json` 仍是旧接口，不能用于新实验；不要重启已取消的 2b。数据核验及新 manifest 完成后整体替换旧实现，不积累多套独立实验代码。
 
 历史运行产物保留于 `artifacts/benchmark/official_cross_bsr_jev_32tokens_20261028/`，其 `pipeline.json` 是停止状态的证据。更早 LEAF 实现保存于 Git `3033ac9`，历史检查使用隔离 worktree；不直接复用旧数据划分或缓存。
 
