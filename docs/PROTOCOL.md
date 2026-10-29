@@ -93,7 +93,9 @@ _2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集�
 4. 保存逐样本概率、真值、record ID、被试 ID、每被试结果、混淆矩阵、accuracy 和 balanced accuracy。
 5. smoke 只做训练集两步更新（覆盖冻结及解冻），验证非零 encoder 梯度和保存／重载 logits 完全一致；不读测试指标，不把 smoke 权重带入正式训练。
 
-所有曲线日志从 step 0 开始；当前保留 JSON/JSONL 原始数值，不将日志存在等同于已经绘制曲线。恢复训练须通过配置、源码、基础权重、QC 和缓存索引校验；修改运行中代码会触发停止。异常分别写入每个 rank 的故障文件，并更新进度状态；故障时不冒险执行可能死锁的集体保存。首轮没有 `last.pt`，因此修复轮从发布权重重启，而非续接第 41 步。
+验证 accuracy / balanced accuracy 日志从 step 0 开始；训练 loss 只记录 step 1–2040，没有 step-0 训练 loss 或验证 loss，不补造这些数值。原始 JSON/JSONL 保留，并由独立 [绘图脚本](../scripts/plot_training_curves.py) 导出 PNG/PDF/SVG 与 CSV。总 loss 展示原值及过去 51 步平均，各任务 loss 展示原值及过去 9 次该任务更新的平均；均须凑满窗口才绘制平滑值。验证只连接实际评估点，若缺失则留断点，不平滑、不混入完整评估结果；纵轴依据观察范围留边并明确标注独立缩放。图表见[结果记录](RESULTS.md)。
+
+恢复训练须通过配置、源码、基础权重、QC 和缓存索引校验；修改运行中代码会触发停止。异常分别写入每个 rank 的故障文件，并更新进度状态；故障时不冒险执行可能死锁的集体保存。首轮没有 `last.pt`，因此修复轮从发布权重重启，而非续接第 41 步。
 
 ## ⚠️ 已接受但未解决的限制
 
@@ -119,6 +121,6 @@ laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --prepared
 
 ## 🔗 软件过程说明
 
-模型接口核验、资源检查与文档组织参考 Scientific Agent Skills 的相应流程；这些流程不是 EEG 模型方法或实验结果的依据。[^2]
+模型接口核验、资源检查与文档组织参考 Scientific Agent Skills 的相应流程；本轮曲线采用其中 Matplotlib / Scientific Visualization 的原始点保留、平滑披露、颜色冗余编码和输出检查流程。出处已列于下方；这些流程不是 EEG 模型方法或实验结果的依据。[^2]
 
 [^2]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

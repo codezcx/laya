@@ -6,7 +6,7 @@ _2026-10-29；当前为 LEAF 多任务验证实验，以下旧 BSR 结果单独�
 
 ## 📋 当前 LEAF 多任务实验
 
-固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。17 库全量转换后原有 train 954,569、valid 49,069、test 49,431 个窗口／缓存样本。首轮在第 42 步失败；全量 QC 排除 1,144 个无效训练窗口后，有效 train 为 953,425，验证／测试数量不变。修复轮重新启动，尚无最终测试成绩。[协议](PROTOCOL.md)记录精确范围与 2040 次更新预算。
+固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。17 库全量转换后原有 train 954,569、valid 49,069、test 49,431 个窗口／缓存样本。首轮在第 42 步失败；全量 QC 排除 1,144 个无效训练窗口后，有效 train 为 953,425，验证／测试数量不变。修复轮已完成全部 2040 步，正在完整验证和测试；尚无完整最终测试汇总。[协议](PROTOCOL.md)记录精确范围与预算。
 
 | benchmark | train 窗口 | valid 窗口 | test 窗口 |
 | --- | ---: | ---: | ---: |
@@ -45,6 +45,38 @@ SEED 原 CNT 的 6 个正数样本长度字段异常，已通过事件表字节�
 [全部计划输入检查](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/signal_preflight.json)验证 2040 步、32,640 次训练样本呈现，耗时 33.77 s。[新 smoke](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/smoke/complete.json)完成两步，解冻 encoder 梯度范数 0.16390，磁盘重载 logits 完全一致。新旧模型初始化参数、buffer 及 step 0 验证结果均完全相同；step 0 九库验证子集 macro balanced accuracy 为 30.2882%，不是训练后或测试集成绩。
 
 新运行日志：[pipeline.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/pipeline.json)、[train/progress.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/train/progress.json)。文件尚不存在时，不能理解为该阶段已启动。训练完成后以各数据集完整测试输出为准。
+
+### 训练与固定验证子集曲线
+
+2040 个训练 loss 点和 7 次固定子集验证已绘图。仅使用本轮 QC 重启日志，不混入首轮失败日志、smoke 或最终完整验证结果。
+
+![训练 loss 原值和过去 51 步均值总体下降，九库固定子集验证 balanced accuracy 从 30.29% 提升到 49.11%](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training_validation_curves.png)
+
+*左：各步交叉熵及过去 51 步平均；右：九库等权平均 accuracy / balanced accuracy。竖虚线为 step 103 解冻 LEAF。验证纵轴缩放至观察范围附近；训练 step 0 没有 loss 记录，不补造。*
+
+- [9 库各自的验证曲线](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/validation_by_dataset.png)：每库同一组 128 条窗口，独立纵轴范围已注明，只有记录点及折线，不平滑。
+- [17 库各自的训练 loss](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training_loss_by_dataset.png)：每库 120 次更新，原始点及过去 9 次该任务更新的平均。
+- [训练 CSV](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training.csv)、[逐库验证 CSV](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/validation.csv)、[宏平均 CSV](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/validation_macro.csv)、[来源哈希和绘图处理记录](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/figure_manifest.json)；同名 PDF/SVG 也保存在该目录。
+
+| update | 验证 macro balanced accuracy | 验证 macro accuracy |
+| --- | ---: | ---: |
+| 0 | 30.29% | 37.07% |
+| 340 | 38.51% | 43.23% |
+| 680 | 44.35% | 47.74% |
+| 1020 | 44.21% | 47.83% |
+| 1360 | 46.49% | 47.74% |
+| 1700 | 48.40% | 50.95% |
+| 2040 | 49.11% | 52.26% |
+
+前 51 步和后 51 步的平均训练 loss 为 1.4821 / 0.9774。不同任务的类别数不同，总 loss 的波动不宜直接解释为训练不稳定；应结合分任务图。PhysioMI、TUEV 等验证表现仍有波动，九库宏平均提升不代表每库单调改善。这里只描述单次运行，不提供跨 seed 置信区间。当前没有保存验证 loss，因此不能画验证 loss 曲线；以上均不是最终完整测试成绩。
+
+复现命令（已有图时须明确追加 `--overwrite`；只读日志，不加载模型、不改训练代码）：
+
+```bash
+laya/.venv-eeg/bin/python scripts/plot_training_curves.py
+```
+
+图表的证据保留和呈现方式遵循[协议中的软件过程说明](PROTOCOL.md#-软件过程说明)，已保留相应软件参考文献。
 
 ## 📊 历史 BSR：已完成 2a 和已取消 2b
 

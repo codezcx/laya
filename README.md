@@ -6,7 +6,7 @@
 
 - 新训练入口、数据转换和文本接口已实现；真实 train-only 前向／反向检查覆盖 9 个 benchmark，LEAF 梯度有效，单卡峰值约 53 GiB。
 - 首轮训练在第 42 步因 CHB_MIT 原缓存全零窗口退出，并非训练完成。全量 QC 已完成：排除 1,144 个无效训练窗口后，使用 953,425 条训练、49,069 条验证、49,431 条测试；原始缓存、被试划分及旧日志保留。
-- 修复版已从发布权重重新启动：全部计划训练 batch 检查和双卡 smoke 通过；11:00 UTC 核验已完成 60/2040 步，已通过原故障步。每 20 步保存可恢复 checkpoint，实时进度以新运行目录为准。
+- 修复版已完成 2040/2040 步训练，正在完整验证／测试；每 20 步保存可恢复 checkpoint。固定验证子集的九库 macro balanced accuracy 从 30.29% 提升至 49.11%，不等同于完整测试成绩。
 - 固定预算 2040 次更新，各数据集均衡轮转；按固定验证子集选模，结束后跑 9 库完整验证／测试。
 - 只初始化发布 LEAF 和原生 JEV adapter，不复用见过本轮测试被试的旧 2a 微调权重。
 - VideoMAE 对照尚未启动；旧 BSR 代码已从工作树移除，Git `14c60cf` 可恢复，数据、权重和日志保留。
@@ -15,6 +15,7 @@
 
 - [当前协议、划分与风险](docs/PROTOCOL.md)
 - [当前结果与历史对照](docs/RESULTS.md)
+- [训练 loss 与验证曲线](artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training_validation_curves.png) · [各数据集验证曲线](artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/validation_by_dataset.png)
 - [训练配置](configs/benchmark_train.json) · [17 个任务及选项](configs/benchmark_tasks.json)
 - [固定划分审计](artifacts/benchmark/multitask_splits_20261029_final/summary.json)
 - [真实模型组件检查](artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)
