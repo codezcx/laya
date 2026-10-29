@@ -34,11 +34,15 @@ SEED 原 CNT 的 6 个正数样本长度字段异常，已通过事件表字节�
 
 首轮在 `2026-10-29T09:38:37Z` 失败，实际完成 41/2040 次更新。第 42 步的 CHB_MIT batch 包含原始行 11504、11880、11333（被试 12），两 rank 的双极适配报 `All-zero EEG epoch`。只有 step 0 的 `best.pt`，尚未生成可恢复的 `last.pt`；不能声称从第 41 步继续。
 
-核对源 PKL 的 SHA256 与冻结 manifest 一致；源数据已有 1,144 个全零窗口，与转换后的缓存对应全零行一致。1,130 个来自被试 12，其余分布于 02/03/06/13/15/16/18/20；标签 0/1 各 615/529。上游读入缺失导联时保留初始化零值，是可疑机制，但未追溯到每个原始 EDF 的确切生成原因，不能称为已证明蒙太奇不匹配。
+[源数据核对记录](../artifacts/benchmark/multitask_signal_quality_20261029/CHB_MIT_source_verification.json)确认源 PKL 的 SHA256 与冻结 manifest 一致；源数据已有 1,144 个全零窗口，与转换后的缓存对应全零行一致。1,130 个来自被试 12，其余分布于 02/03/06/13/15/16/18/20；标签 0/1 各 615/529。上游读入缺失导联时保留初始化零值，是可疑机制，但未追溯到每个原始 EDF 的确切生成原因，不能称为已证明蒙太奇不匹配。
 
 全量 [QC 报告](../artifacts/benchmark/multitask_signal_quality_20261029/summary.json)覆盖 17 库 1,053,069 个窗口，仅发现以上全零问题。CHB_MIT 有效训练数从 27,436 变为 26,292。原始数据和索引未修改，排除项按原始 ID 记录；其他数据集、所有被试划分和 held-out 分母不变。修复后第 42 步重新采样的 16 条全部有效；当前 45 项单元测试通过。
 
 修复轮用同一模型、学习率、采样策略和 2040 步预算从发布权重重启。新增启动前全部计划 batch 的适配检查、每 20 步保存，以及 step 0 和解冻边界保存；异常进度和 rank 故障详情单独落盘。首轮失败产物完整保留。
+
+`2026-10-29T11:00:15Z` [重启核验快照](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/restart_verification.json)：代码 `7a37a39`，已完成 60/2040 步。第 42 步 CHB_MIT 正常完成（loss 0.69834，梯度范数 6.9334）；双卡训练峰值分配显存约 54.20 GiB/卡，无测试评估。已读回确认第 40 步 checkpoint 包含 808 个 optimizer 参数状态、scheduler 和两 rank RNG；快照时第 60 步保存正在进行。这是带时间戳的运行检查，不是最终准确率。
+
+[全部计划输入检查](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/signal_preflight.json)验证 2040 步、32,640 次训练样本呈现，耗时 33.77 s。[新 smoke](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/smoke/complete.json)完成两步，解冻 encoder 梯度范数 0.16390，磁盘重载 logits 完全一致。新旧模型初始化参数、buffer 及 step 0 验证结果均完全相同；step 0 九库验证子集 macro balanced accuracy 为 30.2882%，不是训练后或测试集成绩。
 
 新运行日志：[pipeline.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/pipeline.json)、[train/progress.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/train/progress.json)。文件尚不存在时，不能理解为该阶段已启动。训练完成后以各数据集完整测试输出为准。
 
