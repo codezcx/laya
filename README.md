@@ -2,13 +2,13 @@
 
 当前目标：采用 `xw1216/EEG-FM-Bench` 的数据定义与被试划分，将其 train 部分和去重后的额外训练数据联合用于 LEAF→JEV 多任务监督对齐，再做 BSR-VideoMAE 单全局 token 对照。用任务描述、问题和候选标签控制任务，不为每个数据集分别训练一套模型。
 
-**联合训练尚未启动。** 用户已确认使用已有数据＋额外训练数据；首批为 9 个 benchmark 数据集＋8 个训练补充集候选，2b 继续排除。先锁定官方验证／测试被试，再训练；实际 split manifest、完整性与泄漏核验尚未完成，不表示 17 个数据集已可开训。完整名单及启动门槛见[当前协议](docs/PROTOCOL.md)。
+**联合训练尚未启动。** 已生成 9 个 benchmark＋8 个额外训练候选的记录／缓存行划分，2b 继续排除。[实际划分与风险清单](artifacts/benchmark/multitask_splits_20261029_final/summary.json)显示：HMC 本地缺 42/151 份记录，TUAB/TUEV 有 5 个候选跨库 train/test 身份冲突，尚需确认处理策略。信号预处理、身份审计和新训练入口仍未完成；不能把记录清单当作已可开训。具体分组数与启动门槛见[当前协议](docs/PROTOCOL.md)。
 
 ## 📋 当前状态
 
 - 旧 2a 两组已完成：cross-attention 25.69%，Q-Former-style 25.00%，详见[结果记录](docs/RESULTS.md)。
 - 旧 2b 两组已按用户要求停止，控制器状态为 `stopped`，无 active / queued 作业。没有删除任何数据、checkpoint、环境或日志。
-- 新 benchmark 已克隆并固定在 `third_party/EEG-FM-Bench-xw1216`，提交 `325398d7d057ecc1216fb3510d70c16eb60337cc`；尚未运行该仓库的数据处理。
+- 新 benchmark 固定在 `third_party/EEG-FM-Bench-xw1216`，提交 `325398d7d057ecc1216fb3510d70c16eb60337cc`；已执行经核验的划分函数，未执行其清缓存、完整波形预处理或训练入口。
 - 新 2a 验证/测试被试在旧训练集中出现过，因此新实验不继承旧 2a 下游权重。
 - VideoMAE 没有原生 CLS；第二阶段拟使用 mean pooling 生成一个全局 token，不把第一个 patch 当 CLS。这只缩短 JEV 输入，不减少 VideoMAE 内部计算。
 

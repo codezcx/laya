@@ -1,6 +1,6 @@
 # xw1216 多数据集、文本条件化 EEG→JEV：迁移准备
 
-_2026-10-28；已确认采用 benchmark 训练被试＋额外训练数据。联合训练尚未实现或启动，实际 split manifest 尚未生成。_
+_2026-10-29；已生成 17 个候选数据集的记录／缓存行级划分。HMC 不完整、跨 TUH 身份冲突待处理；尚未完成信号预处理或启动训练。_
 
 ---
 
@@ -9,6 +9,51 @@ _2026-10-28；已确认采用 benchmark 训练被试＋额外训练数据。联�
 旧 BSR→32-token→JEV 的 2a 两组已完成；2b 两组按用户要求停止。控制器记录 `stopped`，没有 active 或 queued 作业。旧实现及完整配方已保存到 Git `14c60cf`，实际结果见[结果记录](RESULTS.md)。旧入口暂留在工作树，不能用于新协议；完成数据核验后一次性替换，不并存两套训练实现。没有删除权重、日志、数据、缓存或环境。
 
 新 benchmark 已稀疏克隆到 `third_party/EEG-FM-Bench-xw1216`，检出 `data/`、`common/`、`assets/conf/` 和根目录文件，固定提交 `325398d7d057ecc1216fb3510d70c16eb60337cc`。这与旧 `Dingkun0817/EEG-FM-Benchmark` 是不同仓库。只检查源码，没有执行其预处理或训练入口。[^1]
+
+## 📊 2026-10-29 实际划分与启动阻塞
+
+已实现 `scripts/prepare_multitask_splits.py`，执行固定提交中经过逐字节核验的划分函数，未调用有清缓存副作用的上游 `preproc()` 或构造器。正式清单位于 [summary.json](../artifacts/benchmark/multitask_splits_20261029_final/summary.json)，每个数据集另有 `records.csv` 和 `manifest.json`。它们保存实际分组、来源文件／PKL 行索引、标签（已有缓存或分层所需标注）、文件属性与清单哈希；不是信号预处理完成证明。两个开发检查目录保留作审计，正式入口只指向 `multitask_splits_20261029_final`。
+
+| benchmark 数据集 | train 分组数 | valid 分组数 | test 分组数 | 说明 |
+| --- | ---: | ---: | ---: | --- |
+| 2a | 5 | 2 | 2 | 1–5 / 6–7 / 8–9；T/E session 归属一致 |
+| PhysioMI | 69 | 19 | 21 | 1–69 / 70–88 / 89–109；6 个 MI runs |
+| SEED | 13 | 1 | 1 | valid=12，test=11；跨被试模式 |
+| SEED-VII | 16 | 2 | 2 | valid=5,19，test=10,18 |
+| TUAB | 2,075 | 101 | 152 | 按原 train 与官方类别／时长平衡规则 |
+| TUEV | 328 | 20 | 22 | 官方代码的分组 ID，跨库真实患者对应待核验 |
+| HMC（本地子集） | 75 | 17 | 17 | 仅 109/151 份记录，划分暂定 |
+| Workload | 26 | 5 | 5 | 以同一被试的两个任务记录为组 |
+| ADFTD | 64 | 11 | 13 | 按官方类别／窗口数平衡，不是机械 70/15/15 人数 |
+
+TUAB 按官方 montage／最短长度条件排除了 3 个记录，明细保留在其 `excluded_records.csv`；其他 EDF 候选在该头信息检查中没有排除记录。`n_records` 在 benchmark 中是源文件数量，不是 trial 数，不能与额外数据的缓存行数直接相加。原始波形的事件、单位、有效窗口和转换一致性还未全部核验。
+
+| 额外 train-only 数据集 | 分组数 | 已有缓存样本数 |
+| --- | ---: | ---: |
+| BNCI2015001 | 12 | 2,400 |
+| BNCI2014008 | 8 | 33,600 |
+| BNCI2014009 | 10 | 5,760 |
+| CHB_MIT | 23 | 27,436 |
+| SleepEDF | 78 | 414,961 |
+| AlexMI | 8 | 480 |
+| Zhou2016 | 4 | 614 |
+| Nakanishi2015 | 10 | 1,800 |
+
+上述分组数按现有缓存的 `subject_ids` 计，不保证跨 session 编号或临床患者别名已全局归并。额外数据全部划入 train，valid/test 均为零；Zhou2016 仍仅包含已有 session 0。七个整体 PKL 已重新计算完整 SHA256，Nakanishi 保存逐 trial 文件属性与清单哈希。
+
+当前不能启动的两个数据决策：
+
+1. **HMC 缺 42 个官方记录。** 本地 `HMC/RECORDS` 列出 151 份，本地只有 109 份；缺失名单存于 summary 的 `datasets.hmc.coverage.missing_recordings`。需补齐后再按完整记录生成划分，或由用户明确接受子集／暂不纳入。不能把当前 75/17/17 写成完整 HMC 的官方测试。
+2. **TUAB/TUEV 有跨库身份风险。** 两者有 19 个相同文件名被试标识，其中 5 个 train/test 角色冲突：4 个在 TUAB train、TUEV test，1 个相反。尚未验证所有跨版本患者映射，因此是候选冲突，不冒称已证明全部泄漏或已排除全部泄漏。TUEV 训练记录的 EDF 患者字段为同一个占位符，不能把它们当成同一患者；原 eval 文件编号在数据 README 中是 session 索引，不能仅靠此编号证明与 TUAB 患者不重叠。需确认隔离策略／补充映射，或明确暂不联合纳入 TUEV；保持原测试清单，不静默重新抽样。
+
+脚本输出显式 `training_ready=false`。9 项划分测试覆盖固定 ID、所有 session 同归属、RNG 复现且不污染调用者状态、重复记录／被试泄漏拒绝、额外数据 train-only，以及 EDF 占位符与跨库角色冲突。仍需完成事件／窗口预处理、跨库身份核验，以及 LEAF→JEV 联合入口与 smoke；不是只差执行一条训练命令。
+
+复核命令（必须提供新的输出目录，不覆盖已有清单）：
+
+```bash
+/inspire/hdd/global_user/zhangchenxi-253108310322/miniconda3/envs/neuroai/bin/python \
+  scripts/prepare_multitask_splits.py --output artifacts/benchmark/NEW_SPLIT_AUDIT
+```
 
 ## 🎯 目标与顺序
 
@@ -66,7 +111,7 @@ Things-EEG-2、Mimul-11、SEED-V、Siena、TUSL 待补齐并核验后再纳入�
 - 在转换到 LEAF 所需通道/采样率之前保存 benchmark 原始 epoch 定义；模型适配步骤单独记录，不把旧 PKL 直接称作新 benchmark 数据。
 - 只用 benchmark valid 选择共享 checkpoint，拟以等数据集权重的 balanced accuracy 均值为选择指标；在训练前锁定。测试集只在选择结束后评估，逐数据集报告原 benchmark 指标及统一汇总指标；额外训练集不混入验证均值。
 
-实际 split manifest 至少保存：`canonical_dataset`、`source_version`、`subject_id`、可核验的跨库身份／记录键、`session_id`、`record_id`、epoch 起止、`split`、原始文件标识、预处理配置、上游提交、随机种子和清单哈希。窗口继承原始记录的归属；同一记录的增强视图不能跨集合。当前这些是验收要求，不是已经生成的文件。
+训练用 epoch manifest 至少保存：`canonical_dataset`、`source_version`、`subject_id`、可核验的跨库身份／记录键、`session_id`、`record_id`、epoch 起止、`split`、原始文件标识、预处理配置、上游提交、随机种子和清单哈希。窗口继承原始记录的归属；同一记录的增强视图不能跨集合。当前已生成记录／缓存行归属；完整 epoch 起止与信号预处理验收尚未完成。
 
 加入额外数据后的结果需标注为 **extra-data 联合训练**，不直接当作与原论文同训练数据预算的复现。建议保留一个必要匹配对照：只用同一批 benchmark train 数据、同一模型／初始化／优化步数和验证策略；记录两组每个数据集实际曝光量。这能衡量固定预算下加入额外数据的效果，但不预设一定提高准确率。该对照尚未启动。
 
@@ -122,12 +167,12 @@ LEAF 使用已下载的 `LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt`。
 ## 📍 下一步和启动条件
 
 1. 按已确认的 9＋8 候选范围核验数据，不等待其余 5 个 benchmark 数据集全部下载完成；2b 继续排除。
-2. 完成完整性、单位、标签、epoch、别名归并及跨库身份检查，按官方 builder 生成并冻结实际被试与窗口 manifest；明确额外数据只用于训练。
+2. 先解决上述 HMC 缺失及跨 TUH 身份／隔离决策，再完成单位、标签、epoch 与跨库身份检查，将已生成的记录分组落实到经过核验的 epoch manifest。
 3. 在 Git 已归档旧状态的前提下替换旧训练实现，清理 superseded 配置/测试，保留用户未提交工作与所有忽略数据。
 4. 执行小样本多任务前向/反向、梯度和 checkpoint 重载检查；通过后才启动 LEAF 正式联合训练。
 5. LEAF 完成后实施同协议的 VideoMAE 单全局 token 对照。
 
-Hugging-science 技能用于资源核验（本次 EEG 目录检索无匹配，依据指定仓库与本地来源继续），experimental-design 技能用于按被试隔离与匹配对照，Markdown 文档技能用于区分已确认范围和未完成实现；所用技能库的方法引用见文末。[^7] 目录匹配不等于数据已可训练；本文件不构成已生成 split 或已启动训练的证据。
+Hugging-science 技能用于资源核验（10-29 目录访问超时，依据指定仓库与本地来源继续），experimental-design 技能用于按被试隔离、匹配对照和发现身份冲突后暂停启动，get-available-resources 技能用于处理资源核验，Markdown 文档技能用于区分清单、预处理与训练状态；技能库方法引用见文末。[^7] 记录清单不等于可训练信号；本文件不构成已启动训练的证据。
 
 [^1]: xw1216/EEG-FM-Bench，固定源码。https://github.com/xw1216/EEG-FM-Bench/tree/325398d7d057ecc1216fb3510d70c16eb60337cc
 [^2]: BCIC-IV-2a builder。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/bcic/bcic_2a.py
@@ -135,4 +180,4 @@ Hugging-science 技能用于资源核验（本次 EEG 目录检索无匹配，�
 [^4]: 被试级随机及类别平衡划分。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/processor/builder.py
 [^5]: Mimul-11 默认标签。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/mimul_11.py
 [^6]: Things-EEG-2 行为标签与事件定义。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/things_eeg_2.py
-[^7]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. arXiv:2609.00065，2026-10-28 核验时最新修订为 2026-09-02。https://doi.org/10.48550/arXiv.2609.00065
+[^7]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. arXiv:2609.00065，2026-10-29 核验时最新修订为 2026-09-02。https://doi.org/10.48550/arXiv.2609.00065
