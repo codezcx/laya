@@ -37,13 +37,21 @@ _2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集�
 | BNCI2015001 | 2400 | 无 |
 | BNCI2014008 | 33600 | 无 |
 | BNCI2014009 | 5760 | 无 |
-| CHB_MIT | 27436 | 无 |
+| CHB_MIT | 26292（原 27436） | 无 |
 | SleepEDF | 414961 | 无 |
 | AlexMI | 480 | 无 |
 | Zhou2016 | 614 | 无；仅现有 session 0 |
 | Nakanishi2015 | 1800 | 无 |
 
 这些是已有缓存行数，不是 benchmark 原始文件数。别名重复库 BNCI2014001、EEGMAT、旧 SEED/TUAB PKL 不另加入；额外数据的所有已纳入行只属于 train。
+
+### 训练前信号 QC
+
+首轮第 42 步暴露 CHB_MIT 原始 PKL 全零窗口。新增独立、不可变的 [QC 清单](../artifacts/benchmark/multitask_signal_quality_20261029/summary.json)，逐窗口检查非有限值、全零和全通道时间恒定；规则不使用标签、不拟合阈值。单个缺失通道不触发整窗排除，低幅值但有变化的信号保留。全量 1,053,069 个窗口中，仅 CHB_MIT 的 1,144 个训练窗口全零，其余全部通过这些检查。
+
+原始 PKL、NPY、索引和冻结被试划分不改写；采样池按原始行 ID 排除上述窗口，不重编号，不删除被试或类别。当前有效训练总量为 953,425，valid 49,069、test 49,431 不变。若检查发现无效验证／测试窗口，入口直接阻止启动，不能自动缩小评估分母。全量 QC 只做确定性输入有效性检查，不计算 held-out 模型成绩，不据此选择模型。
+
+每个数组保存 SHA256、大小和修改时间；启动核验固定的 QC 报告与索引哈希及数组 stat。训练前另用实际采样 seed、双卡划分与 microbatch 边界检查全部 2,040 步的信号适配；正式运行仍在异常时停止，不在训练循环中静默跳样本。
 
 ## ⚙️ 信号和文本接口
 
@@ -73,6 +81,7 @@ _2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集�
 | 学习率 | connector 1e-4，LoRA 5e-6，head 1e-5，LEAF 1e-6 |
 | 调度 | warmup + cosine；每组从开始更新时预热；最小比例 0.02 |
 | 稳定性 | bf16 基座、梯度检查点、全局梯度裁剪 1、weight decay 0.01 |
+| 可恢复保存 | step 0、每 20 步、冻结/解冻边界 102/103、最终步；含 optimizer/scheduler/各 rank RNG |
 
 每个数据集获得 120 次更新、1920 次样本呈现；大库远未遍历一遍，小库会重复抽样。这是检查方法可行性的 pilot，不宣称充分预训练或完整数据遍历。
 
@@ -84,7 +93,7 @@ _2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集�
 4. 保存逐样本概率、真值、record ID、被试 ID、每被试结果、混淆矩阵、accuracy 和 balanced accuracy。
 5. smoke 只做训练集两步更新（覆盖冻结及解冻），验证非零 encoder 梯度和保存／重载 logits 完全一致；不读测试指标，不把 smoke 权重带入正式训练。
 
-所有曲线日志从 step 0 开始；当前保留 JSON/JSONL 原始数值，不将日志存在等同于已经绘制曲线。恢复训练须通过配置、源码、基础权重和缓存索引校验；修改运行中代码会触发停止。
+所有曲线日志从 step 0 开始；当前保留 JSON/JSONL 原始数值，不将日志存在等同于已经绘制曲线。恢复训练须通过配置、源码、基础权重、QC 和缓存索引校验；修改运行中代码会触发停止。异常分别写入每个 rank 的故障文件，并更新进度状态；故障时不冒险执行可能死锁的集体保存。首轮没有 `last.pt`，因此修复轮从发布权重重启，而非续接第 41 步。
 
 ## ⚠️ 已接受但未解决的限制
 
@@ -104,7 +113,7 @@ _2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集�
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --prepared
 ```
 
-仅在全部缓存完成时使用 `--prepared`；不带该参数则控制器先准备数据。输出目录默认 `artifacts/benchmark/leaf_jev_multitask_pilot_20261029/`，拒绝覆盖已有运行。第二阶段 VideoMAE 全局 token 对照尚未启动。
+仅在全部缓存及匹配的 QC 完成时使用 `--prepared`；更换缓存需新建 QC 目录并在配置中固定报告哈希。输出目录默认 `artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/`，拒绝覆盖已有运行。失败首轮 `leaf_jev_multitask_pilot_20261029/` 保留。第二阶段 VideoMAE 全局 token 对照尚未启动。
 
 [^1]: xw1216. EEG-FM-Bench, pinned source. https://github.com/xw1216/EEG-FM-Bench/tree/325398d7d057ecc1216fb3510d70c16eb60337cc
 

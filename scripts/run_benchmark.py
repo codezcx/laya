@@ -37,7 +37,9 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     if (args.out / 'pipeline.json').exists():
         raise FileExistsError('Controller output exists; use a new run directory')
-    watched = [Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json')] + sorted(Path('eeg_align').glob('*.py'))
+    watched = [Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'),
+               Path('scripts/audit_multitask_signals.py'), Path('scripts/check_multitask_signals.py'),
+               Path(CONFIG['quality_root']) / 'summary.json'] + sorted(Path('eeg_align').glob('*.py'))
     hashes = {str(p): digest(p) for p in watched}
     env = os.environ.copy()
     env.update(CUDA_VISIBLE_DEVICES=','.join(map(str, CONFIG['gpus'])), OMP_NUM_THREADS='3', OPENBLAS_NUM_THREADS='3', MKL_NUM_THREADS='3', TOKENIZERS_PARALLELISM='false')
@@ -68,7 +70,10 @@ def main():
         if not args.prepared:
             run('preparation', [str(PYTHON), 'scripts/prepare_multitask_signals.py', '--workers', str(CONFIG['cpu_workers'])])
         store = TrialStore()
-        status('cache_verified', datasets={store.tasks[t]['task_id']: meta['counts'] for t, meta in store.meta.items()})
+        status('cache_verified', quality_summary_sha256=CONFIG['quality_summary_sha256'],
+               datasets={name: report['effective_counts'] for name, report in store.quality.items()})
+        del store
+        run('signal_preflight', [str(PYTHON), 'scripts/check_multitask_signals.py', '--out', str(args.out / 'signal_preflight.json')])
         run('text', [str(PYTHON), 'scripts/prepare_benchmark_text.py'])
         command = [str(PYTHON), '-m', 'torch.distributed.run', '--standalone', '--nproc_per_node', str(len(CONFIG['gpus'])), '-m', 'eeg_align.train_joint']
         run('smoke', command + ['--out', str(args.out / 'smoke'), '--smoke'])

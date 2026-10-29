@@ -1,9 +1,11 @@
 {
-  "run_name": "leaf_jev_multitask_pilot_20261029",
+  "run_name": "leaf_jev_multitask_pilot_20261029_qc",
   "protocol": "fixed_subject_holdout_multitask_supervised_pilot",
   "split_root": "artifacts/benchmark/multitask_splits_20261029_final",
   "split_summary_sha256": "042520e32bf63b304dba955184757adb53db5b661d39f617601ee78c831b1545",
   "cache_root": "datasets/multitask_20261029",
+  "quality_root": "artifacts/benchmark/multitask_signal_quality_20261029",
+  "quality_summary_sha256": "e9530aa59c8b3fa8aa35bc60052c9e6fcb23c53fa98dd5a5baf329c9e572a32d",
   "text_root": "artifacts/benchmark/multitask_text_20261029",
   "benchmark_root": "third_party/EEG-FM-Bench-xw1216",
   "upstream_commit": "325398d7d057ecc1216fb3510d70c16eb60337cc",
@@ -26,7 +28,7 @@
   "min_lr_ratio": 0.02,
   "validation_every": 340,
   "validation_per_dataset": 128,
-  "checkpoint_every": 170,
+  "checkpoint_every": 20,
   "gpus": [
     2,
     3

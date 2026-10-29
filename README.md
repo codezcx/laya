@@ -5,7 +5,8 @@
 ## 📋 当前状态
 
 - 新训练入口、数据转换和文本接口已实现；真实 train-only 前向／反向检查覆盖 9 个 benchmark，LEAF 梯度有效，单卡峰值约 53 GiB。
-- 17 库信号转换已完成：954,569 条训练、49,069 条验证、49,431 条测试。双卡 smoke 和磁盘重载检查通过，控制器进入正式训练；实时更新数、评估结果以运行目录为准。
+- 首轮训练在第 42 步因 CHB_MIT 原缓存全零窗口退出，并非训练完成。全量 QC 已完成：排除 1,144 个无效训练窗口后，使用 953,425 条训练、49,069 条验证、49,431 条测试；原始缓存、被试划分及旧日志保留。
+- 修复版从发布权重重新启动，先检查全部计划训练 batch，再执行双卡 smoke 和正式训练；每 20 步保存可恢复 checkpoint。实时进度以新运行目录为准。
 - 固定预算 2040 次更新，各数据集均衡轮转；按固定验证子集选模，结束后跑 9 库完整验证／测试。
 - 只初始化发布 LEAF 和原生 JEV adapter，不复用见过本轮测试被试的旧 2a 微调权重。
 - VideoMAE 对照尚未启动；旧 BSR 代码已从工作树移除，Git `14c60cf` 可恢复，数据、权重和日志保留。
@@ -17,7 +18,8 @@
 - [训练配置](configs/benchmark_train.json) · [17 个任务及选项](configs/benchmark_tasks.json)
 - [固定划分审计](artifacts/benchmark/multitask_splits_20261029_final/summary.json)
 - [真实模型组件检查](artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)
-- [运行状态](artifacts/benchmark/leaf_jev_multitask_pilot_20261029/pipeline.json)
+- [全量信号 QC](artifacts/benchmark/multitask_signal_quality_20261029/summary.json)
+- [运行状态](artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/pipeline.json)
 - [Git 和产物归档](docs/ARCHIVE.md)
 
 ## 🔧 启动
@@ -26,7 +28,7 @@
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --prepared
 ```
 
-该命令只在全部数据缓存已完成且没有同名运行时使用；删去 `--prepared` 会先准备数据。控制器依次做缓存校验、文本检查、双卡 smoke、正式训练和最终评估，失败则停止并写入日志。不要重复启动同一目录。
+该命令只在全部数据缓存及绑定其哈希的 QC 已完成、且没有同名运行时使用。控制器依次做缓存/QC 校验、全计划训练输入检查、文本检查、双卡 smoke、正式训练和最终评估，失败则停止并写入日志。不要重复启动同一目录。新建或修改缓存后须重新运行 `scripts/audit_multitask_signals.py --out <新目录>` 并固定新报告哈希；不能绕过 QC 门控。
 
 ## 📦 其他用户工作
 

@@ -73,7 +73,7 @@ def main():
     if batch_size % world:
         raise ValueError('Global batch must divide world size')
     leaf_root = Path(CONFIG['leaf_root'])
-    watch = sorted(list(Path('eeg_align').glob('*.py')) + [Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'), Path('scripts/prepare_multitask_signals.py')] +
+    watch = sorted(list(Path('eeg_align').glob('*.py')) + [Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'), Path('scripts/prepare_multitask_signals.py'), Path('scripts/audit_multitask_signals.py'), Path(CONFIG['quality_root']) / 'summary.json'] +
         [leaf_root / p for p in ['LEAF.py', 'load_config.py', 'utils.py', 'configs/LEAF_mpnet.yaml', 'configs/env.yaml', 'leaf_datasets/electrode_unifier.py', 'configs/LEAF-ch65/LEAF-ch65.json', 'configs/LEAF-ch65/LEAF-ch65.bvef']])
     hashes = {str(p): digest(p) for p in watch}
     def guard():
@@ -131,6 +131,7 @@ def main():
         restore_rng(saved['rng_by_rank'][rank])
         step, best_score, best_step = saved['step'], saved['best_score'], saved['best_step']
         del saved
+    completed_step = step
     prompts = {}
     def forward(rows, training=False, variant=0):
         if not rows or len({r['split'] for r in rows}) != 1:
@@ -216,6 +217,7 @@ def main():
             score, _ = evaluate('valid', CONFIG['validation_per_dataset'])
             best_score, best_step = score, 0
             save('best.pt', include_optimizer=False)
+            save('last.pt')
             report(dict(status='validation', step=0, macro_balanced_accuracy=score, test_evaluations=0))
         for update in range(step + 1, total + 1):
             step = update
@@ -249,6 +251,7 @@ def main():
             grad = torch.nn.utils.clip_grad_norm_(parameters, 1., error_if_nonfinite=True)
             encoder_norm = float(torch.stack([g.float().square().sum() for g in encoder_grads]).sum().sqrt()) if encoder_grads else 0.
             optimizer.step()
+            completed_step = step
             sums = torch.tensor([loss_sum, correct], device=device)
             if world > 1:
                 dist.all_reduce(sums)
@@ -271,7 +274,7 @@ def main():
                     save('best.pt', include_optimizer=False)
                 report(dict(status='validation', step=step, macro_balanced_accuracy=score,
                             best_score=best_score, best_step=best_step, test_evaluations=0))
-            if step % CONFIG['checkpoint_every'] == 0 or step == total:
+            if step % CONFIG['checkpoint_every'] == 0 or step in {freeze, freeze + 1, total}:
                 save('last.pt')
         # On-disk serialization check uses TRAIN inputs only.
         model.eval()
@@ -300,6 +303,13 @@ def main():
                        selection_score=best_score, validation=valid_metrics, test=test_metrics,
                        test_evaluations=1, known_risks=CONFIG['known_risks_accepted']))
         report(dict(status='complete', step=step, selected_step=best_step, test_evaluations=1))
+    except BaseException as exc:
+        failure = dict(status='failed', attempted_step=step, completed_training_step=completed_step,
+                       error=f'{type(exc).__name__}: {exc}', rank=rank,
+                       note='No collective checkpoint on failure; only an existing last.pt is resumable')
+        write_json(args.out / f'failure_rank{rank}.json', failure)
+        report(failure)
+        raise
     finally:
         if log:
             log.close()

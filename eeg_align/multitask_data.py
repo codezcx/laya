@@ -10,6 +10,7 @@ import pandas as pd
 
 from .benchmark_data import catalog, to_electrodes, resample, segment, bipolar_matrix
 from .runtime import CONFIG, digest
+from .signal_quality import load_quality, excluded_training_indices
 
 
 def write_json(path, value):
@@ -63,6 +64,10 @@ class TrialStore:
         self.tasks = catalog()
         self.rows = {}
         self.meta = {}
+        self.quality = load_quality(CONFIG)
+        if set(self.quality) != {t['task_id'] for t in self.tasks}:
+            raise ValueError('Signal QC must cover every configured dataset')
+        self.excluded = {}
         root = Path(CONFIG['cache_root'])
         for tid, task in enumerate(self.tasks):
             name = task['task_id']
@@ -85,11 +90,12 @@ class TrialStore:
                 raise ValueError('Subject leakage in windows')
             self.rows[tid] = [dict(r, task=tid, id=f'{name}:{i}') for i, r in enumerate(df.to_dict('records'))]
             self.meta[tid] = complete
+            self.excluded[tid] = excluded_training_indices(df, self.quality[name]['exclusions'])
         self.pools = {}
         for tid, rows in self.rows.items():
             pool = defaultdict(lambda: defaultdict(list))
             for i, row in enumerate(rows):
-                if row['split'] == 'train':
+                if row['split'] == 'train' and i not in self.excluded[tid]:
                     pool[int(row['label'])][row['subject']].append(i)
             if set(pool) != set(range(len(self.tasks[tid]['classes']))):
                 raise ValueError(f'Missing training classes: {self.tasks[tid]["task_id"]}')
@@ -158,14 +164,17 @@ class SignalAdapter:
             channels = json.loads(channel_json)
             keep, spatial = self.spatial(channels)
             raw = np.stack([mmap_array(str(root / tasks[tid]['task_id'] / rows[i]['array']))[int(rows[i]['row'])] for i in indices])
-            x, _, _ = to_electrodes(raw, channels)
+            try:
+                x, _, _ = to_electrodes(raw, channels)
+            except ValueError as exc:
+                raise ValueError(f'{exc}; batch IDs={[rows[i]["id"] for i in indices]}') from exc
             x = resample(x[:, keep], hz) if hz != 200 else x[:, keep]
             limits = np.percentile(x, [.1, 25, 50, 75, 99.9], axis=(1, 2))
             scale = limits[3] - limits[1]
             fallback = scale <= 0
             scale[fallback] = x[fallback].std(axis=(1, 2))
             if (scale <= 0).any() or not np.isfinite(x).all():
-                raise ValueError('Nonfinite or constant EEG; no silent row exclusion')
+                raise ValueError(f'Nonfinite or constant EEG; batch IDs={[rows[i]["id"] for i in indices]}; no silent row exclusion')
             x = (np.clip(x, limits[0, :, None, None], limits[4, :, None, None]) - limits[2, :, None, None]) / scale[:, None, None]
             x = np.einsum('ec,bct->bet', spatial, x).astype(np.float32)
             if tasks[tid]['task_id'] in {'seed', 'seed_vii'}:
