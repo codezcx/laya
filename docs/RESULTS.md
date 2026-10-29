@@ -6,7 +6,46 @@ _2026-10-29；当前为 LEAF 多任务验证实验，以下旧 BSR 结果单独�
 
 ## 📋 当前 LEAF 多任务实验
 
-固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。17 库全量转换后原有 train 954,569、valid 49,069、test 49,431 个窗口／缓存样本。首轮在第 42 步失败；全量 QC 排除 1,144 个无效训练窗口后，有效 train 为 953,425，验证／测试数量不变。修复轮已完成全部 2040 步，正在完整验证和测试；尚无完整最终测试汇总。[协议](PROTOCOL.md)记录精确范围与预算。
+固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。17 库全量转换后原有 train 954,569、valid 49,069、test 49,431 个窗口／缓存样本。首轮在第 42 步失败；全量 QC 排除 1,144 个无效训练窗口后，有效 train 为 953,425，验证／测试数量不变。修复轮已完成全部 2040 步及九库完整验证／测试。[协议](PROTOCOL.md)记录精确范围与预算。
+
+### 完整测试结果：分类数与准确率
+
+模型为一个共享的 LEAF→JEV 多任务 SFT 模型，使用固定跨被试划分。按固定验证子集选择的 checkpoint 为 **step 2040**；完整测试共 **49,431** 个窗口，在 `2026-10-29 15:16:47 UTC`（北京时间 23:16:47）结束，正式测试执行一次。以下是完整测试集成绩，不是每库 128 条的验证子集曲线。
+
+| 数据集 | 分类数 | 测试窗口数 | Accuracy | Balanced accuracy |
+| --- | ---: | ---: | ---: | ---: |
+| BCIC-IV-2a | 4 | 1,152 | 46.18% | 46.18% |
+| PhysioMI | 4 | 1,893 | 33.76% | 33.73% |
+| SEED | 3 | 2,526 | 69.24% | 69.00% |
+| SEED-VII | 7 | 1,942 | 33.68% | 36.18% |
+| TUAB | 2 | 12,277 | 64.70% | 63.68% |
+| TUEV | 6 | 13,046 | 45.75% | 39.55% |
+| HMC 本地子集 | 5 | 15,140 | 53.76% | 53.92% |
+| Workload | 2 | 300 | 77.00% | 71.78% |
+| ADFTD | 3 | 1,155 | 41.30% | 41.34% |
+| **九库等权平均** | — | **49,431（合计）** | **51.71%** | **50.59%** |
+
+Accuracy 是每库全部测试窗口中预测正确的比例；Balanced accuracy 是该库各类别召回率的平均。九库等权平均先分别计算各库指标，再取算术平均，不按窗口数或被试数加权，也不是将所有数据合并计算的总体准确率。
+
+本轮类别含义如下，与[实际任务配置](../configs/benchmark_tasks.json)一致：
+
+- **BCIC-IV-2a（4 类）**：左手、右手、双脚、舌头运动想象。
+- **PhysioMI（4 类）**：左手、右手、双拳、双脚运动想象；本轮不是左右手二分类。
+- **SEED（3 类）**：消极、中性、积极情绪。
+- **SEED-VII（7 类）**：厌恶、恐惧、悲伤、中性、快乐、愤怒、惊讶。
+- **TUAB（2 类）**：正常 EEG、异常 EEG。
+- **TUEV（6 类）**：棘波和尖波、广泛性周期性癫痫样放电、周期性偏侧癫痫样放电、眼动、伪迹、背景 EEG。
+- **HMC（5 类）**：清醒、REM、N1、N2、N3。
+- **Workload（2 类）**：静息、心算。
+- **ADFTD（3 类）**：阿尔茨海默病、额颞叶痴呆、认知正常对照。
+
+结果来源：[完整评估 JSON](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/train/complete.json)、[完成状态](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/pipeline.json)。各库逐样本概率、标签和被试 ID 保存在同目录 `test_<dataset>_predictions.npz`；九个文件的样本数量和预测准确率已核对。
+
+解释边界：这是**数据集内跨被试、多任务监督微调**，不是跨数据集 zero-shot。HMC 仅本地 109/151 份记录；TUAB/TUEV 候选跨库身份重合、基础模型预训练重叠风险仍未解决。该表用于本轮验证性实验，不宣称严格无泄漏或与论文默认结果直接可比。
+
+外部对照出处：EEG-FM-Bench 的 [arXiv v3 原文](https://arxiv.org/html/2508.17742v3)，Table 2–5 分别列出单任务全参数、多任务全参数、多任务冻结主干、多任务 LoRA 的结果（查阅：2026-10-29）。特别注意，附录 B.3 的 SEED 按同一被试内 trial 9:3:3 划分，而本轮采用仓库 `finetune` 的跨被试模式；不能混为同一实验设置。[^benchmark]
+
+### 训练、验证和测试数据规模
 
 | benchmark | train 窗口 | valid 窗口 | test 窗口 |
 | --- | ---: | ---: | ---: |
@@ -24,7 +63,7 @@ _2026-10-29；当前为 LEAF 多任务验证实验，以下旧 BSR 结果单独�
 
 已完成 [9 库真实训练样本的组件检查](../artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)：每库 2 条样本，LEAF→JEV loss 和梯度有限，encoder 梯度非零，峰值显存 52.965 GiB。检查用权重已丢弃，测试访问为 0；这些 loss 不代表任务准确率。
 
-正式配方的 [双卡 smoke](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/complete.json)完成 2 次更新（CHB_MIT、Nakanishi2015），第二步 encoder 梯度范数 0.11269，峰值显存 54.505 GiB；[磁盘重载检查](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/reload_check.json) logits 逐元素完全一致，测试访问 0。正式模型另行初始化，不继承 smoke 权重。当前 35 项单元测试通过。
+正式配方的 [双卡 smoke](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/complete.json)完成 2 次更新（CHB_MIT、Nakanishi2015），第二步 encoder 梯度范数 0.11269，峰值显存 54.505 GiB；[磁盘重载检查](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/reload_check.json) logits 逐元素完全一致，测试访问 0。正式模型另行初始化，不继承 smoke 权重。当时 35 项单元测试通过。
 
 可训练参数：connector 27,535,872，JEV LoRA 217,579,520，decision head 81,936，LEAF 有效路径 24,177,920；主干仍冻结。训练代码提交 `93ed85d`，文档后续提交不改变运行代码哈希。
 
@@ -123,3 +162,5 @@ laya/.venv-eeg/bin/python scripts/plot_training_curves.py
 BSR 的 Stage-B 包含 2b，预训练被试/trial 重叠未排除；下游被试隔离不等于 foundation pretraining 无泄漏。不将本轮称为干净 zero-shot，也不把两组准确率差异只归因于 self-attention（参数量不匹配）。本轮完整旧协议见 Git `14c60cf:docs/PROTOCOL.md`；[当前协议](PROTOCOL.md)记录正在进行的 xw1216 多数据集迁移。
 
 LEAF 当前轮以前的协议和启动记录在 Git `3033ac9`；旧实际产物保留于 `artifacts/benchmark/official_cross_leaf_jev_20261027*/`。更早结果见[归档索引](ARCHIVE.md)。此次没有删除旧权重、数据、缓存或日志。
+
+[^benchmark]: Xiong, W., Li, J., Li, J., Zhu, K., & Jiang, C. (2026). *EEG-FM-Bench: A Comprehensive Benchmark for the Systematic Evaluation and Diagnostic Analyses of EEG Foundation Models*. arXiv:2508.17742v3, Table 2–5 and Appendix B.3. https://arxiv.org/html/2508.17742v3
