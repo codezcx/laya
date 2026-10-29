@@ -6,9 +6,27 @@ _2026-10-29；当前为 LEAF 多任务验证实验，以下旧 BSR 结果单独�
 
 ## 📋 当前 LEAF 多任务实验
 
-固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。新训练入口和预处理已实现，全量转换正在进行，正式训练尚未产出指标。[协议](PROTOCOL.md)记录精确范围与 2040 次更新预算。
+固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。17 库全量转换和训练输入接口核验已完成：train 954,569、valid 49,069、test 49,431 个窗口／缓存样本。双卡 smoke 已通过，控制器进入正式训练阶段；尚无本轮最终测试成绩。[协议](PROTOCOL.md)记录精确范围与 2040 次更新预算。
 
-已完成 [9 库真实训练样本的组件检查](../artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)：每库 2 条样本，LEAF→JEV loss 和梯度有限，encoder 梯度非零，峰值显存 52.965 GiB。检查用权重已丢弃，测试访问为 0；这些 loss 不代表任务准确率。独立的双卡 smoke 和 checkpoint 重载检查由正式控制器继续执行。
+| benchmark | train 窗口 | valid 窗口 | test 窗口 |
+| --- | ---: | ---: | ---: |
+| 2a | 2880 | 1152 | 1152 |
+| PhysioMI | 6210 | 1734 | 1893 |
+| SEED | 32838 | 2526 | 2526 |
+| SEED-VII | 15536 | 1942 | 1942 |
+| TUAB | 247728 | 12315 | 12277 |
+| TUEV | 87834 | 12473 | 13046 |
+| HMC 子集 | 68215 | 15512 | 15140 |
+| Workload | 1534 | 300 | 300 |
+| ADFTD | 4743 | 1115 | 1155 |
+
+9 库合计训练 467,518 条，8 个额外库提供 487,051 条 train-only 缓存样本。窗口数含 TUEV 上游保留的重复标注，不等同于独立临床事件数。预处理仅有 PhysioMI 的 `S104R08`（test）第 12 个零起始事件越界未生成窗口，原始记录和被试均保留；其余库未发生事件跳过，详情见逐记录 JSON。不会静默补信号或改测试被试。
+
+已完成 [9 库真实训练样本的组件检查](../artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)：每库 2 条样本，LEAF→JEV loss 和梯度有限，encoder 梯度非零，峰值显存 52.965 GiB。检查用权重已丢弃，测试访问为 0；这些 loss 不代表任务准确率。
+
+正式配方的 [双卡 smoke](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/complete.json)完成 2 次更新（CHB_MIT、Nakanishi2015），第二步 encoder 梯度范数 0.11269，峰值显存 54.505 GiB；[磁盘重载检查](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/smoke/reload_check.json) logits 逐元素完全一致，测试访问 0。正式模型另行初始化，不继承 smoke 权重。当前 35 项单元测试通过。
+
+可训练参数：connector 27,535,872，JEV LoRA 217,579,520，decision head 81,936，LEAF 有效路径 24,177,920；主干仍冻结。训练代码提交 `93ed85d`，文档后续提交不改变运行代码哈希。
 
 SEED 原 CNT 的 6 个正数样本长度字段异常，已通过事件表字节偏移重算，不删除被试。第一次失败缓存保留在 `datasets/multitask_20261029_cnt_header_firstpass/`，当前只使用 `datasets/multitask_20261029/`。
 
