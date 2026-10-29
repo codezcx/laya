@@ -1,10 +1,20 @@
-# BSR → 32-token resampler → JEV：运行记录
+# EEG→JEV 实验运行记录
 
-_2026-10-28；2a 已完成，2b 按用户要求取消。以下结果属于 Dingkun0817 的 Cross 协议，不属于 xw1216 的新协议。_
+_2026-10-29；当前为 LEAF 多任务验证实验，以下旧 BSR 结果单独标注协议，不能混为本轮成绩。_
 
 ---
 
-## 📋 当前范围
+## 📋 当前 LEAF 多任务实验
+
+固定 9 个 benchmark + 8 个 train-only 数据集，2b 排除，用户已同意保留 HMC 子集和跨 TUAB/TUEV 候选身份重合。新训练入口和预处理已实现，全量转换正在进行，正式训练尚未产出指标。[协议](PROTOCOL.md)记录精确范围与 2040 次更新预算。
+
+已完成 [9 库真实训练样本的组件检查](../artifacts/benchmark/leaf_jev_multitask_preflight_20261029/complete.json)：每库 2 条样本，LEAF→JEV loss 和梯度有限，encoder 梯度非零，峰值显存 52.965 GiB。检查用权重已丢弃，测试访问为 0；这些 loss 不代表任务准确率。独立的双卡 smoke 和 checkpoint 重载检查由正式控制器继续执行。
+
+SEED 原 CNT 的 6 个正数样本长度字段异常，已通过事件表字节偏移重算，不删除被试。第一次失败缓存保留在 `datasets/multitask_20261029_cnt_header_firstpass/`，当前只使用 `datasets/multitask_20261029/`。
+
+运行日志：[pipeline.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/pipeline.json)、[train/progress.json](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029/train/progress.json)。文件尚不存在时，不能理解为训练已启动。训练完成后以各数据集完整测试输出为准。
+
+## 📊 历史 BSR：已完成 2a 和已取消 2b
 
 原定 2a/2b，seed 0、官方 Cross fold 0；每个数据集分别运行 cross-attention 与 Q-Former-style，输出均为 32 tokens，正式训练固定 20 epochs。2a 两组完成；用户要求不再训练 2b 后，向已核验的控制器 PID 1373666 发送 SIGTERM，由控制器终止其两名 2b worker。控制器已记录 `status=stopped`、`active={}`、`queued=[]`，相关进程已退出，未终止其他任务。所有既有数据、日志和 checkpoint 保留。
 

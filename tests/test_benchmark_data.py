@@ -1,5 +1,5 @@
 import numpy as np
-from eeg_align.benchmark_data import bipolar_matrix, to_electrodes, segment, subject_split, classification_metrics, catalog
+from eeg_align.benchmark_data import bipolar_matrix, to_electrodes, segment, classification_metrics, catalog
 from eeg_align.task_options import make_question
 
 
@@ -20,11 +20,7 @@ def test_full_epoch_preserved():
     assert max(v.shape[-1] for v in chunks)<=2000
 
 
-def test_subject_isolation_and_options():
-    subjects=['a','b','c','a','c']
-    splits=subject_split(subjects)
-    assert set(splits.values())=={'train','validation','test'}
-    assert splits==subject_split(subjects)
+def test_options_match_task_catalog():
     for task in catalog():
         for cls in task['classes']:
             q=make_question(task,cls['class_id'],'same-signal',0)
@@ -46,10 +42,3 @@ def test_missing_bipolar_measurement_is_not_zero_constraint():
     x,names,report=to_electrodes(observed,channels)
     assert report['missing_lead_instances']==1
     np.testing.assert_allclose(x[:,names.index('Fp1')]-x[:,names.index('C3')],5,atol=1e-6)
-
-
-def test_sampler_balances_tasks():
-    from eeg_align.benchmark_data import BalancedSampler
-    rows=[dict(task=t,label=c,subject='one') for t in range(3) for c in range(t+2)]
-    sampler=BalancedSampler(rows);sample=sampler(rows,1,batch=12)
-    assert [sum(rows[i]['task']==t for i in sample) for t in range(3)]==[4,4,4]

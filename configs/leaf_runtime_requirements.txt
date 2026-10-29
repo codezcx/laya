@@ -1,0 +1,13 @@
+# Verified existing laya/.venv-eeg environment; Python 3.10.20.
+# CUDA wheel requires the matching PyTorch cu128 index, not a driver upgrade.
+torch==2.11.0+cu128
+transformers==5.13.1
+accelerate==1.14.0
+safetensors==0.8.0
+numpy==2.2.6
+scipy==1.15.3
+pandas==2.3.3
+mne==1.12.1
+einops==0.8.2
+PyYAML==6.0.3
+pytest==9.1.1

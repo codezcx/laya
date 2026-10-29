@@ -1,14 +1,10 @@
 {
   "tasks": [
     {
-      "task_id": "BNCI2014001",
-      "paradigm": "motor_imagery",
-      "datasets": [
-        "BNCI2014001"
-      ],
+      "task_id": "bcic_2a",
+      "role": "benchmark",
       "instruction": "This is a motor imagery decoding task",
       "question": "Which movement is the participant imagining?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/BNCI2014001.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -29,14 +25,10 @@
       ]
     },
     {
-      "task_id": "BNCI2014004",
-      "paradigm": "motor_imagery",
-      "datasets": [
-        "BNCI2014004"
-      ],
+      "task_id": "motor_mv_img",
+      "role": "benchmark",
       "instruction": "This is a motor imagery decoding task",
       "question": "Which movement is the participant imagining?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/BNCI2014004.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -45,18 +37,190 @@
         {
           "class_id": "1",
           "option": "Right hand motor imagery"
+        },
+        {
+          "class_id": "2",
+          "option": "Both fists motor imagery"
+        },
+        {
+          "class_id": "3",
+          "option": "Both feet motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "seed",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional valence is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Negative emotion"
+        },
+        {
+          "class_id": "1",
+          "option": "Neutral emotion"
+        },
+        {
+          "class_id": "2",
+          "option": "Positive emotion"
+        }
+      ]
+    },
+    {
+      "task_id": "seed_vii",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotion is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Disgust"
+        },
+        {
+          "class_id": "1",
+          "option": "Fear"
+        },
+        {
+          "class_id": "2",
+          "option": "Sadness"
+        },
+        {
+          "class_id": "3",
+          "option": "Neutral emotion"
+        },
+        {
+          "class_id": "4",
+          "option": "Happiness"
+        },
+        {
+          "class_id": "5",
+          "option": "Anger"
+        },
+        {
+          "class_id": "6",
+          "option": "Surprise"
+        }
+      ]
+    },
+    {
+      "task_id": "tuab",
+      "role": "benchmark",
+      "instruction": "This is an abnormal EEG detection task",
+      "question": "Is this EEG recording normal or abnormal?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Normal EEG"
+        },
+        {
+          "class_id": "1",
+          "option": "Abnormal EEG"
+        }
+      ]
+    },
+    {
+      "task_id": "tuev",
+      "role": "benchmark",
+      "instruction": "This is an EEG event classification task",
+      "question": "Which event type is present in this EEG window?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Spike and sharp wave"
+        },
+        {
+          "class_id": "1",
+          "option": "Generalized periodic epileptiform discharge"
+        },
+        {
+          "class_id": "2",
+          "option": "Periodic lateralized epileptiform discharge"
+        },
+        {
+          "class_id": "3",
+          "option": "Eye movement"
+        },
+        {
+          "class_id": "4",
+          "option": "Artifact"
+        },
+        {
+          "class_id": "5",
+          "option": "Background EEG"
+        }
+      ]
+    },
+    {
+      "task_id": "hmc",
+      "role": "benchmark",
+      "instruction": "This is a sleep stage classification task",
+      "question": "Which sleep stage does this 30-second EEG epoch represent?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Wakefulness"
+        },
+        {
+          "class_id": "1",
+          "option": "REM sleep"
+        },
+        {
+          "class_id": "2",
+          "option": "N1 sleep"
+        },
+        {
+          "class_id": "3",
+          "option": "N2 sleep"
+        },
+        {
+          "class_id": "4",
+          "option": "N3 sleep"
+        }
+      ]
+    },
+    {
+      "task_id": "workload",
+      "role": "benchmark",
+      "instruction": "Decode mental workload states",
+      "question": "Was this EEG recorded during rest or mental arithmetic?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Resting"
+        },
+        {
+          "class_id": "1",
+          "option": "Mental arithmetic"
+        }
+      ]
+    },
+    {
+      "task_id": "adftd",
+      "role": "benchmark",
+      "instruction": "This is a dementia EEG classification task",
+      "question": "Which diagnostic group is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "option": "Alzheimer's disease"
+        },
+        {
+          "class_id": "1",
+          "option": "Frontotemporal dementia"
+        },
+        {
+          "class_id": "2",
+          "option": "Cognitively normal control"
         }
       ]
     },
     {
       "task_id": "BNCI2015001",
-      "paradigm": "motor_imagery",
-      "datasets": [
-        "BNCI2015001"
-      ],
+      "role": "train_only",
       "instruction": "This is a motor imagery decoding task",
       "question": "Which movement is the participant imagining?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/BNCI2015001.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -70,13 +234,9 @@
     },
     {
       "task_id": "BNCI2014008",
-      "paradigm": "p300",
-      "datasets": [
-        "BNCI2014008"
-      ],
+      "role": "train_only",
       "instruction": "This is a P300 target detection task",
       "question": "Does this EEG epoch correspond to the attended target or a non-target stimulus?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/BNCI2014008.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -90,13 +250,9 @@
     },
     {
       "task_id": "BNCI2014009",
-      "paradigm": "p300",
-      "datasets": [
-        "BNCI2014009"
-      ],
+      "role": "train_only",
       "instruction": "This is a P300 target detection task",
       "question": "Does this EEG epoch correspond to the attended target or a non-target stimulus?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/BNCI2014009.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -110,13 +266,9 @@
     },
     {
       "task_id": "CHB_MIT",
-      "paradigm": "seizure",
-      "datasets": [
-        "CHB_MIT"
-      ],
+      "role": "train_only",
       "instruction": "This is an epileptic seizure detection task",
       "question": "Does this EEG window contain a seizure?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/CHB_MIT.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -129,34 +281,10 @@
       ]
     },
     {
-      "task_id": "TUAB",
-      "paradigm": "abnormal",
-      "datasets": [
-        "TUAB"
-      ],
-      "instruction": "This is an abnormal EEG detection task",
-      "question": "Is this EEG recording normal or abnormal?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/TUAB.pkl",
-      "classes": [
-        {
-          "class_id": "0",
-          "option": "Normal EEG"
-        },
-        {
-          "class_id": "1",
-          "option": "Abnormal EEG"
-        }
-      ]
-    },
-    {
       "task_id": "SleepEDF",
-      "paradigm": "sleep",
-      "datasets": [
-        "SleepEDF"
-      ],
+      "role": "train_only",
       "instruction": "This is a sleep stage classification task",
       "question": "Which sleep stage does this 30-second EEG epoch represent?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/SleepEDF.pkl",
       "classes": [
         {
           "class_id": "0",
@@ -181,58 +309,50 @@
       ]
     },
     {
-      "task_id": "SEED",
-      "paradigm": "emotion",
-      "datasets": [
-        "SEED"
-      ],
-      "instruction": "This is an emotion recognition task",
-      "question": "What emotional valence is associated with this EEG recording?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/SEED.pkl",
+      "task_id": "AlexMI",
+      "role": "train_only",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which motor imagery or rest state is present?",
       "classes": [
         {
           "class_id": "0",
-          "option": "Negative emotion"
+          "option": "Right hand motor imagery"
         },
         {
           "class_id": "1",
-          "option": "Neutral emotion"
+          "option": "Both feet motor imagery"
         },
         {
           "class_id": "2",
-          "option": "Positive emotion"
+          "option": "Resting"
         }
       ]
     },
     {
-      "task_id": "EEGMAT",
-      "paradigm": "workload",
-      "datasets": [
-        "EEGMAT"
-      ],
-      "instruction": "Decode mental workload states",
-      "question": "Was this EEG recorded during rest or mental arithmetic?",
-      "source": "/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data/EEGMAT.pkl",
+      "task_id": "Zhou2016",
+      "role": "train_only",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
       "classes": [
         {
           "class_id": "0",
-          "option": "Resting"
+          "option": "Left hand motor imagery"
         },
         {
           "class_id": "1",
-          "option": "Mental arithmetic"
+          "option": "Right hand motor imagery"
+        },
+        {
+          "class_id": "2",
+          "option": "Both feet motor imagery"
         }
       ]
     },
     {
       "task_id": "Nakanishi2015",
-      "paradigm": "ssvep",
-      "datasets": [
-        "Nakanishi2015"
-      ],
+      "role": "train_only",
       "instruction": "This is an SSVEP frequency decoding task",
       "question": "Which flicker frequency was the participant attending to?",
-      "source": "/inspire/dataset/moabb-processed/v1/EEG-processed/Nakanishi2015",
       "classes": [
         {
           "class_id": "0",
@@ -283,18 +403,6 @@
           "option": "14.75 Hz"
         }
       ]
-    }
-  ],
-  "pending": [
-    {
-      "dataset": "SEED_VIG",
-      "task": "PERCLOS regression",
-      "reason": "Raw data not located; output protocol pending"
-    },
-    {
-      "dataset": "ThingsEEG2",
-      "task": "EEG-image feature matching",
-      "reason": "Raw data not located; output protocol pending"
     }
   ]
 }

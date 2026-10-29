@@ -71,16 +71,6 @@ def segment(x, maximum=2000):
     return np.array_split(x, count, axis=-1)
 
 
-def subject_split(subjects, seed=42):
-    """Fixed subject-disjoint holdout, not a reproduction of full LOSO/10-fold."""
-    values = sorted(set(map(str, subjects)))
-    if len(values) < 3:
-        raise ValueError('At least 3 subjects required')
-    values = np.random.default_rng(seed).permutation(values).tolist()
-    n = max(1, round(len(values) * .15))
-    return {s: 'test' if i < n else 'validation' if i < 2*n else 'train'
-            for i, s in enumerate(values)}
-
 
 def classification_metrics(labels, probabilities, classes):
     y = np.asarray(labels, dtype=int)
@@ -108,56 +98,4 @@ def load_pickle(path):
             return super().find_class(module, name)
     with Path(path).open('rb') as handle:
         return LocalUnpickler(handle).load()
-
-
-class BalancedSampler:
-    def __init__(self, rows):
-        self.pools={}
-        for i,r in enumerate(rows):
-            self.pools.setdefault(r['task'],{}).setdefault(r['label'],{}).setdefault(r['subject'],[]).append(i)
-
-    def __call__(self,rows,step,seed=42,batch=88):
-        out=[]
-        tasks=sorted(self.pools)
-        assert batch%len(tasks)==0
-        for task in tasks:
-            # Adding a different task must not change this task's sample stream.
-            rng=np.random.default_rng(np.random.SeedSequence([seed,step,task]))
-            classes=self.pools[task];order=rng.permutation(sorted(classes))
-            for j in range(batch//len(tasks)):
-                label=int(order[(j+step)%len(order)]);subjects=sorted(classes[label]);subject=subjects[int(rng.integers(len(subjects)))];choices=classes[label][subject]
-                out.append(choices[int(rng.integers(len(choices)))])
-        return out
-
-
-def metrics(rows, probabilities):
-    result={}
-    for tid,task in enumerate(catalog()):
-        ix=[i for i,r in enumerate(rows) if r['task']==tid]
-        if not ix:continue
-        k=len(task['classes']);rr=[rows[i] for i in ix];p=probabilities[ix]
-        per_subject={s:classification_metrics([r['label'] for r in rr if r['subject']==s],p[[r['subject']==s for r in rr]],k) for s in sorted({r['subject'] for r in rr})}
-        result[task['task_id']]=dict(epoch=classification_metrics([r['label'] for r in rr],p,k),per_subject=per_subject,subject_macro_balanced_accuracy=float(np.mean([v['balanced_accuracy'] for v in per_subject.values()])))
-    return result
-
-
-def read_dataset(task):
-    import pickle
-    source=Path(task['source'])
-    if source.is_file():
-        d=load_pickle(source)
-        return d.eeg_data,np.asarray(d.labels,dtype=int),np.asarray(d.subject_ids).astype(str),d.channel_names,float(d.sampling_rate)
-    signals=[];labels=[];subjects=[];names=None
-    options=[c['option'] for c in task['classes']]
-    for path in sorted(source.rglob('*.pkl')):
-        d=pickle.load(path.open('rb'));ch=list(d['eeg'])
-        if names is None:names=ch
-        assert ch==names and int(d['freq'])==200
-        signals.append(np.stack([d['eeg'][c] for c in names]));labels.append(options.index(f"{float(d['label']):.2f} Hz"));subjects.append(str(d['subject']))
-    # Exported Nakanishi epochs differ by +/-1 sample (829/830/831).
-    # Retain all observed samples and pad only the missing tail, never crop.
-    lengths=[v.shape[-1] for v in signals];longest=max(lengths)
-    if longest-min(lengths)>2:raise ValueError(f'Unexpected Nakanishi duration range: {min(lengths)}..{longest}')
-    signals=[np.pad(v,((0,0),(0,longest-v.shape[-1]))) for v in signals]
-    return np.stack(signals),np.asarray(labels),np.asarray(subjects),names,200.
 

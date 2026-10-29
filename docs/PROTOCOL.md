@@ -1,183 +1,115 @@
-# xw1216 多数据集、文本条件化 EEG→JEV：迁移准备
+# LEAF→JEV 多任务验证性 SFT
 
-_2026-10-29；已生成 17 个候选数据集的记录／缓存行级划分。HMC 不完整、跨 TUH 身份冲突待处理；尚未完成信号预处理或启动训练。_
+_2026-10-29；固定划分、一个共享模型。用户同意保留 HMC 子集和 TUAB/TUEV 候选身份重合，先验证方法。_
 
 ---
 
-## 📋 当前状态
+## 🎯 实验定义
 
-旧 BSR→32-token→JEV 的 2a 两组已完成；2b 两组按用户要求停止。控制器记录 `stopped`，没有 active 或 queued 作业。旧实现及完整配方已保存到 Git `14c60cf`，实际结果见[结果记录](RESULTS.md)。旧入口暂留在工作树，不能用于新协议；完成数据核验后一次性替换，不并存两套训练实现。没有删除权重、日志、数据、缓存或环境。
+输入为原始信号窗口，经 LEAF 的 65 通道适配、任务文本条件化查询，再投影到 JEV 文本塔；JEV 接收问题和候选标签，在末尾 decision 位置输出分类概率。不使用原来的视觉 encoder，也不为每个数据集训练独立分类器。
 
-新 benchmark 已稀疏克隆到 `third_party/EEG-FM-Bench-xw1216`，检出 `data/`、`common/`、`assets/conf/` 和根目录文件，固定提交 `325398d7d057ecc1216fb3510d70c16eb60337cc`。这与旧 `Dingkun0817/EEG-FM-Benchmark` 是不同仓库。只检查源码，没有执行其预处理或训练入口。[^1]
+这是已有基础权重上的**多任务监督微调**，不是从零预训练。测试是数据集内跨被试 holdout；不能称为跨数据集 zero-shot，也不能将本轮结果作为已严格排除泄漏的 benchmark 成绩。
 
-## 📊 2026-10-29 实际划分与启动阻塞
+当前实现唯一入口：[训练配置](../configs/benchmark_train.json)、[任务定义](../configs/benchmark_tasks.json)、[控制器](../scripts/run_benchmark.py)。旧 BSR 实现归档于 Git `14c60cf`，不再保留其训练入口或 2b 队列。
 
-已实现 `scripts/prepare_multitask_splits.py`，执行固定提交中经过逐字节核验的划分函数，未调用有清缓存副作用的上游 `preproc()` 或构造器。正式清单位于 [summary.json](../artifacts/benchmark/multitask_splits_20261029_final/summary.json)，每个数据集另有 `records.csv` 和 `manifest.json`。它们保存实际分组、来源文件／PKL 行索引、标签（已有缓存或分层所需标注）、文件属性与清单哈希；不是信号预处理完成证明。两个开发检查目录保留作审计，正式入口只指向 `multitask_splits_20261029_final`。
+## 📊 固定数据划分
 
-| benchmark 数据集 | train 分组数 | valid 分组数 | test 分组数 | 说明 |
-| --- | ---: | ---: | ---: | --- |
-| 2a | 5 | 2 | 2 | 1–5 / 6–7 / 8–9；T/E session 归属一致 |
-| PhysioMI | 69 | 19 | 21 | 1–69 / 70–88 / 89–109；6 个 MI runs |
-| SEED | 13 | 1 | 1 | valid=12，test=11；跨被试模式 |
-| SEED-VII | 16 | 2 | 2 | valid=5,19，test=10,18 |
-| TUAB | 2,075 | 101 | 152 | 按原 train 与官方类别／时长平衡规则 |
-| TUEV | 328 | 20 | 22 | 官方代码的分组 ID，跨库真实患者对应待核验 |
-| HMC（本地子集） | 75 | 17 | 17 | 仅 109/151 份记录，划分暂定 |
-| Workload | 26 | 5 | 5 | 以同一被试的两个任务记录为组 |
-| ADFTD | 64 | 11 | 13 | 按官方类别／窗口数平衡，不是机械 70/15/15 人数 |
+沿用 `xw1216/EEG-FM-Bench` 提交 `325398d7d057ecc1216fb3510d70c16eb60337cc` 的划分函数与类别、窗口定义。随机划分使用已记录的本地文件顺序，不冒称拿到了作者未公布的逐人固定名单。[^1]
 
-TUAB 按官方 montage／最短长度条件排除了 3 个记录，明细保留在其 `excluded_records.csv`；其他 EDF 候选在该头信息检查中没有排除记录。`n_records` 在 benchmark 中是源文件数量，不是 trial 数，不能与额外数据的缓存行数直接相加。原始波形的事件、单位、有效窗口和转换一致性还未全部核验。
+唯一划分目录：[multitask_splits_20261029_final](../artifacts/benchmark/multitask_splits_20261029_final/summary.json)。源 summary SHA256 为 `042520e32bf63b304dba955184757adb53db5b661d39f617601ee78c831b1545`。保持原清单不可变；其中早先的 `training_ready=false` 是生成时的审计状态，用户接受风险的授权另记在训练配置，不反向修改原始审计。
 
-| 额外 train-only 数据集 | 分组数 | 已有缓存样本数 |
-| --- | ---: | ---: |
-| BNCI2015001 | 12 | 2,400 |
-| BNCI2014008 | 8 | 33,600 |
-| BNCI2014009 | 10 | 5,760 |
-| CHB_MIT | 23 | 27,436 |
-| SleepEDF | 78 | 414,961 |
-| AlexMI | 8 | 480 |
-| Zhou2016 | 4 | 614 |
-| Nakanishi2015 | 10 | 1,800 |
+| 数据集 | train 分组 | valid 分组 | test 分组 | 窗口 |
+| --- | ---: | ---: | ---: | ---: |
+| 2a | 5 | 2 | 2 | 4 s |
+| PhysioMI | 69 | 19 | 21 | 4 s |
+| SEED | 13 | 1 | 1 | 4 s |
+| SEED-VII | 16 | 2 | 2 | 15 s |
+| TUAB | 2075 | 101 | 152 | 15 s |
+| TUEV | 328 | 20 | 22 | 5 s |
+| HMC 本地子集 | 75 | 17 | 17 | 30 s |
+| Workload | 26 | 5 | 5 | 4 s |
+| ADFTD | 64 | 11 | 13 | 10 s |
 
-上述分组数按现有缓存的 `subject_ids` 计，不保证跨 session 编号或临床患者别名已全局归并。额外数据全部划入 train，valid/test 均为零；Zhou2016 仍仅包含已有 session 0。七个整体 PKL 已重新计算完整 SHA256，Nakanishi 保存逐 trial 文件属性与清单哈希。
+2a 为被试 1–5 / 6–7 / 8–9，T/E 两个 session 始终同归属。PhysioMI 使用 4、6、8、10、12、14 六个想象 runs，四类分别为左手、右手、双拳、双脚。2b 排除。
 
-当前不能启动的两个数据决策：
+| 额外数据集 | 训练缓存样本数 | 本轮验证／测试 |
+| --- | ---: | --- |
+| BNCI2015001 | 2400 | 无 |
+| BNCI2014008 | 33600 | 无 |
+| BNCI2014009 | 5760 | 无 |
+| CHB_MIT | 27436 | 无 |
+| SleepEDF | 414961 | 无 |
+| AlexMI | 480 | 无 |
+| Zhou2016 | 614 | 无；仅现有 session 0 |
+| Nakanishi2015 | 1800 | 无 |
 
-1. **HMC 缺 42 个官方记录。** 本地 `HMC/RECORDS` 列出 151 份，本地只有 109 份；缺失名单存于 summary 的 `datasets.hmc.coverage.missing_recordings`。需补齐后再按完整记录生成划分，或由用户明确接受子集／暂不纳入。不能把当前 75/17/17 写成完整 HMC 的官方测试。
-2. **TUAB/TUEV 有跨库身份风险。** 两者有 19 个相同文件名被试标识，其中 5 个 train/test 角色冲突：4 个在 TUAB train、TUEV test，1 个相反。尚未验证所有跨版本患者映射，因此是候选冲突，不冒称已证明全部泄漏或已排除全部泄漏。TUEV 训练记录的 EDF 患者字段为同一个占位符，不能把它们当成同一患者；原 eval 文件编号在数据 README 中是 session 索引，不能仅靠此编号证明与 TUAB 患者不重叠。需确认隔离策略／补充映射，或明确暂不联合纳入 TUEV；保持原测试清单，不静默重新抽样。
+这些是已有缓存行数，不是 benchmark 原始文件数。别名重复库 BNCI2014001、EEGMAT、旧 SEED/TUAB PKL 不另加入；额外数据的所有已纳入行只属于 train。
 
-脚本输出显式 `training_ready=false`。9 项划分测试覆盖固定 ID、所有 session 同归属、RNG 复现且不污染调用者状态、重复记录／被试泄漏拒绝、额外数据 train-only，以及 EDF 占位符与跨库角色冲突。仍需完成事件／窗口预处理、跨库身份核验，以及 LEAF→JEV 联合入口与 smoke；不是只差执行一条训练命令。
+## ⚙️ 信号和文本接口
 
-复核命令（必须提供新的输出目录，不覆盖已有清单）：
+- 原始 benchmark 信号先按原始通道选择连续滤波，再重采样到 LEAF 的 200 Hz。滤波频带默认 0.1–100 Hz（原采样率不足时不另设 100 Hz 低通），2a 为 0.5–45 Hz；工频陷波按数据集取 50/60 Hz。这不是逐字节复现上游默认 256 Hz 预处理。
+- 2a 使用 BNCI MAT，trial 起点后 2–6 s 为 cue 后 4 s；所有 288 条/session 均保留，不按标签或 artifact 字段额外筛选。SEED 原 CNT 显式读 int32，并由事件表偏移重算错误的样本长度。
+- 其余事件、类别顺序与窗口规则来自固定源码。TUEV 保留上游重复事件和末尾对齐的完整 5 s 窗口，不把短事件补零成 5 s；SEED-VII 同样保留末尾对齐窗。窗口越界、未知标注逐记录记录，不重新抽被试。
+- 额外 PKL 保留已有预处理；Nakanishi 的 829–831 点只补缺失尾部，不裁掉实测点。
+- 每个输入 epoch 独立计算 0.1/99.9 百分位裁剪、median/IQR 归一化；不以验证／测试数据拟合统计量。
+- 双极通道使用 minimum-norm 电极表示，不能称为恢复真实单极电位；参考电极不虚构空间坐标。映射到 65 通道使用 LEAF 的模板插值，少通道信息不足的限制仍在。
+- 完整窗口分成不超过 10 s 的有序片段，每片输出 8 个 256 维 query；4/5/10 s 为 8 tokens，15 s 为 16，30 s 为 24。不截断长窗口。
+- 任务描述经冻结 MPNet masked mean pooling + L2 归一化后输入 LEAF。问题和候选文本经 JEV tokenizer 输入文本塔；训练时随机置换选项顺序并对应重映射监督标签。真值、被试 ID 和数据集 ID 不写入 prompt。
+- HMC 的标签顺序是 W/R/N1/N2/N3，SleepEDF 是 W/N1/N2/N3/REM；各自映射，不能共用数字标签含义。
+
+## 🔧 本轮训练预算
+
+| 项目 | 固定设置 |
+| --- | --- |
+| 初始化 | 发布 LEAF + 原生 JEV adapter + 新 connector |
+| 更新内容 | LEAF query 路径、connector、JEV 原有 LoRA、16 个候选位置的 head 行 |
+| 冻结内容 | JEV 主干、MPNet、LEAF 重建／文本输出头、BatchNorm 统计 |
+| GPU | 2、3 两卡同步梯度 |
+| 总更新数 | 2040；seed=42 |
+| 全局 batch | 16；每卡 microbatch=4、累积 2 次 |
+| 数据集采样 | 每 17 步随机轮转全部数据集各一次 |
+| 数据集内采样 | 类别均衡，再均匀选被试、抽其窗口 |
+| LEAF 冻结预热 | 前 102 步；之后更新有效 encoder 路径 |
+| 学习率 | connector 1e-4，LoRA 5e-6，head 1e-5，LEAF 1e-6 |
+| 调度 | warmup + cosine；每组从开始更新时预热；最小比例 0.02 |
+| 稳定性 | bf16 基座、梯度检查点、全局梯度裁剪 1、weight decay 0.01 |
+
+每个数据集获得 120 次更新、1920 次样本呈现；大库远未遍历一遍，小库会重复抽样。这是检查方法可行性的 pilot，不宣称充分预训练或完整数据遍历。
+
+## 📈 验证、选模与测试
+
+1. step 0 和每 340 步，在每个 benchmark 固定最多 128 条验证样本上评估；样本选择固定且与模型分数无关。
+2. 用 9 个数据集的 balanced accuracy 宏平均选 checkpoint；相同时保留较早 checkpoint，包括 step 0。
+3. 训练结束后，从磁盘重载选中的模型，完整评估 9 个 benchmark 的所有可用验证和测试窗口；额外库不测。
+4. 保存逐样本概率、真值、record ID、被试 ID、每被试结果、混淆矩阵、accuracy 和 balanced accuracy。
+5. smoke 只做训练集两步更新（覆盖冻结及解冻），验证非零 encoder 梯度和保存／重载 logits 完全一致；不读测试指标，不把 smoke 权重带入正式训练。
+
+所有曲线日志从 step 0 开始；当前保留 JSON/JSONL 原始数值，不将日志存在等同于已经绘制曲线。恢复训练须通过配置、源码、基础权重和缓存索引校验；修改运行中代码会触发停止。
+
+## ⚠️ 已接受但未解决的限制
+
+用户 2026-10-29 明确要求：“先这样训练吧，数据的问题后面再说，我们只是验证试验。”
+
+- HMC 仅本地 109/151 份记录；本轮是子集结果。
+- TUAB/TUEV 19 个文件名 ID 重合，5 个角色冲突：aaaaaamc、aaaaabdo、aaaaaeer、aaaaaeuh、aaaaafgz。跨版本真实身份尚未完全核验，本轮不隔离重分。
+- 基础权重预训练数据重合未排除；额外 PKL 的原始记录来源审计尚不完整。
+- 少通道插值、双极到 minimum-norm 表示、原始输入格式和 200 Hz 适配可能影响表现，结果须分任务报告。
+- 原先 2a 微调见过新测试被试，绝不继续它的 checkpoint。
+
+## 📦 产物和启动
+
+信号缓存：`datasets/multitask_20261029/`，每库 `complete.json`、`index.csv` 和分片 NPY。开发或失败缓存保留但不接入训练。训练状态以运行目录中的 `pipeline.json` 与 `train/progress.json` 为准。
 
 ```bash
-/inspire/hdd/global_user/zhangchenxi-253108310322/miniconda3/envs/neuroai/bin/python \
-  scripts/prepare_multitask_splits.py --output artifacts/benchmark/NEW_SPLIT_AUDIT
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --prepared
 ```
 
-## 🎯 目标与顺序
+仅在全部缓存完成时使用 `--prepared`；不带该参数则控制器先准备数据。输出目录默认 `artifacts/benchmark/leaf_jev_multitask_pilot_20261029/`，拒绝覆盖已有运行。第二阶段 VideoMAE 全局 token 对照尚未启动。
 
-| 阶段 | 目标 | 状态 |
-| --- | --- | --- |
-| 旧 2a 对照 | 完成已有训练，不追加 2b | 已结束 |
-| 第一阶段 | 一个 LEAF→JEV 模型联合微调全部纳入数据集 | 尚未启动 |
-| 第二阶段 | 相同划分、文本和训练预算，改用 BSR-VideoMAE | 尚未启动 |
+[^1]: xw1216. EEG-FM-Bench, pinned source. https://github.com/xw1216/EEG-FM-Bench/tree/325398d7d057ecc1216fb3510d70c16eb60337cc
 
-这里的“预训练”指已有 LEAF / JEV 基础上的多任务监督对齐训练，使用 EEG、任务文本和标签，不是从零训练信号基模，也不是新增自监督预训练目标。这轮评估是各 benchmark 数据集内部的跨被试测试，不是跨数据集 zero-shot。若之后要声明跨数据集泛化，需另设完全不参与训练和调参的目标数据集。基础模型的预训练/指令调优数据重叠也要单独审计。
+## 🔗 软件过程说明
 
-两个阶段分别从发布基础权重和原生 JEV adapter 初始化；不继承此次 2a 下游 checkpoint。旧训练包含 2–9 号，而新 2a 协议把 6、7 号作为验证、8、9 号作为测试，因此继续训练会污染新划分。[^2]
+模型接口核验、资源检查与文档组织参考 Scientific Agent Skills 的相应流程；这些流程不是 EEG 模型方法或实验结果的依据。[^2]
 
-## 📦 已确认的数据用途
-
-以 `xw1216/EEG-FM-Bench` 为唯一的本轮评估协议；本地旧 `Dingkun0817/EEG-FM-Benchmark` 数据和既有额外数据提供训练补充，不混用两个仓库的测试划分。顺序是**先冻结划分，再训练**，不能先用全量 EEG 预训练、之后才留测试被试。
-
-| 数据来源 | 训练用途 | 验证／测试用途 |
-| --- | --- | --- |
-| 本轮纳入的 xw1216 数据集 | 仅官方 train 被试 | 官方 valid / test 被试 |
-| 不重复的额外数据集 | 通过泄漏与质量核验的全部记录 | 不设本轮验证／测试，不宣称其泛化结果 |
-| 同一数据集的别名、其他预处理版 | 归并到同一身份，不能重复采样 | 沿用同一官方被试归属 |
-| 2b | 按用户之前指令排除 | 不追加评估 |
-
-当前首批候选为下表中已定位原始文件的 **9 个 benchmark 数据集**：2a、PhysioMI、SEED、SEED-VII、TUAB、TUEV、HMC、Workload、ADFTD。额外训练候选有 **8 个**，共 17 个候选数据集；这个数目不表示 17 个已经完成预处理或可直接开训。
-
-| 额外训练候选 | 任务 | 本地依据／限制 |
-| --- | --- | --- |
-| BNCI2015001 | 运动想象，2 类 | 旧数据目录已有 PKL |
-| BNCI2014008、BNCI2014009 | P300，分别 2 类 | 旧数据目录已有 PKL |
-| CHB_MIT | 发作检测，2 类 | 旧数据目录已有 PKL |
-| SleepEDF | 睡眠分期，5 类 | 旧数据目录已有 PKL |
-| Nakanishi2015 | SSVEP，12 类 | 既有 MOABB 处理目录 |
-| AlexMI | 右手／脚／静息，3 类 | 本地 adapter 与 PKL；还需接入当前任务目录 |
-| Zhou2016 | 左手／右手／脚，3 类 | 现有 PKL 只保留 session 0，不能称完整原始数据 |
-
-本地依据：旧数据目录为 `/inspire/hdd/global_user/zhangchenxi-253108310322/EEG-FM-Benchmark/datasets/data`；前六个数据集的现有任务定义见 `configs/benchmark_tasks.json`，后两个标签与 session 选择见该旧仓库 `datasets/AlexMI/Preprocess_Dataset.py` 和 `datasets/Zhou2016/Preprocess_Dataset.py`。这里只读取清单和源码，没有加载全部大文件；信号单位、实际标签、原始记录身份和覆盖量仍需核验。
-
-去重映射必须包括：`BNCI2014001` / `BNCI2014001Session` → `bcic_2a`，`EEGMAT` → `workload`，`SEED` → `seed`，`TUAB` → `tuab`。这些旧 PKL 中包含的验证／测试被试不得以“额外数据”身份回流训练；不同缓存也不重复计入数据量。
-
-Things-EEG-2、Mimul-11、SEED-V、Siena、TUSL 待补齐并核验后再纳入，不能把首批结果写成完整 14 数据集 benchmark。新增数据进入训练前必须重新检查对既定验证／测试集的污染；若以后扩展评估集合与此前训练冲突，需要重新训练，不能把已见被试补记为 held-out。
-
-## 🔐 划分和数据门槛
-
-采用固定提交的 `finetune` builder；SEED / SEED-V 显式选择跨被试模式，不照搬示例中的 `finetune_sub_dependent`。2a 为 train 1–5 / valid 6–7 / test 8–9；PhysioMI 为 train 1–69 / valid 70–88 / test 89–109。[^2][^3]
-
-其余数据集不能按统一的 trial 随机比例代替原方法：有的按被试抽样，有的按被试的类别分布做平衡。原通用被试抽样依赖 RNG 和输入被试顺序，准备阶段需保存原始记录顺序、seed、实际被试列表、行索引和哈希；生成后冻结，不能每轮重新划分。TUEV 会重新组合原 train/eval，再进行被试级分层划分。[^4]
-
-训练前必须验证：
-
-- 每个数据集的 train / valid / test 被试集合两两不相交；不能仅检查 trial ID。
-- 同一原始记录的重叠窗口、重复记录、派生缓存不能跨集合。
-- 若不同 TUE 子集存在同一患者或同一记录，需做跨数据集泄漏审计；不得因为各单数据集 split 正确就默认联合训练安全。额外数据与评估被试／记录冲突时，从训练池排除冲突数据并记录数量；官方 benchmark 之间若出现 train / valid / test 角色冲突，先报告并确定联合协议，不能静默改测试集或继续开训。身份信息不足时标为未解决，不能冒称已排除跨库重叠。
-- 从训练开始，包括预训练、归一化参数拟合、特征选择与阈值估计，都不得使用验证／测试数据拟合参数；无标签也不能绕过该限制。预先规定的单样本确定性预处理与训练集统计拟合分别记录；不做测试集群体自适应。
-- 在转换到 LEAF 所需通道/采样率之前保存 benchmark 原始 epoch 定义；模型适配步骤单独记录，不把旧 PKL 直接称作新 benchmark 数据。
-- 只用 benchmark valid 选择共享 checkpoint，拟以等数据集权重的 balanced accuracy 均值为选择指标；在训练前锁定。测试集只在选择结束后评估，逐数据集报告原 benchmark 指标及统一汇总指标；额外训练集不混入验证均值。
-
-训练用 epoch manifest 至少保存：`canonical_dataset`、`source_version`、`subject_id`、可核验的跨库身份／记录键、`session_id`、`record_id`、epoch 起止、`split`、原始文件标识、预处理配置、上游提交、随机种子和清单哈希。窗口继承原始记录的归属；同一记录的增强视图不能跨集合。当前已生成记录／缓存行归属；完整 epoch 起止与信号预处理验收尚未完成。
-
-加入额外数据后的结果需标注为 **extra-data 联合训练**，不直接当作与原论文同训练数据预算的复现。建议保留一个必要匹配对照：只用同一批 benchmark train 数据、同一模型／初始化／优化步数和验证策略；记录两组每个数据集实际曝光量。这能衡量固定预算下加入额外数据的效果，但不预设一定提高准确率。该对照尚未启动。
-
-## 📦 14 个数据集的本地清点
-
-以下只是文件定位，不代表已完成数据完整性、标签、预处理或被试划分验证。搜索覆盖当前 `mne_data`、共享 `/inspire/dataset` 及已知模型数据目录；“未定位”不表示整个服务器一定没有。缩写 `MNE` 指 `/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data`，`NB` 指 `/inspire/dataset/neural-bench/v1`。任务含义按源码核对。[^1]
-
-| 数据集 | builder / 类别数 | 本地候选来源 | 当前缺口 |
-| --- | --- | --- | --- |
-| BCIC-IV-2a | `bcic_2a` / 4 | `MNE/BCIC-IV-2a` | 原仓库读取 SET；现有 MAT/GDF 转换与事件时刻需核验 |
-| PhysioMI | `motor_mv_img` / 4 | `MNE/eegbci/MNE-eegbci-data/files` | 核验完整被试、runs 4/6/8/10/12/14 |
-| Mimul-11 | `mimul_11` / 3 | `/inspire/dataset/moabb-processed/v1/EEG-processed/Jeong2020` | 仅定位到其他预处理版；原 BrainVision 文件未定位 |
-| SEED | `seed` / 3 | `MNE/SEED/SEED/SEED_EEG` | 原始/预处理目录存在，需核验所需 SET 与事件 |
-| SEED-V | `seed_v` / 5 | 未定位 | 需要原始数据路径 |
-| SEED-VII | `seed_vii` / 7 | `MNE/SEED-VII/EEG_raw` | CNT 文件存在，标签与记录完整性待核验 |
-| TUAB | `tuab` / 2 | `MNE/tuh/tuh_eeg_abnormal`、`NB/Lopez2017Tuab` | 核验版本、记录和来源划分 |
-| TUEV | `tuev` / 6 | `NB/Harati2015Tuev/edf` | 核验 REC 标注和跨 TUE 子集重复 |
-| Siena | `siena_scalp` / 2 | 未定位 | 需要 EDF、发作标注路径 |
-| HMC | `hmc` / 5 | `MNE/HMC/recordings` | EDF 与分期标注存在，完整性待核验 |
-| TUSL | `tusl` / 3 | 未定位 | 需要 TUSL 数据；不能用 TUSZ 替代 |
-| Things-EEG-2 | `things_eeg_2` / 2 | `NB/Gifford2022Large/download` | 有 EEG ZIP；所需行为标签尚未落地与核验 |
-| Workload | `workload` / 2 | `MNE/EEGMat` | EDF 存在，元数据与预处理待核验 |
-| ADFTD | `adftd` / 3 | `NB/Miltiadous2023Dice/download` | SET、参与者元数据和预处理版本待核验 |
-
-两个易混淆的标签定义：Mimul-11 默认 `finetune` 是 reach / grasp / twist 三分类，不是 11 分类；Things-EEG-2 在这里是 5 秒序列的 non-target / target 二分类，并依据行为回答过滤序列，需要 `behaviour/sub-*/ses-*/behavioral_data.npy`，不能从图像类别 ID 臆造该标签。[^5][^6]
-
-用户已同意先使用已有数据并加入额外训练数据，不再以凑齐 14 个数据集为首轮必要条件。仍须先完成候选数据的完整性、身份与标签核验；未通过的数据不能静默跳过，需记录原因和实际纳入名单。当前没有发起额外大规模数据下载或解压。
-
-## ⚙️ 文本条件化和联合优化设计
-
-| 输入 / 参数 | 第一阶段约定 |
-| --- | --- |
-| EEG 输入 | LEAF 信号编码器与任务条件 query；原始通道、窗口转换需记录 |
-| LEAF 文本 | 任务描述的固定 MPNet embedding，不含本 trial 标签或被试身份 |
-| JEV 文本 | 任务描述、问题、该任务全部候选标签，末尾 `[decision]:` |
-| JEV 信号输入 | LEAF query token 经可训练 connector 映射到语言宽度 |
-| 优化对象 | LEAF 有效路径、connector、原生 JEV LoRA 和 choice 参数 |
-| 冻结部分 | Qwen 基座及不在当前信号路径上的重建模块 |
-| 数据混合 | benchmark train＋train-only 补充集；拟采用等数据集采样，避免大库按窗口数淹没小库，记录实际曝光量 |
-| 损失 | 对当前候选位置做 CE；标签仅作为监督 target |
-| 候选顺序 | 训练时随机排列并同步重映射 target，评估另报选项顺序一致性 |
-
-不为每个数据集单独训练一套 JEV 或独立最终分类头。文本决定问题和可选语义，不能将 ground truth 放入 prompt。均衡采样和具体步数是尚待实现的训练配方，不是已经运行的配置。
-
-LEAF 使用已下载的 `LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt`。历史接口检查在隔离 worktree `eegjev-worktrees/leaf-3033ac9-inspect` 完成；未把旧划分、旧训练权重或旧文本缓存无条件复制到新实验。LEAF 最长窗口、长记录分段和有效 token mask 仍需在真实样本 smoke 中验证。
-
-## 🔧 VideoMAE 单 token 方案
-
-本地 `BSR-VideoMAE-AS-Final-v3/code/bsri/model.py` 的 `BSRIEncoder.forward` 使用全部 token 的均值；`Token0BSRIClassifier` 注释也明确 token 0 是 patch，不是 CLS。现有权重没有可直接提取的 CLS token。
-
-第二阶段拟使用 `hidden.mean(dim=1, keepdim=True)`，将 `[B,1568,768]` 池化为 `[B,1,768]` 后输入 JEV connector。该表示称为 mean-pooled global token，不称 CLS，也不增加随机 CLS 后冒称预训练表示。它减少 JEV 序列长度，不减少 VideoMAE 内部 token 数量。此阶段尚未实现或启动；LEAF 完成后再按相同 split 和文本运行，不继承旧 2a 微调权重。
-
-## 📍 下一步和启动条件
-
-1. 按已确认的 9＋8 候选范围核验数据，不等待其余 5 个 benchmark 数据集全部下载完成；2b 继续排除。
-2. 先解决上述 HMC 缺失及跨 TUH 身份／隔离决策，再完成单位、标签、epoch 与跨库身份检查，将已生成的记录分组落实到经过核验的 epoch manifest。
-3. 在 Git 已归档旧状态的前提下替换旧训练实现，清理 superseded 配置/测试，保留用户未提交工作与所有忽略数据。
-4. 执行小样本多任务前向/反向、梯度和 checkpoint 重载检查；通过后才启动 LEAF 正式联合训练。
-5. LEAF 完成后实施同协议的 VideoMAE 单全局 token 对照。
-
-Hugging-science 技能用于资源核验（10-29 目录访问超时，依据指定仓库与本地来源继续），experimental-design 技能用于按被试隔离、匹配对照和发现身份冲突后暂停启动，get-available-resources 技能用于处理资源核验，Markdown 文档技能用于区分清单、预处理与训练状态；技能库方法引用见文末。[^7] 记录清单不等于可训练信号；本文件不构成已启动训练的证据。
-
-[^1]: xw1216/EEG-FM-Bench，固定源码。https://github.com/xw1216/EEG-FM-Bench/tree/325398d7d057ecc1216fb3510d70c16eb60337cc
-[^2]: BCIC-IV-2a builder。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/bcic/bcic_2a.py
-[^3]: SEED 与 PhysioMI builder。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/seeds/seed.py ，https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/motor_mv_img.py
-[^4]: 被试级随机及类别平衡划分。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/processor/builder.py
-[^5]: Mimul-11 默认标签。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/mimul_11.py
-[^6]: Things-EEG-2 行为标签与事件定义。https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/things_eeg_2.py
-[^7]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. arXiv:2609.00065，2026-10-29 核验时最新修订为 2026-09-02。https://doi.org/10.48550/arXiv.2609.00065
+[^2]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

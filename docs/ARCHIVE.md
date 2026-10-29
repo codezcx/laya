@@ -1,8 +1,8 @@
 # Repository archive
 
-2026-10-29: `14c60cf` archives the completed BSR 2a controls (25.6944% / 25.0000%) and user-cancelled 2b queue before migration to xw1216/EEG-FM-Bench. The old controller is stopped with no active or queued workers. The requested LEAF-first, then VideoMAE global-token multitask approach is in preparation, not training; see [current protocol](PROTOCOL.md). Record/cache-row allocations for 9 benchmark + 8 extra candidates are now in `artifacts/benchmark/multitask_splits_20261029_final/`; 2b is excluded. HMC is incomplete, cross-TUH identity risks require a decision, and waveform preprocessing/training integration remain pending. Development split-check artifacts were retained, not deleted; only the final directory is the current entry point. The old executable is retained temporarily pending audit and implementation replacement, not as a concurrent active experiment. No data, weights, caches, environments or logs were deleted.
+2026-10-29: `14c60cf` archives the completed BSR 2a controls and user-cancelled 2b queue. The working tree now contains the replacement LEAF→JEV shared multitask trainer, its matched data pipeline and tests. The 9 benchmark + 8 train-only allocations remain fixed in `artifacts/benchmark/multitask_splits_20261029_final/`; 2b is excluded. The user explicitly accepted the HMC subset and unresolved cross-TUH identity risks for this pilot; see [current protocol](PROTOCOL.md). Old BSR/official-Cross executable modules, configs and tests were removed, recoverable from Git. No datasets, checkpoints, caches, environments or logs were deleted.
 
-Historical tracked implementations can be recovered from Git. `3033ac9` preserves official Cross LEAF→JEV training and the standalone 32-query module checks before the BSR→32-query→JEV replacement. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol. Use isolated worktrees for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps the BSR Cross trainer with two resampler controls. No ignored data, checkpoints, environments or logs were deleted.
+Historical tracked implementations can be recovered from Git. `3033ac9` preserves official Cross LEAF→JEV training and the standalone 32-query module checks before the BSR→32-query→JEV replacement. `999380b` preserves the four-arm task-mixture code, prior results ledger, and completed custom fold-0 evaluation script/protocol. Use isolated worktrees for historical reruns. `5200248` preserves the earlier preprocessing control; `521f865` predates the BN-control replacement. Current code keeps only the LEAF multitask approach and its necessary checks. No ignored data, checkpoints, environments or logs were deleted.
 
 Historical artifacts were moved, not deleted, to:
 
@@ -13,7 +13,7 @@ The archive's `index.json` maps each original repository path to its archived lo
 Current retained artifacts:
 
 - `artifacts/benchmark/official_splits_20261027/`: locked original Cross masks, all available folds and seeds.
-- `artifacts/benchmark/official_cross_bsr_jev_32tokens_20261028/`: current two-resampler queue and SFT outputs.
+- `artifacts/benchmark/official_cross_bsr_jev_32tokens_20261028/`: historical stopped two-resampler queue and SFT outputs.
 - `artifacts/benchmark/official_cross_leaf_jev_20261027*/`: historical LEAF plan, smoke and first-stage SFT runs; consult each pipeline record for actual status.
 - `artifacts/benchmark/full_eval_fold0_20261027_checked/`: completed historical custom fold-0 evaluation.
 - `artifacts/benchmark/cross_subject_fold0_task_mixture/`: historical four-arm 2a/SEED × frozen/fine-tuned LEAF comparison.
