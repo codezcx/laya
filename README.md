@@ -2,6 +2,8 @@
 
 当前方法是四组匹配的 VideoMAE 读出试验：mean pooling、learnable CLS、32-query cross-attention、32-query Q-Former 风格读出。文本只送入 JEV；BSR 编码器和读出不接收 task description、question 或标签。旧 LEAF 实现归档于 Git `741fe34`，不复用旧下游权重。
 
+2026-10-30 21:19 UTC：四组完整 batch smoke 已全部通过，正式四卡任务已启动；先运行 step 0 验证。运行时状态以各组产物为准，不把启动或 smoke 准确率当成正式结果。
+
 ## 📋 实验入口
 
 - [当前协议与四组设计](docs/PROTOCOL.md)：同一 17 库划分、2040 步、单 seed、四卡各一组；2b 不训练。

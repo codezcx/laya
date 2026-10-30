@@ -7,7 +7,9 @@
 - 当前实验单元测试：54 项通过（`python -m pytest -q tests`）。未把第三方仓库独立测试套件当作本项目测试；仓库根目录不限定范围的 pytest 会收集缺少独立依赖的第三方测试，不能据此声称全仓库通过。
 - 17 库各一个训练样本已在真实 GPU 上通过发布 BSR 前向、全部四种读出的输出／梯度检查；没有执行验证／测试前向来调试这些输入。
 - 2a 等短窗输出 1568×768 tokens，SEED-VII／TUAB 15 秒为 3136×768，HMC／SleepEDF 30 秒为 4704×768，后者保留全部三个片段。
-- 完整 JEV smoke 和正式训练以 `artifacts/benchmark/bsr_jev_readouts_20261030/pipeline.json` 为准。当前尚无本轮最终准确率；每组 `train/<arm>/` 保存 step 0 起的验证、训练监测、loss、checkpoint 和输入审计。
+- 2040 步全部计划训练输入（32,640 次样本呈现）检查通过；四组各 17 步、batch=16、microbatch=8 的完整 JEV smoke 全部完成。BSR 权重和 buffers 未变、JEV 冻结／开放阶段梯度契约通过、磁盘重载 logits 精确一致，测试前向次数为 0。
+- 四组连接器、原生 JEV LoRA／head、BSR 初始化哈希一致。smoke 峰值显存分别为 mean_pool 53.373 GiB、CLS 54.660 GiB、cross_attention 54.062 GiB、qformer 55.076 GiB。每组共同连接器 30,158,336 参数、JEV LoRA 217,579,520、choice 头 81,936，读出参数见协议。
+- 正式四卡任务于 2026-10-30 21:19:57 UTC 启动，先 step 0 验证再训练 2040 步。控制器 PID 1204451；启动时 mean_pool／CLS／cross_attention／qformer 的 PID 分别为 1299112／1299113／1299114／1299115，对应 GPU 0／1／2／3。PID 仅为当时快照，实时状态见 [pipeline.json](../artifacts/benchmark/bsr_jev_readouts_20261030/pipeline.json)。当前尚无本轮最终准确率；每组 `train/<arm>/` 保存 step 0 起的验证、训练监测、loss、checkpoint 和输入审计。
 - 旧 LEAF 续训日志停在 step 3446；切换前当前节点没有存活的旧训练进程，四张卡空闲。未删除或覆盖旧 checkpoint，不把它当成完成 4080 步。
 
 ## 📊 历史 LEAF 完整训练与测试对照
