@@ -55,7 +55,7 @@ def main():
     tasks = store.tasks
     total = len(tasks) if args.smoke else CONFIG['steps']
     bridge_only = 1 if args.smoke else CONFIG['bridge_only_steps']
-    batch_size = 2 if args.smoke else CONFIG['global_batch']
+    batch_size = CONFIG['global_batch']
     hashes = code_identity()
     def guard():
         if hashes != code_identity():

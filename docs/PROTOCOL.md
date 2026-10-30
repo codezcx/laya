@@ -41,6 +41,8 @@ CLS 不是 VideoMAE 原生 token，也没有插入已冻结 VideoMAE 的 12 层�
 
 四组读出宽度均为 768；连接器都是 LN→Linear(768,5120)→GELU→Linear(5120,5120)。初始化时单独固定共同模块随机种子并记录参数哈希。读出参数量、token 数与计算量不同，因此不能把最终分差全部解释为某一个结构因素。1-token 两组与 32-token 两组分别比较，并记录实际参数量、耗时、显存。
 
+实现计算的读出可训练参数量：mean_pool 0、CLS 7,091,712、cross_attention 7,115,520、qformer 37,834,752。前三个有参数读出均从随机初始化开始，不把 Q-Former 更大的容量误称为严格参数匹配的优势。
+
 ## 📥 输入与数据划分
 
 保持原有 9 benchmark＋8 train-only，共 17 库。9 库：2a、PhysioMI、SEED、SEED-VII、TUAB、TUEV、HMC 本地子集、Workload、ADFTD；8 个额外库：BNCI2015001、BNCI2014008、BNCI2014009、CHB_MIT、SleepEDF、AlexMI、Zhou2016、Nakanishi2015。2b 不训练。
@@ -56,14 +58,16 @@ CLS 不是 VideoMAE 原生 token，也没有插入已冻结 VideoMAE 的 12 层�
 
 ## 🧪 训练与选模
 
-- 四组各占一张 H100，seed=42，2040 次优化更新，全局 batch=16、microbatch=2。17 库每周期随机轮转一次，库内类别均衡、被试均匀再抽窗口；四组逐步 sample IDs 和选项排列相同。每库共 120 个 batch／1920 次样本呈现，远少于覆盖全数据集的一个 epoch。
+- 四组各占一张 H100，seed=42，2040 次优化更新，全局 batch=16、microbatch=8。17 库每周期随机轮转一次，库内类别均衡、被试均匀再抽窗口；四组逐步 sample IDs 和选项排列相同。每库共 120 个 batch／1920 次样本呈现，远少于覆盖全数据集的一个 epoch。
 - 第 1–340 步只更新读出和连接器；第 341–2040 步同时更新原生 JEV LoRA 和 choice 头。JEV 主干、BSR 三部分及其 buffers 始终冻结。前阶段关闭 JEV 参数梯度，但保留对连接器的反传；优化器不会对冻结参数施加 weight decay。
 - AdamW，weight decay=.01，梯度裁剪 1；连接器／读出峰值 1e-4，JEV LoRA 5e-6，choice 头 1e-5。各组从自身启用步起 warmup 62 步、cosine 衰减至峰值 2%。冻结范围、参数量、梯度范数逐组记录。
 - 文本包含任务说明、问题、候选类别和末尾 `[decision]:`；训练随机排列候选项，重排只由 sample ID、step 和 seed 决定，不取决于真值。标签只作为损失目标，不能进入编码器或构造 query。
 - loss 为有效候选位置的交叉熵。每步记录所属数据集、loss、batch Accuracy、梯度、LR、显存与样本哈希；batch Accuracy 不是固定模型完整训练准确率。
 - 从 step 0 起，每 340 步评估固定 valid ≤512 窗／库和固定 train ≤128 窗／库。新验证子集包含原先固定随机 128 窗，剩余按类别／被试轮转固定补足，保证小类覆盖；单独输出 legacy128 指标用于历史对照。子集 Accuracy 不能冒充完整验证 Accuracy。
 - 主选模指标：九库等权平均验证 BAcc，分数相同保留更早步；辅助输出 Accuracy、CE、每类混淆矩阵、每被试指标。每组结束加载自己的 best checkpoint，执行完整九库验证并保存逐窗预测。当前入口禁止 test 前向；先完成四组验证再确定测试方案，避免用测试结果选读出。
-- smoke 为四组各 17 个实际更新、每步 2 个训练样本，覆盖全部库及两阶段，检查梯度、冻结 BSR、磁盘重载。正式训练重新初始化，不继承 smoke 权重。代码／配置有 live hash guard，检查点含可训练参数、buffers、Adam 状态和 RNG；支持未完成单组恢复。
+- smoke 为四组各 17 个实际更新、每步 16 个训练样本，覆盖全部库及两阶段，检查完整 batch 的显存、梯度、冻结 BSR、磁盘重载。正式训练重新初始化，不继承 smoke 权重。代码／配置有 live hash guard，检查点含可训练参数、buffers、Adam 状态和 RNG；支持未完成单组恢复。
+
+启动前已完成 microbatch=2 的四组 17 步检查，峰值约 53 GiB；依据显存余量改为 microbatch=8，并再次从头检查全部计划输入及 full-batch smoke。原小 batch smoke 保留在 `artifacts/benchmark/bsr_jev_readouts_20261030_micro2_smoke/`；正式训练加载过程在任何优化更新前终止后重启，不把更改 microbatch 的两段拼成一条训练曲线。
 
 单 seed 是 pilot，不足以证明稳定胜出。窗口不是独立被试重复；后续确定方案后应做多 seed、以被试为单位的不确定性估计。硬件卡号和方案目前固定，必要时轮换卡或重复运行核实耗时差异。
 
