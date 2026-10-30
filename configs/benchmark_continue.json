@@ -1,0 +1,14 @@
+{
+  "run_name": "leaf_jev_multitask_continue_20261030",
+  "parent_run": "artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/train",
+  "parent_checkpoint_sha256": "3aac8625a801bba73f2b0c815c29ee7ada6169ce1beaf2b0324ce53e0aa26839",
+  "reviewed_parent_code_sha256": {
+    "eeg_align/lr_schedule.py": "a305470e77692e0eb6b9bb58e8818e062b0078df757cd9d31da8615b854c0d78",
+    "eeg_align/train_joint.py": "332d7daed07285a9e092b0f5422eb938ea003933d1d194c0a37104edd1252510"
+  },
+  "additional_steps": 2040,
+  "peak_lr_ratio": 0.2,
+  "warmup_steps": 62,
+  "train_monitor_per_dataset": 128,
+  "test_policy": "disabled: test results were already inspected before this exploratory continuation"
+}

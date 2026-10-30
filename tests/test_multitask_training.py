@@ -5,7 +5,7 @@ import pytest
 
 from eeg_align.multitask_data import TrialStore, window_positions, locked_records
 from eeg_align.benchmark_data import catalog
-from eeg_align.train_joint import require_test
+from eeg_align.train_joint import require_test, fixed_training_rows, validate_parent_identity
 from scripts.prepare_multitask_splits import extract_methods
 
 
@@ -57,6 +57,27 @@ def test_test_access_gate():
     with pytest.raises(RuntimeError):
         require_test(2, 2, True)
     require_test(2040, 2040, False)
+    with pytest.raises(RuntimeError):
+        require_test(4080,4080,False,continuation=True)
+
+
+def test_training_monitor_is_fixed_label_independent_and_train_only():
+    rows=[dict(id=str(i),split='train' if i<30 else 'test',label=i%2) for i in range(40)]
+    store=SimpleNamespace(rows={0:rows},excluded={0:{0,1}})
+    selected=fixed_training_rows(store,0,12)
+    assert len(selected)==12 and all(r['split']=='train' and r['id'] not in {'0','1'} for r in selected)
+    ids=[r['id'] for r in selected]
+    for row in rows:row['label']=9
+    assert ids==[r['id'] for r in fixed_training_rows(store,0,12)]
+
+
+def test_continuation_identity_allows_only_reviewed_training_changes():
+    parent=dict(config={'seed':42},code_sha256={'trainer':'old','data':'same'})
+    current=dict(config={'seed':42},code_sha256={'trainer':'new','data':'same','extra':'x'})
+    validate_parent_identity(parent,current,{'trainer':'old'})
+    with pytest.raises(ValueError):validate_parent_identity(parent,current,{'trainer':'wrong'})
+    current['code_sha256']['data']='changed'
+    with pytest.raises(ValueError):validate_parent_identity(parent,current,{'trainer':'old'})
 
 
 def test_hmc_sleepedf_label_order_is_not_conflated():

@@ -1,6 +1,7 @@
 """One shared LEAF/JEV model on locked multitask subjects; full final evaluation."""
 import argparse
 from datetime import timedelta
+import hashlib
 import json
 from pathlib import Path
 import signal
@@ -18,14 +19,44 @@ from .multitask_data import TrialStore, SignalAdapter, write_json
 from .online_leaf import OnlineLEAF
 from .jev import load_jev, JEVBridge
 from .task_options import make_variant
-from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
+from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint, rng_fingerprint
 from .distributed import average_gradients, atomic_save
-from .lr_schedule import GroupLRSchedule
+from .lr_schedule import GroupLRSchedule, ContinuationLRSchedule
 
 
-def require_test(step, total, smoke):
-    if smoke or step != total:
+def require_test(step, total, smoke, continuation=False):
+    if continuation or smoke or step != total:
         raise RuntimeError('Test access forbidden before fixed training budget finishes')
+
+
+def fixed_training_rows(store, tid, cap):
+    """Label-independent monitoring subset, separate from the sampled minibatches."""
+    if cap < 1:
+        raise ValueError('Training monitor requires a positive fixed cap')
+    rows = [r for i, r in enumerate(store.rows[tid])
+            if r['split'] == 'train' and i not in store.excluded[tid]]
+    rng = np.random.default_rng(np.random.SeedSequence([CONFIG['seed'], tid, 733]))
+    return [rows[i] for i in sorted(rng.choice(len(rows), min(cap, len(rows)), replace=False))]
+
+
+def validate_parent_identity(parent, current, allowed_changes):
+    for key, value in parent.items():
+        if key == 'code_sha256':
+            for path, old_hash in value.items():
+                if path in allowed_changes:
+                    if old_hash != allowed_changes[path]:
+                        raise ValueError(f'Unreviewed parent code: {path}')
+                elif current[key].get(path) != old_hash:
+                    raise ValueError(f'Unchanged helper differs from parent: {path}')
+        elif current.get(key) != value:
+            raise ValueError(f'Continuation parent identity mismatch: {key}')
+    if not set(allowed_changes) <= set(parent['code_sha256']):
+        raise ValueError('Code-change allowlist contains unknown parent sources')
+
+
+def optimizer_fingerprint(state):
+    return tensor_fingerprint({f'{i}:{key}': value for i, item in state['state'].items()
+                               for key, value in item.items() if torch.is_tensor(value)})
 
 
 def main():
@@ -34,7 +65,26 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
+    parser.add_argument('--continuation-config', type=Path)
     args = parser.parse_args()
+    continuation = json.loads(args.continuation_config.read_text()) if args.continuation_config else None
+    parent = None
+    if continuation:
+        if args.smoke:
+            raise ValueError('Continuation cannot use release-initialized smoke mode')
+        parent_path = Path(continuation['parent_run']).resolve()
+        if args.out.resolve() == parent_path or parent_path.is_relative_to(args.out.resolve()):
+            raise ValueError('Continuation must not overwrite the parent run')
+        if digest(parent_path / 'last.pt') != continuation['parent_checkpoint_sha256']:
+            raise ValueError('Parent checkpoint content changed')
+        parent = torch.load(parent_path / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
+        parent_complete = json.loads((parent_path / 'complete.json').read_text())
+        if (parent['identity'] != json.loads((parent_path / 'config.json').read_text())
+                or parent['step'] != CONFIG['steps'] or parent['best_step'] != parent['step']
+                or parent_complete['selected_step'] != parent['step'] or parent_complete['smoke']):
+            raise ValueError('Expected completed parent whose last checkpoint was selected best')
+        if continuation['additional_steps'] < 1 or continuation['additional_steps'] % len(CONFIG['datasets']):
+            raise ValueError('Continuation must contain complete task cycles')
     world = int(os.environ.get('WORLD_SIZE', 1))
     rank = int(os.environ.get('RANK', 0))
     device = int(os.environ.get('LOCAL_RANK', 0))
@@ -67,7 +117,7 @@ def main():
     store = TrialStore()
     adapter = SignalAdapter()
     tasks = catalog()
-    total = 2 if args.smoke else CONFIG['steps']
+    total = 2 if args.smoke else CONFIG['steps'] + (continuation['additional_steps'] if continuation else 0)
     freeze = 1 if args.smoke else CONFIG['encoder_warmup_steps']
     batch_size = CONFIG['global_batch']
     if batch_size % world:
@@ -76,8 +126,12 @@ def main():
     watch = sorted(list(Path('eeg_align').glob('*.py')) + [Path('configs/benchmark_train.json'), Path('configs/benchmark_tasks.json'), Path('scripts/prepare_multitask_signals.py'), Path('scripts/audit_multitask_signals.py'), Path(CONFIG['quality_root']) / 'summary.json'] +
         [leaf_root / p for p in ['LEAF.py', 'load_config.py', 'utils.py', 'configs/LEAF_mpnet.yaml', 'configs/env.yaml', 'leaf_datasets/electrode_unifier.py', 'configs/LEAF-ch65/LEAF-ch65.json', 'configs/LEAF-ch65/LEAF-ch65.bvef']])
     hashes = {str(p): digest(p) for p in watch}
+    if continuation:
+        hashes[str(args.continuation_config)] = digest(args.continuation_config)
+        for path in ['scripts/run_benchmark.py', 'scripts/check_multitask_signals.py']:
+            hashes[path] = digest(path)
     def guard():
-        if hashes != {str(p): digest(p) for p in watch}:
+        if hashes != {p: digest(p) for p in hashes}:
             raise RuntimeError('Training code/recipe changed during live run')
     identity = dict(config=CONFIG, smoke=args.smoke, world_size=world, code_sha256=hashes,
                     checkpoint_sha256=digest(CONFIG['checkpoint']),
@@ -88,6 +142,11 @@ def main():
     identity['runtime'] = dict(torch=torch.__version__, transformers=transformers.__version__, mne=mne.__version__)
     identity['jev_config_sha256'] = {p: digest(jev_root / p) for p in ['config.json', 'model.safetensors.index.json', 'adapter_vllm/adapter_config.json', 'adapter_vllm/decision_head.json', 'adapter_vllm/adapter_model.safetensors']}
     identity['jev_shard_stats'] = {p.name: [p.stat().st_size, p.stat().st_mtime_ns] for p in sorted(jev_root.glob('model-*.safetensors'))}
+    if continuation:
+        validate_parent_identity(parent['identity'], identity, continuation['reviewed_parent_code_sha256'])
+        identity['continuation'] = dict(plan=continuation, start_step=parent['step'], total_steps=total,
+            parent_run=str(parent_path), parent_config_sha256=digest(parent_path / 'config.json'),
+            parent_checkpoint_sha256=continuation['parent_checkpoint_sha256'], test_evaluations_allowed=0)
     if args.resume:
         if identity != json.loads((args.out / 'config.json').read_text()):
             raise ValueError('Resume identity changed')
@@ -107,7 +166,9 @@ def main():
         group['lr'] = CONFIG['learning_rates'][group['name']]
     active = [p for group in groups for p in group['params']]
     optimizer = torch.optim.AdamW(groups, weight_decay=CONFIG['weight_decay'])
-    scheduler = GroupLRSchedule(optimizer, total, 1 if args.smoke else CONFIG['warmup_steps'], CONFIG['min_lr_ratio'], freeze)
+    scheduler = (ContinuationLRSchedule(optimizer, parent['scheduler'], continuation['additional_steps'],
+                     continuation['warmup_steps'], continuation['peak_lr_ratio']) if continuation else
+                 GroupLRSchedule(optimizer, total, 1 if args.smoke else CONFIG['warmup_steps'], CONFIG['min_lr_ratio'], freeze))
     initial = capture_model(model)
     proof = dict(trainable_sha256=tensor_fingerprint(initial['trainable']),
                  buffer_sha256=tensor_fingerprint(initial['buffers']),
@@ -116,11 +177,33 @@ def main():
                  git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
     if len({p['trainable_sha256'] for p in collect(proof)}) != 1:
         raise RuntimeError('Ranks initialized differently')
-    if rank == 0 and not args.resume:
+    if rank == 0 and not args.resume and not continuation:
         write_json(args.out / 'initial_state.json', proof)
     del initial
     buffer_proof = tensor_fingerprint(dict(model.eeg_encoder.named_buffers()))
     step, best_score, best_step = 0, -1., None
+    if continuation and not args.resume:
+        restore_model(model, parent)
+        optimizer.load_state_dict(parent['optimizer'])
+        restore_rng(parent['rng_by_rank'][rank])
+        restored = capture_model(model)
+        checks = dict(
+            parameters=tensor_fingerprint(restored['trainable']) == tensor_fingerprint(parent['trainable']),
+            buffers=tensor_fingerprint(restored['buffers']) == tensor_fingerprint(parent['buffers']),
+            optimizer=optimizer_fingerprint(optimizer.state_dict()) == optimizer_fingerprint(parent['optimizer']),
+            rng=rng_fingerprint(capture_rng()) == rng_fingerprint(parent['rng_by_rank'][rank]))
+        del restored
+        if not all(checks.values()):
+            raise RuntimeError(f'Continuation state restore failed: {checks}')
+        write_json(args.out / f'parent_restore_rank{rank}.json', dict(checks=checks,
+            parent_step=parent['step'], optimizer_state_count=len(optimizer.state), test_evaluations=0))
+        step, best_score, best_step = parent['step'], parent['best_score'], parent['best_step']
+        proof.update(initialization='parent last.pt; complete model/Adam/RNG restored; declared LR warm restart',
+                     parent_step=step, parent_checkpoint_sha256=continuation['parent_checkpoint_sha256'])
+        proof['trainable_sha256'] = tensor_fingerprint(parent['trainable'])
+        proof['buffer_sha256'] = tensor_fingerprint(parent['buffers'])
+        if rank == 0:
+            write_json(args.out / 'initial_state.json', proof)
     if args.resume:
         saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
         if saved['identity'] != identity:
@@ -131,6 +214,7 @@ def main():
         restore_rng(saved['rng_by_rank'][rank])
         step, best_score, best_step = saved['step'], saved['best_score'], saved['best_step']
         del saved
+    del parent
     completed_step = step
     prompts = {}
     def forward(rows, training=False, variant=0):
@@ -139,7 +223,7 @@ def main():
         if training and rows[0]['split'] != 'train':
             raise RuntimeError('Only train rows may backpropagate')
         if rows[0]['split'] == 'test':
-            require_test(step, total, args.smoke)
+            require_test(step, total, args.smoke, bool(continuation))
         tid = rows[0]['task']
         if any(r['task'] != tid for r in rows):
             raise ValueError('Microbatch must have one task')
@@ -176,28 +260,33 @@ def main():
     @torch.no_grad()
     def evaluate(split, cap=None, save_predictions=False):
         if split == 'test':
-            require_test(step, total, args.smoke)
+            require_test(step, total, args.smoke, bool(continuation))
+        if split == 'train' and (not continuation or cap is None):
+            raise ValueError('Only explicit fixed-subset train monitoring is allowed here')
         model.eval()
         summary = {}
         for tid, task in enumerate(tasks):
             if task['role'] != 'benchmark':
                 continue
-            rows = store.evaluation(tid, split, cap)
+            rows = fixed_training_rows(store, tid, cap) if split == 'train' else store.evaluation(tid, split, cap)
             own = list(range(rank, len(rows), world))
             parts = []
             for offset in range(0, len(own), CONFIG['eval_microbatch']):
                 ids = own[offset:offset + CONFIG['eval_microbatch']]
-                logits, _ = forward([rows[i] for i in ids])
+                logits, labels = forward([rows[i] for i in ids])
                 probabilities = logits.softmax(-1).float().cpu().numpy()
+                losses = F.cross_entropy(logits, labels, reduction='none').float().cpu().numpy()
                 if not np.isfinite(probabilities).all():
                     raise FloatingPointError('Invalid evaluation probabilities')
-                parts.extend((i, p) for i, p in zip(ids, probabilities))
+                parts.extend((i, p, float(loss)) for i, p, loss in zip(ids, probabilities, losses))
             all_parts = sorted([p for part in collect(parts) for p in part], key=lambda x: x[0])
-            if [i for i, _ in all_parts] != list(range(len(rows))):
+            if [p[0] for p in all_parts] != list(range(len(rows))):
                 raise RuntimeError('Incomplete or duplicate evaluation rows')
-            probabilities = np.stack([p for _, p in all_parts])
+            probabilities = np.stack([p[1] for p in all_parts])
             labels = np.array([r['label'] for r in rows])
             metric = classification_metrics(labels, probabilities, len(task['classes']))
+            metric['loss'] = float(np.mean([p[2] for p in all_parts]))
+            metric['sample_ids_sha256'] = hashlib.sha256(json.dumps([r['id'] for r in rows]).encode()).hexdigest()
             subjects = np.array([r['subject'] for r in rows])
             metric['per_subject'] = {s: classification_metrics(labels[subjects == s], probabilities[subjects == s], len(task['classes'])) for s in sorted(set(subjects))}
             metric['subject_macro_balanced_accuracy'] = float(np.mean([m['balanced_accuracy'] for m in metric['per_subject'].values()]))
@@ -208,10 +297,26 @@ def main():
                     np.savez_compressed(args.out / f'{split}_{task["task_id"]}_predictions.npz', ids=np.array([r['id'] for r in rows]), record_ids=np.array([r['record_id'] for r in rows]), subjects=subjects, labels=labels, probabilities=probabilities)
         score = float(np.mean([m['balanced_accuracy'] for m in summary.values()]))
         if rank == 0:
-            write_json(args.out / f'{split}_step{step:06d}_{"subset" if cap else "full"}.json', dict(step=step, selection_checkpoint=best_step, macro_balanced_accuracy=score, datasets=summary))
+            write_json(args.out / f'{split}_step{step:06d}_{"subset" if cap else "full"}.json', dict(step=step, selection_checkpoint=best_step, macro_balanced_accuracy=score,
+                macro_accuracy=float(np.mean([m['accuracy'] for m in summary.values()])),
+                macro_loss=float(np.mean([m['loss'] for m in summary.values()])), datasets=summary))
         return score, summary
 
     try:
+        if continuation and not args.resume:
+            rng = capture_rng()
+            score, baseline = evaluate('valid', CONFIG['validation_per_dataset'])
+            prior = json.loads((parent_path / f'valid_step{step:06d}_subset.json').read_text())
+            if any(baseline[k]['confusion_matrix'] != v['confusion_matrix'] for k, v in prior['datasets'].items()):
+                raise RuntimeError('Restored parent validation predictions differ')
+            train_score, _ = evaluate('train', continuation['train_monitor_per_dataset'])
+            restore_rng(rng)
+            save('best.pt', include_optimizer=False)
+            save('last.pt')
+            save(f'step{step:06d}.pt', include_optimizer=False)
+            report(dict(status='continuation_baseline', step=step, total_steps=total,
+                macro_balanced_accuracy=score, train_macro_balanced_accuracy=train_score,
+                test_evaluations=0, parent_validation_reproduced=True))
         # Full smoke uses two real train updates, including encoder unfreezing.
         if step == 0 and not args.smoke:
             score, _ = evaluate('valid', CONFIG['validation_per_dataset'])
@@ -274,6 +379,11 @@ def main():
                     save('best.pt', include_optimizer=False)
                 report(dict(status='validation', step=step, macro_balanced_accuracy=score,
                             best_score=best_score, best_step=best_step, test_evaluations=0))
+                if continuation:
+                    train_score, _ = evaluate('train', continuation['train_monitor_per_dataset'])
+                    report(dict(status='train_monitor', step=step, macro_balanced_accuracy=train_score,
+                                scope='fixed training subset, not full train', test_evaluations=0))
+                    save(f'step{step:06d}.pt', include_optimizer=False)
             if step % CONFIG['checkpoint_every'] == 0 or step in {freeze, freeze + 1, total}:
                 save('last.pt')
         # On-disk serialization check uses TRAIN inputs only.
@@ -292,6 +402,14 @@ def main():
         if args.smoke:
             if rank == 0:
                 write_json(args.out / 'complete.json', dict(smoke=True, updates=step, test_evaluations=0, checkpoint_reload_verified=True))
+            return
+        if continuation:
+            if rank == 0:
+                write_json(args.out / 'complete.json', dict(smoke=False, updates=step,
+                    additional_updates=continuation['additional_steps'], selected_step=best_step,
+                    selection_score=best_score, test_evaluations=0, validation_scope='fixed subset',
+                    test_policy=continuation['test_policy'], parent_checkpoint_sha256=continuation['parent_checkpoint_sha256']))
+            report(dict(status='complete', step=step, selected_step=best_step, test_evaluations=0))
             return
         saved = torch.load(args.out / 'best.pt', map_location='cpu', mmap=True, weights_only=False)
         restore_model(model, saved)

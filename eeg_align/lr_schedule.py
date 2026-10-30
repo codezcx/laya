@@ -60,3 +60,54 @@ class GroupLRSchedule:
             raise ValueError('Saved learning-rate schedule does not match configuration')
         if state['last_step']:
             self.set_step(state['last_step'])
+
+
+class ContinuationLRSchedule:
+    """A declared low-peak warm restart; preserves the parent endpoint LR.
+
+    Update numbers stay global. Adam moments are loaded separately, not reset.
+    The first continuation update uses the exact parent endpoint; after warmup
+    rates decay from peak_ratio * original_peak back to the parent endpoint.
+    """
+    def __init__(self, optimizer, parent, additional_steps, warmup_steps, peak_ratio):
+        start = parent['last_step']
+        if start != parent['total_steps'] or parent['kind'] != 'warmup_cosine':
+            raise ValueError('Continuation requires a completed cosine schedule')
+        if additional_steps < 3 or not 2 <= warmup_steps < additional_steps:
+            raise ValueError('Invalid continuation or warmup budget')
+        if not parent['min_ratio'] <= peak_ratio <= 1:
+            raise ValueError('Continuation peak must lie between parent floor and peak')
+        if [g['name'] for g in optimizer.param_groups] != parent['group_names']:
+            raise ValueError('Optimizer group order changed')
+        self.optimizer = optimizer
+        self.settings = dict(kind='continuation_warmup_cosine', start_step=start,
+            total_steps=start + additional_steps, warmup_steps=warmup_steps,
+            peak_ratio=peak_ratio, floor_ratio=parent['min_ratio'],
+            base_lrs=list(parent['base_lrs']), group_names=list(parent['group_names']))
+        self.last_step = start
+
+    def set_step(self, step):
+        cfg = self.settings
+        if not cfg['start_step'] <= step <= cfg['total_steps']:
+            raise ValueError('Continuation LR step outside budget')
+        local = step - cfg['start_step']
+        if local <= 1:
+            multiplier = cfg['floor_ratio']
+        elif local <= cfg['warmup_steps']:
+            progress = (local - 1) / (cfg['warmup_steps'] - 1)
+            multiplier = cfg['floor_ratio'] + progress * (cfg['peak_ratio'] - cfg['floor_ratio'])
+        else:
+            phase = (local - cfg['warmup_steps']) / (cfg['total_steps'] - cfg['start_step'] - cfg['warmup_steps'])
+            multiplier = cfg['floor_ratio'] + (cfg['peak_ratio'] - cfg['floor_ratio']) * (1 + math.cos(math.pi * phase)) / 2
+        for group, base in zip(self.optimizer.param_groups, cfg['base_lrs']):
+            group['lr'] = base * multiplier
+        self.last_step = step
+        return {g['name']: float(g['lr']) for g in self.optimizer.param_groups}
+
+    def state_dict(self):
+        return dict(**self.settings, last_step=self.last_step)
+
+    def load_state_dict(self, state):
+        if any(state.get(k) != v for k, v in self.settings.items()):
+            raise ValueError('Continuation LR identity changed')
+        self.set_step(state['last_step'])

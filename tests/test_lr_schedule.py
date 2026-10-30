@@ -1,7 +1,7 @@
 import copy
 import pytest
 import torch
-from eeg_align.lr_schedule import GroupLRSchedule
+from eeg_align.lr_schedule import GroupLRSchedule, ContinuationLRSchedule
 
 
 def setup_schedule(kind='warmup_cosine'):
@@ -63,3 +63,38 @@ def test_encoder_can_stay_frozen_for_entire_matched_control():
     for step in range(1,601):
         values=frozen.set_step(step)
         assert values['eeg_encoder']==0 and values['connector']>0
+
+
+def test_continuation_starts_at_parent_floor_and_uses_global_steps():
+    _,opt,parent=setup_schedule()
+    floor=parent.set_step(3000)
+    s=ContinuationLRSchedule(opt,parent.state_dict(),2040,62,.2)
+    assert s.set_step(3000)==pytest.approx(floor)
+    assert s.set_step(3001)==pytest.approx(floor)
+    assert s.set_step(3062)==pytest.approx(dict(connector=2e-5,jev_lora=1e-6,decision_head=2e-6,eeg_encoder=2e-7))
+    assert s.set_step(5040)==pytest.approx(floor)
+    with pytest.raises(ValueError):s.set_step(2999)
+    with pytest.raises(ValueError):s.set_step(5041)
+    with pytest.raises(ValueError):ContinuationLRSchedule(opt,parent.state_dict(),20,20,.2)
+
+
+def test_continuation_preserves_adam_and_is_resumable():
+    p,opt,parent=setup_schedule()
+    parent.set_step(3000)
+    for value in p:value.grad=torch.ones_like(value)
+    opt.step(); opt.zero_grad(set_to_none=True)
+    initial=copy.deepcopy(opt.state_dict())
+    s=ContinuationLRSchedule(opt,parent.state_dict(),2040,62,.2)
+    for a,b in zip(initial['state'].values(),opt.state.values()):
+        for k in a:torch.testing.assert_close(a[k],b[k],rtol=0,atol=0)
+    s.set_step(3200)
+    q,restored,_=setup_schedule()
+    t=ContinuationLRSchedule(restored,parent.state_dict(),2040,62,.2)
+    restored.load_state_dict(copy.deepcopy(opt.state_dict()));t.load_state_dict(s.state_dict())
+    with torch.no_grad():
+        for a,b in zip(q,p):a.copy_(b)
+    assert s.set_step(3201)==t.set_step(3201)
+    for parameters,optimizer in [(p,opt),(q,restored)]:
+        for value in parameters:value.grad=torch.ones_like(value)
+        optimizer.step()
+    for a,b in zip(p,q):torch.testing.assert_close(a,b,rtol=0,atol=0)
