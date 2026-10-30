@@ -5,7 +5,7 @@ import pytest
 
 from eeg_align.multitask_data import TrialStore, window_positions, locked_records
 from eeg_align.benchmark_data import catalog
-from eeg_align.train_joint import require_test, fixed_training_rows, validate_parent_identity
+from eeg_align.evaluation import require_split, fixed_training_rows, validation_rows
 from scripts.prepare_multitask_splits import extract_methods
 
 
@@ -53,12 +53,9 @@ def test_cycle_balances_datasets_without_eval_sampling():
 
 def test_test_access_gate():
     with pytest.raises(RuntimeError):
-        require_test(1, 2040, False)
-    with pytest.raises(RuntimeError):
-        require_test(2, 2, True)
-    require_test(2040, 2040, False)
-    with pytest.raises(RuntimeError):
-        require_test(4080,4080,False,continuation=True)
+        require_split('test')
+    require_split('valid')
+    require_split('train')
 
 
 def test_training_monitor_is_fixed_label_independent_and_train_only():
@@ -71,13 +68,14 @@ def test_training_monitor_is_fixed_label_independent_and_train_only():
     assert ids==[r['id'] for r in fixed_training_rows(store,0,12)]
 
 
-def test_continuation_identity_allows_only_reviewed_training_changes():
-    parent=dict(config={'seed':42},code_sha256={'trainer':'old','data':'same'})
-    current=dict(config={'seed':42},code_sha256={'trainer':'new','data':'same','extra':'x'})
-    validate_parent_identity(parent,current,{'trainer':'old'})
-    with pytest.raises(ValueError):validate_parent_identity(parent,current,{'trainer':'wrong'})
-    current['code_sha256']['data']='changed'
-    with pytest.raises(ValueError):validate_parent_identity(parent,current,{'trainer':'old'})
+def test_selection_validation_contains_legacy_subset_and_all_classes():
+    store = TrialStore.__new__(TrialStore)
+    store.rows = {0:[dict(id=str(i), label=i%6, subject=str(i%11), split='valid') for i in range(2000)]}
+    selected = validation_rows(store,0,512)
+    assert len(selected)==512
+    assert set(r['id'] for r in store.evaluation(0,'valid',128)) <= set(r['id'] for r in selected)
+    assert set(r['label'] for r in selected)==set(range(6))
+    assert selected==validation_rows(store,0,512)
 
 
 def test_hmc_sleepedf_label_order_is_not_conflated():

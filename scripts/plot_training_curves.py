@@ -134,11 +134,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default_name = json.loads((ROOT / 'configs/benchmark_train.json').read_text())['run_name']
     parser.add_argument('--run-dir', type=Path, default=ROOT / 'artifacts/benchmark' / default_name)
+    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer'], required=True)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--overwrite', action='store_true', help='Replace only this script\'s named plot outputs')
     args = parser.parse_args()
-    folder = args.run_dir.resolve() / 'train'
-    output = args.out or args.run_dir / 'figures'
+    folder = args.run_dir.resolve() / 'train' / args.arm
+    output = args.out or args.run_dir / 'figures' / args.arm
     stems = ['training_validation_curves', 'validation_by_dataset', 'training_loss_by_dataset']
     names = [f'{stem}.{ext}' for stem in stems for ext in ['png', 'pdf', 'svg']]
     names += ['training.csv', 'validation.csv', 'validation_macro.csv', 'figure_manifest.json']
@@ -148,7 +149,8 @@ def main():
     source_hashes = {str(p): sha256(p) for p in sources}
     output.mkdir(parents=True, exist_ok=True)
     total = config['steps']
-    unfreeze = config['encoder_warmup_steps'] + 1
+    unfreeze = config['bridge_only_steps'] + 1
+    validation_cap = config['validation_per_dataset']
     ticks = np.unique(np.r_[0, np.arange(config['validation_every'], total + 1, config['validation_every']), total])
     x = np.arange(1, max(r['step'] for r in train) + 1)
     raw = np.full(len(x), np.nan)
@@ -169,7 +171,7 @@ def main():
     with plt.style.context(str(STYLE)):
         fig, axes = plt.subplots(1, 2, figsize=(13, 5.2))
         fig.subplots_adjust(left=.065, right=.975, bottom=.23, top=.80, wspace=.25)
-        fig.suptitle('LEAF → JEV | Multitask training curves', fontsize=16, x=.065, ha='left', y=.96)
+        fig.suptitle(f'BSR → {args.arm} → JEV | Multitask training curves', fontsize=16, x=.065, ha='left', y=.96)
         fig.text(.065, .89, f'{len(train):,} updates recorded · 17 training tasks · fixed validation subsets · seed {config["seed"]}', fontsize=10)
         ax = axes[0]
         ax.plot(x, raw, color=GREY, linewidth=.45, alpha=.8, label='Raw per-update cross-entropy')
@@ -188,7 +190,7 @@ def main():
         for ax in axes:
             decorate(ax, total, ticks, unfreeze)
         fig.text(.065, .105, f'Loss: different tasks have different class counts; raw values are retained. No step-0 training loss was logged.', fontsize=9)
-        fig.text(.065, .055, f'Validation: 128 fixed windows/dataset at each marker; no smoothing. Dotted line: LEAF unfrozen at update {unfreeze}.', fontsize=9)
+        fig.text(.065, .055, f'Validation: up to {validation_cap} fixed windows/dataset; no smoothing. Dotted line: JEV adapter/head enabled at {unfreeze}.', fontsize=9)
         axes_ranges['overview'] = [list(ax.get_ylim()) for ax in axes]
         save(fig, stems[0])
 
@@ -196,7 +198,7 @@ def main():
         fig, axes = plt.subplots(3, 3, figsize=(12, 10.3))
         fig.subplots_adjust(left=.075, right=.98, bottom=.11, top=.86, hspace=.48, wspace=.31)
         fig.suptitle('Validation curves by dataset', fontsize=16, x=.075, ha='left', y=.97)
-        fig.text(.075, .93, 'Fixed subset: 128 windows/dataset · points at 0, 340, …, 2040 · independent zoomed y axes', fontsize=10)
+        fig.text(.075, .93, f'Fixed subset: up to {validation_cap} windows/dataset · from step 0 · independent zoomed y axes', fontsize=10)
         handles = [Line2D([], [], color=BLUE, marker='o', label='Balanced accuracy'),
                    Line2D([], [], color=ORANGE, marker='s', linestyle='--', label='Accuracy')]
         fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(.52, .915), ncol=2)
@@ -206,7 +208,7 @@ def main():
             ax.set_title(DISPLAY.get(name, name), loc='left')
             decorate(ax, total, [0, 680, 1360, 2040], unfreeze)
             axes_ranges[name] = list(ax.get_ylim())
-        fig.text(.075, .045, 'Lines only connect recorded evaluations; no validation loss was saved. These are not full-validation or test scores.', fontsize=9)
+        fig.text(.075, .045, 'Lines only connect recorded evaluations. Validation CE is saved in JSON; these panels are not full-validation or test scores.', fontsize=9)
         save(fig, stems[1])
 
         fig, axes = plt.subplots(6, 3, figsize=(12, 15.5))
@@ -221,11 +223,11 @@ def main():
             ax.plot(tx, trailing_mean(y, 9), color=BLUE, linewidth=1.8, label='Trailing 9 mean')
             ax.set_title(DISPLAY.get(name, name), loc='left', fontsize=11)
             ax.set_ylabel('Cross-entropy', fontsize=9)
-            ax.set_ylim(*padded_limits(y, minimum_pad=.05, lower=0))
+            if len(y): ax.set_ylim(*padded_limits(y, minimum_pad=.05, lower=0))
             decorate(ax, total, [0, 1020, 2040], unfreeze)
         axes.flat[-1].axis('off')
         axes.flat[-1].legend(*axes.flat[0].get_legend_handles_labels(), loc='upper left')
-        fig.text(.075, .02, 'Each dataset contributes 120 updates. Loss scales differ with class count; compare trends within a panel, not absolute heights between tasks.', fontsize=9)
+        fig.text(.075, .02, 'Budget: 120 updates/dataset. Loss scales differ with class count; compare trends within a panel, not absolute heights between tasks.', fontsize=9)
         save(fig, stems[2])
 
     train_csv = []
@@ -250,17 +252,17 @@ def main():
         script_sha256=sha256(__file__), style_sha256=sha256(STYLE),
         versions=dict(matplotlib=matplotlib.__version__, numpy=np.__version__),
         train_updates=len(train), task_update_counts=dict(Counter(r['dataset'] for r in train)),
-        validation_steps=[v['step'] for v in validation], validation_scope='fixed 128-window subset per dataset, NOT full validation/test',
+        validation_steps=[v['step'] for v in validation], validation_scope=f'fixed <= {validation_cap}-window subset per dataset, NOT full validation/test',
         missing_training_steps=sorted(set(x.tolist()) - {r['step'] for r in train}),
         missing_validation_steps=sorted(set(ticks.tolist()) - {v['step'] for v in validation}),
         smoothing=dict(overall=f'trailing arithmetic mean, {window} updates, requires full window; no gaps bridged',
                        per_dataset='trailing arithmetic mean, 9 task observations; raw observations retained'),
-        missing_step0_training_loss='not recorded, not fabricated', validation_loss='not recorded, not plotted',
+        missing_step0_training_loss='not recorded, not fabricated', validation_loss='available in JSON, not plotted in these panels',
         axes_limits=axes_ranges, uncertainty='not estimated; one run, no confidence intervals',
         first_last_51_mean_loss=[float(np.mean(raw[:window])), float(np.mean(raw[-window:]))],
         first_last_macro_balanced_accuracy=[validation[0]['macro_balanced_accuracy'], validation[-1]['macro_balanced_accuracy']],
         selection=dict(step=int(ticks[best]), macro_balanced_accuracy=float(balanced[best] / 100)),
-        description='Overall training CE decreases while fixed-subset macro validation improves; per-dataset panels expose heterogeneous changes.',
+        description='Recorded training CE and fixed-subset validation; no direction of change is assumed.',
         software_process_reference='https://doi.org/10.48550/arXiv.2609.00065',
         outputs_sha256={name: sha256(output / name) for name in names if name != 'figure_manifest.json'})
     (output / 'figure_manifest.json').write_text(json.dumps(manifest, indent=2, allow_nan=False) + '\n')

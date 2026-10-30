@@ -11,7 +11,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from eeg_align.runtime import CONFIG, digest
-from eeg_align.multitask_data import TrialStore, SignalAdapter, write_json
+from eeg_align.multitask_data import TrialStore, write_json
+from eeg_align.bsr_data import BSRSignalAdapter
 
 STORE = None
 ADAPTER = None
@@ -19,18 +20,16 @@ ADAPTER = None
 
 def initialize():
     global ADAPTER
-    ADAPTER = SignalAdapter()
+    ADAPTER = BSRSignalAdapter()
 
 
 def check_step(step):
     tid, rows = STORE.sample(step, CONFIG['global_batch'], CONFIG['seed'])
     try:
-        for rank in range(len(CONFIG['gpus'])):
-            local = rows[rank::len(CONFIG['gpus'])]
-            for start in range(0, len(local), CONFIG['microbatch']):
-                for _, _, pieces in ADAPTER.batch(local[start:start + CONFIG['microbatch']]):
-                    if not all(np.isfinite(x).all() for x in pieces):
-                        raise ValueError('Nonfinite LEAF input after adaptation')
+        for start in range(0, len(rows), CONFIG['microbatch']):
+            for _, _, pieces in ADAPTER.batch(rows[start:start + CONFIG['microbatch']]):
+                if not all(np.isfinite(x).all() for x in pieces):
+                    raise ValueError('Nonfinite BSR input after adaptation')
     except Exception as exc:
         raise ValueError(f'Step {step}, {STORE.tasks[tid]["task_id"]}, IDs={[r["id"] for r in rows]}: {exc}') from exc
     return tid, len(rows)
