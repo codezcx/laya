@@ -1,6 +1,8 @@
-# EEG → JEV：LEAF 冻结与 BSR 解冻控制
+# EEG → JEV：编码器适配与少文本对齐控制
 
 当前是统一划分下的两组适配试验：`leaf_frozen` 全程冻结原生 LEAF（含文本条件 Q-Former）；`bsr_unfrozen` 使用当前完整验证 BAcc 最高的 CLS 读出，连接器预热后解冻 BSR 前向路径。共享现有训练入口，不复用任何旧下游微调权重。
+
+并行增加用户指定的 VideoMAE 少文本对齐控制：GPU 6 的 `infonce` 与 GPU 7 的 `sigmoid` 使用同一 BSR 发布权重、CLS、17 库和采样预算，冻结 MPNet，解冻 BSR 前向路径。每类三种固定表述，同类全部为正例，候选集合外不造负例；这一阶段不加载 JEV。两组属于当前方案的损失消融，不替换 GPU 4、5 的运行代码。细节见 [当前协议](docs/PROTOCOL.md) 的“VideoMAE 少文本对齐控制”。
 
 2026-11-01：SEED 已改为论文的被试内 trial 顺序 9/3/3，处理窗口 22,455/7,875/7,560；三份均含全部 15 位被试，trial 不重叠。其余 16 库及完整 HMC151 划分不变。新九库完整验证为 61,327 窗。[新划分](artifacts/benchmark/multitask_splits_seedpaper_20261101/summary.json)、[协议](docs/PROTOCOL.md)。旧四读出结果保留为历史对照，不覆盖数据、检查点或分母。
 
@@ -11,12 +13,15 @@
 - [表征分析与可视化](docs/REPRESENTATION_ANALYSIS.md)：四组相同验证窗口，检查任务内类别混叠、文本距离、被试效应和 query 冗余；不访问测试集。
 - [配置](configs/benchmark_train.json)、[任务及选项](configs/benchmark_tasks.json)、[Git 归档索引](docs/ARCHIVE.md)。
 - 新实验输出根目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101/`；启动后 `pipeline.json` 为控制器状态，`train/<arm>/progress.json` 为各组实时状态。旧四读出输出保留在 `artifacts/benchmark/bsr_jev_readouts_hmc151_20261031/`。
+- 对比学习配置：[contrastive_train.json](configs/contrastive_train.json)；输出 `artifacts/benchmark/contrastive_videomae_20261101/`。统一保存 `text_bank.json`、向量、smoke、step 0 起验证、逐库 loss、完整验证预测及对齐表征。
 
 ## 🔧 启动与验证
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest -q tests
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
+# 独立的两个匹配损失控制；不重复启动已有目录
+laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
 ```
 
 不要重复启动已有输出目录。控制器先检查配置分配的 GPU 空闲、两种编码器的全部计划输入，再进行两组各 17 步真实 smoke（覆盖所有数据集、冻结／解冻、磁盘重载），通过后从发布权重重新初始化。当前使用 GPU 4、5，每张卡一组，不抢占其他任务。控制器与子进程脱离终端继续运行；节点掉线后需核实恢复。`--resume` 仅用于未完成单组 `last.pt`，必须保持配置和代码哈希不变。

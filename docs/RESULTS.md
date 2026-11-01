@@ -2,6 +2,12 @@
 
 更新：2026-11-01。当前为 SEED 论文协议下的 LEAF 冻结与 BSR 解冻两组适配试验，[协议](PROTOCOL.md)。此前冻结 BSR 四读出和 LEAF 数字均为历史对照，不是新运行的成绩。
 
+## 🔬 少文本对齐控制
+
+用户已指定 GPU 6、7 都使用 VideoMAE，分别运行多正例 InfoNCE 与平衡多正例 Sigmoid。配置与解释边界见 [协议](PROTOCOL.md) 的同名章节及 [配置](../configs/contrastive_train.json)。本轮为相同 BSR+CLS、相同固定 MPNet 文本库、相同 2040 步的损失对照；不加载 JEV，不改 GPU 4、5 的任务。
+
+启动检查阶段，尚无正式验证结果。11 项新单元测试已通过；49 个规范类别组合、147 条固定文本，同类全部为正例，候选集外不设负例。运行产物将写入 `artifacts/benchmark/contrastive_videomae_20261101`；以 `pipeline.json`、各组 `progress.json` 和 `complete.json` 为完成依据，不把排队或 smoke 成功当作正式训练完成。
+
 ## 📋 当前适配试验
 
 - 运行目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101`；2026-11-01 20:24 UTC 两组完整 17 步 smoke 均通过，正式训练子进程已启动。本节尚无正式验证成绩，以 `pipeline.json` 和每组 `progress.json` 为准。
