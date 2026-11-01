@@ -6,7 +6,11 @@
 
 用户已指定 GPU 6、7 都使用 VideoMAE，分别运行多正例 InfoNCE 与平衡多正例 Sigmoid。配置与解释边界见 [协议](PROTOCOL.md) 的同名章节及 [配置](../configs/contrastive_train.json)。本轮为相同 BSR+CLS、相同固定 MPNet 文本库、相同 2040 步的损失对照；不加载 JEV，不改 GPU 4、5 的任务。
 
-启动检查阶段，尚无正式验证结果。11 项新单元测试已通过；49 个规范类别组合、147 条固定文本，同类全部为正例，候选集外不设负例。运行产物将写入 `artifacts/benchmark/contrastive_videomae_20261101`；以 `pipeline.json`、各组 `progress.json` 和 `complete.json` 为完成依据，不把排队或 smoke 成功当作正式训练完成。
+2026-11-01 20:46 UTC 两组已进入正式阶段，先做 step 0 验证，尚无训练后成绩。全部 93 项测试通过（含 11 项新增）；2040 步全部 65,280 次训练输入预检通过，用时约 174 秒。文本库为 49 个规范类别组合、147 条固定文本，同类全部为正例，候选集外不设负例；与旧 MPNet 参考向量 cosine 均 ≥0.99999988。
+
+两组各 17 步真实 smoke 全部完成，分别约 24.5/24.7 秒，峰值分配显存均约 5.75 GiB；覆盖全部数据集、BSR 实际更新、文本不变及磁盘重载输出精确一致。两组发布 encoder、CLS、投影与文本初始化哈希一致，逐步采样哈希一致；正式进程再次从相同发布／新初始化参数开始，不继承 smoke。训练源码提交 `8735329`，未提交数据或权重，未 push。
+
+两组 trainable 参数：BSR 前向路径 86,263,278，CLS 7,091,712，投影 1,182,720；InfoNCE 另有 1 个 scale 参数，Sigmoid 为 scale＋bias 共 2 个。控制器 PID 228501；正式 InfoNCE PID 386898（GPU 6）、Sigmoid PID 386903（GPU 7）。运行产物在 `artifacts/benchmark/contrastive_videomae_20261101`；以 `pipeline.json`、各组 `progress.json` 和 `complete.json` 为完成依据，不把 smoke 成功或进程启动当作正式训练完成。GPU 4、5 原 JEV 适配任务保持运行，受保护源码哈希未变。
 
 ## 📋 当前适配试验
 
