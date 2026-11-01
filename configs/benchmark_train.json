@@ -30,8 +30,8 @@
   "steps": 2040,
   "seed": 42,
   "global_batch": 16,
-  "microbatch": 2,
-  "eval_microbatch": 4,
+  "microbatch": 8,
+  "eval_microbatch": 8,
   "bridge_only_steps": 340,
   "learning_rates": {
     "connector": 0.0001,

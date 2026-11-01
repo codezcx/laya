@@ -85,7 +85,7 @@ BSR 保留已验证的微伏单位、69 通道网格、发布 200 点矩形窗 S
 
 共同设置：
 
-- 单 seed=42；2040 步，全局 batch=16，microbatch=2，评估 microbatch=4
+- 单 seed=42；2040 步，全局 batch=16，microbatch=8，评估 microbatch=8
 - 17 库周期随机轮转，库内类别均衡、被试均匀后抽窗口；逐步 sample IDs 和选项排列相同
 - 每库 120 个 batch／1920 次样本呈现，不是完整训练 120 个 epoch
 - 1–340 步只更新连接器及可训练读出；341–2040 步开放 JEV 原生 LoRA、choice 头；BSR 同时开放前向编码器，LEAF 仍冻结
@@ -109,6 +109,8 @@ laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
 ```
 
 输出 `artifacts/benchmark/encoder_adaptation_seedpaper_20261101/`。控制器状态为 `pipeline.json`，实时进度为 `train/<arm>/progress.json`，逐任务曲线在两组完成后自动生成。已有输出目录不可重复启动。
+
+启动阶段曾用 microbatch=2 检查两组，均在第 9 步主动安全停止，峰值显存分别约 52.5/54.3 GiB；未进入正式训练。为利用显存余量改为 microbatch=8，并从发布权重重新执行全部预检和 smoke。早期记录完整保留于 `encoder_adaptation_seedpaper_20261101_micro2_smoke`，不当作完成的 17 步 smoke，也不拼入正式训练曲线。
 
 ## ⚠️ 解释边界与历史对照
 

@@ -244,6 +244,7 @@ def main():
             for p in jev_params:
                 p.requires_grad_(step > bridge_only)
             rates = rates_at(step, total, bridge_only, CONFIG['learning_rates'], CONFIG['warmup_steps'], CONFIG['min_lr_ratio'])
+            rates = {g['name']: rates[g['name']] for g in optimizer.param_groups}
             for g in optimizer.param_groups:
                 g['lr'] = rates[g['name']]
             loss_sum, correct = 0., 0
