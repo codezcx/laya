@@ -1,14 +1,16 @@
-# 当前 BSR→JEV 试验与必要历史对照
+# 当前 EEG→JEV 适配试验与必要历史对照
 
 更新：2026-11-01。当前为 SEED 论文协议下的 LEAF 冻结与 BSR 解冻两组适配试验，[协议](PROTOCOL.md)。此前冻结 BSR 四读出和 LEAF 数字均为历史对照，不是新运行的成绩。
 
 ## 📋 当前适配试验
 
-- 运行目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101`；本节尚无正式验证结果，以运行中的 `pipeline.json` 和每组 `progress.json` 为准。
+- 运行目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101`；2026-11-01 20:24 UTC 两组完整 17 步 smoke 均通过，正式训练子进程已启动。本节尚无正式验证成绩，以 `pipeline.json` 和每组 `progress.json` 为准。
 - `leaf_frozen`：原生 LEAF 全程冻结；`bsr_unfrozen`：CLS 读出，340 步连接器预热后解冻 BSR 前向路径。GPU 4、5，各 2040 步、global batch 16。
 - SEED 改为每个被试／session 的原始 trial 顺序 9/3/3：22,455/7,875/7,560 窗，15/15/15 被试。同一 trial 不跨集合。其他 16 库不变，HMC 仍完整 151 份。
 - 新完整验证 61,327 窗。旧 55,978 窗及旧 SEED 跨被试结果不能直接当作本轮冻结效应的对照；尚未完成完整 2×2 适配消融。
 - BSR 读出选择依据为旧 HMC151 完整验证：CLS 41.6912% 对 mean_pool 41.6742%，差 0.017 个百分点，不宣称统计显著。
+- 最终 microbatch=8（global batch=16），两组启动检查各约 148 秒，峰值显存约 53.2/58.2 GiB；LEAF 权重不变、BSR 权重确实更新、磁盘重载 logits 精确一致，测试前向均为 0。82 项测试通过。正式模型从发布权重重建，不继承 smoke 参数；每 340 步监控，最后完整验证后自动绘图。
+- microbatch=2 的早期检查在第 9 步主动安全停止、未进入正式训练；完整记录保留在 `encoder_adaptation_seedpaper_20261101_micro2_smoke`，不拼入正式曲线。训练源码提交为 `b6ba6ac`，未提交数据或权重，也未 push。
 
 以下各节均描述此前实验；训练／验证／测试身份及原分母保留。
 
