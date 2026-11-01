@@ -1,17 +1,26 @@
 {
-  "run_name": "bsr_jev_readouts_20261030",
-  "protocol": "fixed_subject_holdout_multitask_supervised_pilot",
-  "split_root": "artifacts/benchmark/multitask_splits_20261029_final",
-  "split_summary_sha256": "042520e32bf63b304dba955184757adb53db5b661d39f617601ee78c831b1545",
-  "cache_root": "datasets/multitask_20261029",
-  "quality_root": "artifacts/benchmark/multitask_signal_quality_20261029",
-  "quality_summary_sha256": "e9530aa59c8b3fa8aa35bc60052c9e6fcb23c53fa98dd5a5baf329c9e572a32d",
+  "run_name": "encoder_adaptation_seedpaper_20261101",
+  "protocol": "multitask_adaptation_pilot_seed_within_subject_trials_other_benchmarks_subject_holdout",
+  "split_root": "artifacts/benchmark/multitask_splits_seedpaper_20261101",
+  "split_summary_sha256": "9a4d302b25413d5e06f728e6fd9caad7b1b3dbf1590e1e7d03121dd2cc19a222",
+  "cache_root": "datasets/multitask_seedpaper_20261101",
+  "quality_root": "artifacts/benchmark/multitask_signal_quality_seedpaper_20261101",
+  "quality_summary_sha256": "45e504a715cc5fdbd42b78a28d0edddc735f139063c985af55cd5f0bc236b98c",
   "benchmark_root": "third_party/EEG-FM-Bench-xw1216",
   "upstream_commit": "325398d7d057ecc1216fb3510d70c16eb60337cc",
   "bsr_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3",
   "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3/ckpts/B1_regen_21e31e56baf2.pt",
   "checkpoint_sha256": "21e31e56baf23c0d5446e750ac4eb54a5032d4fe34d2845788e6d22c373bba36",
-  "arms": ["mean_pool", "cls", "cross_attention", "qformer"],
+  "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
+  "leaf_checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
+  "leaf_checkpoint_sha256": "f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa",
+  "text_root": "artifacts/benchmark/multitask_text_20261029",
+  "arms": ["leaf_frozen", "bsr_unfrozen"],
+  "arm_settings": {
+    "leaf_frozen": {"encoder": "leaf", "encoder_trainable": false, "readout": "native"},
+    "bsr_unfrozen": {"encoder": "bsr", "encoder_trainable": true, "readout": "cls"}
+  },
+  "bsr_readout_selection": "CLS: highest historical HMC151 full-validation macro BAcc 0.41691181263921284 (mean_pool 0.4167421506434374); difference is not statistically established",
   "input_units": {
     "bcic_2a": "V", "motor_mv_img": "V", "seed": "V", "seed_vii": "V",
     "tuab": "V", "tuev": "V", "hmc": "V", "workload": "V", "adftd": "V",
@@ -21,14 +30,15 @@
   "steps": 2040,
   "seed": 42,
   "global_batch": 16,
-  "microbatch": 8,
-  "eval_microbatch": 8,
+  "microbatch": 2,
+  "eval_microbatch": 4,
   "bridge_only_steps": 340,
   "learning_rates": {
     "connector": 0.0001,
     "readout": 0.0001,
     "jev_lora": 0.000005,
-    "decision_head": 0.00001
+    "decision_head": 0.00001,
+    "eeg_encoder": 0.000001
   },
   "weight_decay": 0.01,
   "warmup_steps": 62,
@@ -38,18 +48,17 @@
   "train_monitor_per_dataset": 128,
   "checkpoint_every": 20,
   "gpus": [
-    0,
-    1,
-    2,
-    3
+    4,
+    5
   ],
   "cpu_workers": 4,
   "preprocessing_hz": 200,
   "selection": "highest fixed 512 validation subset nine-dataset macro BAcc; ties keep earlier; final full validation for each arm",
   "test_policy": "No test forwards in this comparison; select arm on validation before a separate test evaluation",
   "known_risks_accepted": {
-    "authorization": "User 2026-10-29: 先这样训练吧，数据的问题后面再说，我们只是验证试验",
-    "hmc": "109/151 local records; missing 42 not downloaded",
+    "authorization": "User 2026-11-01: run frozen LEAF and unfrozen BSR on two free GPUs; switch SEED to the paper protocol. Other unchanged risks retain the prior pilot approval",
+    "seed": "Within-subject ordered trial 9/3/3; new models start from released weights, never old downstream checkpoints",
+    "hmc": "151/151 official 1.1 records and annotations SHA256 verified; fresh 103/24/24 subject split using pinned upstream code. Authors' exact random subject list remains unverified; no warm start from subset-trained models",
     "tuh": "19 candidate shared IDs, five cross-library train/test role conflicts unresolved",
     "pretraining": "Released encoder pretraining overlap unresolved; not a clean zero-shot score",
     "extras": "Existing cached epochs; raw recording provenance not fully audited"

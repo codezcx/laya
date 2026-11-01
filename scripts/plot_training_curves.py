@@ -22,7 +22,7 @@ STYLE = ROOT / 'configs/training_curves.mplstyle'
 BLUE, ORANGE, GREY = '#0072B2', '#D55E00', '#777777'
 DISPLAY = {'bcic_2a': 'BCIC-IV-2a', 'motor_mv_img': 'PhysioMI',
            'seed': 'SEED', 'seed_vii': 'SEED-VII', 'tuab': 'TUAB',
-           'tuev': 'TUEV', 'hmc': 'HMC (local subset)', 'workload': 'Workload',
+           'tuev': 'TUEV', 'hmc': 'HMC', 'workload': 'Workload',
            'adftd': 'ADFTD', 'CHB_MIT': 'CHB-MIT'}
 
 
@@ -134,7 +134,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default_name = json.loads((ROOT / 'configs/benchmark_train.json').read_text())['run_name']
     parser.add_argument('--run-dir', type=Path, default=ROOT / 'artifacts/benchmark' / default_name)
-    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer'], required=True)
+    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer','leaf_frozen','bsr_unfrozen'], required=True)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--overwrite', action='store_true', help='Replace only this script\'s named plot outputs')
     args = parser.parse_args()
@@ -171,7 +171,7 @@ def main():
     with plt.style.context(str(STYLE)):
         fig, axes = plt.subplots(1, 2, figsize=(13, 5.2))
         fig.subplots_adjust(left=.065, right=.975, bottom=.23, top=.80, wspace=.25)
-        fig.suptitle(f'BSR → {args.arm} → JEV | Multitask training curves', fontsize=16, x=.065, ha='left', y=.96)
+        fig.suptitle(f'{args.arm} → JEV | Multitask training curves', fontsize=16, x=.065, ha='left', y=.96)
         fig.text(.065, .89, f'{len(train):,} updates recorded · 17 training tasks · fixed validation subsets · seed {config["seed"]}', fontsize=10)
         ax = axes[0]
         ax.plot(x, raw, color=GREY, linewidth=.45, alpha=.8, label='Raw per-update cross-entropy')

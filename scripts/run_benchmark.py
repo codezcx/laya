@@ -1,4 +1,4 @@
-"""Detached four-GPU pilot: CPU audit -> all-arm real smoke -> matched training."""
+"""Detached matched pilot: CPU audit -> all-arm smoke -> queued GPU training."""
 import argparse
 import fcntl
 import json
@@ -10,8 +10,44 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from eeg_align.runtime import CONFIG
+from eeg_align.runtime import CONFIG, digest
 from eeg_align.multitask_data import write_json
+
+
+def run_on_gpu_slots(arms, gpus, launch, report, *, poll_seconds=15, running=None):
+    """Run every arm exactly once, at most one process per assigned GPU.
+
+    On failure, drain live independent arms but never launch additional arms.
+    ``running`` stays visible to the caller for failure reporting, not killing.
+    """
+    if not arms or not gpus or len(set(arms)) != len(arms) or len(set(gpus)) != len(gpus):
+        raise ValueError('Arms and GPU slots must be nonempty and unique')
+    pending, available = list(arms), list(gpus)
+    running = [] if running is None else running
+    if running:
+        raise ValueError('New phase cannot inherit live children')
+    processes, failures = {}, {}
+    while pending or running:
+        for item in list(running):
+            arm, gpu, process = item
+            code = process.poll()
+            if code is not None:
+                running.remove(item)
+                available.append(gpu)
+                processes[arm]['returncode'] = code
+                if code:
+                    failures[arm] = code
+        while pending and available and not failures:
+            arm, gpu = pending.pop(0), available.pop(0)
+            process = launch(arm, gpu)
+            running.append((arm, gpu, process))
+            processes[arm] = dict(pid=process.pid, gpu=gpu, returncode=None)
+        report(processes=processes, queued_arms=pending.copy(), failures=failures.copy())
+        if failures and not running:
+            raise RuntimeError(f'GPU job failures: {failures}; unstarted arms: {pending}')
+        if running:
+            time.sleep(poll_seconds)
+    return processes
 
 
 def main():
@@ -42,17 +78,30 @@ def main():
         print(json.dumps(state), flush=True)
     running = []
     try:
+        watched = sorted((ROOT / 'eeg_align').glob('*.py')) + [ROOT / p for p in (
+            'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
+            'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py',
+            'scripts/prepare_multitask_splits.py', 'scripts/prepare_multitask_signals.py',
+            'scripts/audit_multitask_signals.py')]
+        hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}
+        def guard():
+            if (hashes != {str(p.relative_to(ROOT)): digest(p) for p in watched}
+                    or json.loads((ROOT / 'configs/benchmark_train.json').read_text()) != CONFIG):
+                raise RuntimeError('Queued experiment code/config changed; refusing new launches')
+        guard()
+        report(code_sha256=hashes, configured_arms=CONFIG['arms'], assigned_gpu_slots=CONFIG['gpus'])
         rows = subprocess.check_output(['nvidia-smi','--query-gpu=index,memory.free','--format=csv,noheader,nounits'], text=True)
         free = {int(i):int(m) for i,m in (r.split(',') for r in rows.strip().splitlines())}
         if any(free.get(g,0) < 75000 for g in CONFIG['gpus']):
-            raise RuntimeError('All four assigned GPUs must be free before launch')
+            raise RuntimeError('Every assigned GPU slot must be free before launch')
         report(status='cpu_signal_preflight')
         subprocess.run([sys.executable, '-u', 'scripts/check_multitask_signals.py',
             '--out', str(output / 'signal_preflight.json')], check=True)
+        initializations = {}
         for phase in ('smoke','train'):
             running = []
-            pids = {}
-            for gpu, arm in zip(CONFIG['gpus'], CONFIG['arms']):
+            def launch(arm, gpu):
+                guard()
                 env = os.environ.copy(); env['CUDA_VISIBLE_DEVICES'] = str(gpu)
                 directory = output / phase / arm
                 directory.parent.mkdir(exist_ok=True)
@@ -61,32 +110,35 @@ def main():
                 with (output / f'{phase}_{arm}.log').open('x') as log:
                     child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
                         stderr=subprocess.STDOUT, env=env, start_new_session=True)
-                running.append((arm,child)); pids[arm] = dict(pid=child.pid,gpu=gpu)
-            report(status=phase, processes=pids)
-            while any(p.poll() is None for _,p in running):
-                failures = {arm:p.returncode for arm,p in running if p.poll() not in (None,0)}
-                if failures:
-                    # Do not silently kill successful independent arms.
-                    report(status=phase+'_partial_failure', failures=failures)
-                time.sleep(15)
-            failures = {arm:p.returncode for arm,p in running if p.returncode}
-            if failures: raise RuntimeError(f'{phase} failures: {failures}')
+                return child
+            run_on_gpu_slots(CONFIG['arms'], CONFIG['gpus'], launch,
+                lambda **values: report(status=phase + ('_partial_failure' if values['failures'] else ''),
+                                        **values), running=running)
+            guard()
             proofs = [json.loads((output / phase / arm / 'initial_state.json').read_text()) for arm in CONFIG['arms']]
-            for key in ('common_connector_sha256','jev_adapter_head_sha256','frozen_bsr_sha256'):
+            for key in ('jev_adapter_head_sha256',):
                 if len({p[key] for p in proofs}) != 1:
                     raise RuntimeError(f'Arm initialization mismatch: {key}')
+            if phase == 'smoke':
+                initializations = dict(zip(CONFIG['arms'], proofs))
+            else:
+                for arm, proof in zip(CONFIG['arms'], proofs):
+                    for key in ('common_connector_sha256', 'jev_adapter_head_sha256', 'released_encoder_sha256'):
+                        if proof[key] != initializations[arm][key]:
+                            raise RuntimeError(f'Smoke weights leaked into formal training: {arm}/{key}')
             for arm in CONFIG['arms']:
                 complete = json.loads((output / phase / arm / 'complete.json').read_text())
                 if complete['test_evaluations'] or not complete['checkpoint_reload_verified']:
                     raise RuntimeError('Unsafe/incomplete preflight')
-            report(status=phase+'_complete', matched_initialization=True)
+            report(status=phase+'_complete', matched_jev_initialization=True,
+                   connector_note='Native encoder widths differ; no claim of identical connector parameters')
         for arm in CONFIG['arms']:
             subprocess.run([sys.executable, 'scripts/plot_training_curves.py',
                             '--run-dir', str(output), '--arm', arm], check=True)
         report(status='complete', selection='Compare full validation before separately authorizing test')
     except BaseException as exc:
         report(status='failed', error=f'{type(exc).__name__}: {exc}',
-               remaining_processes={arm:p.pid for arm,p in running if p.poll() is None})
+               remaining_processes={arm:p.pid for arm,_,p in running if p.poll() is None})
         raise
 
 

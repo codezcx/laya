@@ -1,15 +1,16 @@
-# EEG → BSR-VideoMAE → 单入口文本条件 JEV
+# EEG → JEV：LEAF 冻结与 BSR 解冻控制
 
-当前方法是四组匹配的 VideoMAE 读出试验：mean pooling、learnable CLS、32-query cross-attention、32-query Q-Former 风格读出。文本只送入 JEV；BSR 编码器和读出不接收 task description、question 或标签。旧 LEAF 实现归档于 Git `741fe34`，不复用旧下游权重。
+当前是统一划分下的两组适配试验：`leaf_frozen` 全程冻结原生 LEAF（含文本条件 Q-Former）；`bsr_unfrozen` 使用当前完整验证 BAcc 最高的 CLS 读出，连接器预热后解冻 BSR 前向路径。共享现有训练入口，不复用任何旧下游微调权重。
 
-2026-10-30 21:19 UTC：四组完整 batch smoke 已全部通过，正式四卡任务已启动；先运行 step 0 验证。运行时状态以各组产物为准，不把启动或 smoke 准确率当成正式结果。
+2026-11-01：SEED 已改为论文的被试内 trial 顺序 9/3/3，处理窗口 22,455/7,875/7,560；三份均含全部 15 位被试，trial 不重叠。其余 16 库及完整 HMC151 划分不变。新九库完整验证为 61,327 窗。[新划分](artifacts/benchmark/multitask_splits_seedpaper_20261101/summary.json)、[协议](docs/PROTOCOL.md)。旧四读出结果保留为历史对照，不覆盖数据、检查点或分母。
 
 ## 📋 实验入口
 
-- [当前协议与四组设计](docs/PROTOCOL.md)：同一 17 库划分、2040 步、单 seed、四卡各一组；2b 不训练。
+- [当前协议与两组设计](docs/PROTOCOL.md)：17 库、2040 步、单 seed；SEED 被试内，另八个 benchmark 跨被试，2b 不训练。
 - [当前状态与必要历史对照](docs/RESULTS.md)：保留 LEAF 完整训练／测试成绩和论文比较的局限，不冒充新结果。
+- [表征分析与可视化](docs/REPRESENTATION_ANALYSIS.md)：四组相同验证窗口，检查任务内类别混叠、文本距离、被试效应和 query 冗余；不访问测试集。
 - [配置](configs/benchmark_train.json)、[任务及选项](configs/benchmark_tasks.json)、[Git 归档索引](docs/ARCHIVE.md)。
-- 输出根目录：`artifacts/benchmark/bsr_jev_readouts_20261030/`；`pipeline.json` 为控制器状态，`train/<arm>/progress.json` 为各组实时状态。
+- 新实验输出根目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101/`；启动后 `pipeline.json` 为控制器状态，`train/<arm>/progress.json` 为各组实时状态。旧四读出输出保留在 `artifacts/benchmark/bsr_jev_readouts_hmc151_20261031/`。
 
 ## 🔧 启动与验证
 
@@ -18,12 +19,12 @@ laya/.venv-eeg/bin/python -m pytest -q tests
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
 ```
 
-不要重复启动已有输出目录。控制器先检查四张 GPU 空闲、全部计划训练输入，再进行四组各 17 步真实 smoke（覆盖所有数据集、跨过 JEV 解冻点、检查磁盘重载），通过后从发布权重重新初始化并启动正式训练。控制器与子进程在终端退出后继续运行；节点掉线仍需人工确认后恢复。`--resume` 仅用于 `eeg_align.train_joint` 的未完成单组 `last.pt`，必须保持配置和代码哈希不变。
+不要重复启动已有输出目录。控制器先检查配置分配的 GPU 空闲、两种编码器的全部计划输入，再进行两组各 17 步真实 smoke（覆盖所有数据集、冻结／解冻、磁盘重载），通过后从发布权重重新初始化。当前使用 GPU 4、5，每张卡一组，不抢占其他任务。控制器与子进程脱离终端继续运行；节点掉线后需核实恢复。`--resume` 仅用于未完成单组 `last.pt`，必须保持配置和代码哈希不变。
 
-训练包含 step 0 验证；每 340 步固定验证／训练子集监测，保存逐数据集 loss 和准确率。每组最后对选定模型跑完整验证集，不在这轮自动读取测试信号或测试标签做前向。四组都完成后再按验证结果选方案。
+训练包含 step 0 验证；每 340 步固定验证／训练子集监测，保存逐数据集 loss 和准确率。每组最后对选定模型跑完整验证集，两组完成后自动绘图；本轮不自动打开测试集。
 
 ## ⚠️ 解释边界
 
-这是有监督多任务、跨被试的可行性试验，不是跨数据集 zero-shot。HMC 仍使用冻结的 109 份记录子集；TUAB/TUEV 的跨库身份重合风险未消除；BSR 预训练包含 PhysioMI 等数据，精确被试重叠未完成审计。完整输入窗口、固定划分和原有 QC 均不改写。
+这是有监督多任务可行性试验，不是跨数据集 zero-shot；SEED 为被试内。两种原生输入、文本入口、token 数和连接器宽度仍不同，并非完整 2×2 编码器／冻结单因素对照。HMC 作者具体随机名单、TUAB/TUEV 跨库身份、基模预训练重叠风险仍未解决。旧分数不得直接当作新协议的匹配对照。
 
 用户已有 ECG、专利、架构草图、图件、编辑器设置和所有 ignored 数据／权重／日志未作为本轮清理对象。旧 LEAF 架构草图不代表当前实现。

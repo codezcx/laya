@@ -27,7 +27,7 @@ def compatible_encoder_state(state, expected):
 
 
 class OnlineBSR(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, trainable=False):
         super().__init__()
         sys.path.insert(0, str(Path(config['bsr_root']) / 'code'))
         from bsri.model import BSRenderer, IMAGENET_MEAN, IMAGENET_STD, CHANNELS_1010
@@ -48,15 +48,29 @@ class OnlineBSR(nn.Module):
         self.register_buffer('image_mean', torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1, 1))
         self.register_buffer('image_std', torch.tensor(IMAGENET_STD).view(1, 3, 1, 1, 1))
         self.channels = frozenset(CHANNELS_1010)
-        self.requires_grad_(False)
+        self.finetune = bool(trainable)
+        self.adaptation_enabled = bool(trainable)
+        self.requires_grad_(trainable)
+        # Released inverse renderer is a reconstruction-only head, not this path.
+        self.renderer.pix2eeg.requires_grad_(False)
+        if trainable:
+            self.encoder.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
         self.eval()
 
     def train(self, mode=True):
-        # Neither BatchNorm running statistics nor the released encoder change.
-        return super().train(False)
+        return super().train(mode and self.finetune and self.adaptation_enabled)
 
-    @torch.no_grad()
+    def set_adaptation_enabled(self, enabled):
+        self.adaptation_enabled = self.finetune and bool(enabled)
+        for module in (self.renderer.eeg2pix, self.adapter, self.encoder):
+            module.requires_grad_(self.adaptation_enabled)
+        self.train(self.training)
+
     def forward(self, x, channels):
+        with torch.set_grad_enabled(torch.is_grad_enabled() and self.adaptation_enabled):
+            return self._encode(x, channels)
+
+    def _encode(self, x, channels):
         from bsri.model import stft_hop_for_frames
         if not set(channels) <= self.channels:
             raise ValueError('Unknown renderer channels')

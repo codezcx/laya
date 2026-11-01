@@ -7,6 +7,7 @@ from eeg_align.multitask_data import TrialStore, window_positions, locked_record
 from eeg_align.benchmark_data import catalog
 from eeg_align.evaluation import require_split, fixed_training_rows, validation_rows
 from scripts.prepare_multitask_splits import extract_methods
+from eeg_align.split_policy import SEED_PROTOCOL, validate_split_frame
 
 
 def test_frozen_splits_and_train_only_extras():
@@ -16,7 +17,11 @@ def test_frozen_splits_and_train_only_extras():
     assert not any('2014004' in t['task_id'] for t in tasks)
     for task in tasks:
         manifest, frame = locked_records(task['task_id'])
-        assert frame.groupby('subject')['split'].nunique().max() == 1
+        validate_split_frame(task['task_id'], manifest, frame)
+        if task['task_id'] == 'seed' and manifest.get('split_protocol') == SEED_PROTOCOL:
+            assert frame.groupby('subject')['split'].nunique().eq(3).all()
+        else:
+            assert frame.groupby('subject')['split'].nunique().max() == 1
         assert manifest['role'] == task['role']
         if task['role'] == 'train_only':
             assert set(frame['split']) == {'train'}

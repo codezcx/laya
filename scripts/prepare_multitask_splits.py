@@ -21,8 +21,10 @@ import os
 from pathlib import Path
 import pickle
 import re
+import shutil
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import numpy as np
@@ -392,12 +394,136 @@ def hmc_coverage():
                 available_recordings=len(expected) - len(missing), missing_recordings=missing)
 
 
+def verify_complete_hmc(report_path):
+    """Require the official complete release, not a live progress file or subset."""
+    report_path = Path(report_path)
+    report = json.loads(report_path.read_text())
+    root = MNE_ROOT / 'HMC'
+    if (report.get('status') != 'complete' or report.get('recordings') != 151
+            or report.get('annotation_txt') != 151 or report.get('annotation_edf') != 151
+            or report.get('official_files') != 457 or report.get('final_verified_files') != 457
+            or report.get('final_mismatches') != [] or report.get('original_files_changed') != []
+            or Path(report.get('dataset_root', '')).resolve() != root.resolve()):
+        raise ValueError('HMC download is not a verified complete 151-record release')
+    manifest = json.loads(report_path.with_name('official_manifest.json').read_text())
+    if (manifest['url'] != 'https://physionet.org/files/hmc-sleep-staging/1.1/SHA256SUMS.txt'
+            or manifest['manifest_sha256'] != sha(root / 'SHA256SUMS.txt')):
+        raise ValueError('Official HMC checksum manifest identity changed')
+    # Do not trust a stale complete.json: re-hash all listed data and annotations.
+    entries = {}
+    for line in (root / 'SHA256SUMS.txt').read_text().splitlines():
+        digest, relative = line.split(maxsplit=1)
+        relative = relative.lstrip('*')
+        target = root / relative
+        if (Path(relative).is_absolute() or '..' in Path(relative).parts
+                or target.is_symlink() or not target.resolve().is_relative_to(root.resolve())
+                or not re.fullmatch(r'[0-9a-f]{64}', digest) or relative in entries):
+            raise ValueError('Unsafe or duplicate checksum entry')
+        entries[relative] = digest
+    if len(entries) != 457 or entries != manifest['files']:
+        raise ValueError('HMC checksum entries disagree with official saved manifest')
+    expected = {n for n in entries if re.fullmatch(r'recordings/SN\d+\.edf', n)}
+    observed = {str(p.relative_to(root)) for p in (root / 'recordings').glob('SN*.edf')
+                if re.fullmatch(r'SN\d+\.edf', p.name)}
+    coverage = hmc_coverage()
+    if (len(expected) != 151 or expected != observed
+            or coverage['expected_recordings'] != 151 or coverage['missing_recordings']):
+        raise ValueError('HMC source recording set is incomplete or includes extra records')
+    names = list(entries)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        actual = list(pool.map(lambda name: sha(root / name), names))
+    if any(actual[i] != entries[name] for i, name in enumerate(names)):
+        raise ValueError('HMC file checksum mismatch after download')
+    return dict(complete_report_sha256=sha(report_path),
+                official_manifest_sha256=manifest['manifest_sha256'],
+                verified_files=len(entries), verified_recordings=len(expected))
+
+
+def wait_for_complete_hmc(report_path, timeout_seconds=24 * 3600):
+    """Wait on the actual downloader, never mistake a stale progress file for liveness."""
+    report_path = Path(report_path).resolve()
+    progress_path = report_path.with_name('progress.json')
+    expected_script = report_path.with_name('download.py')
+    started = time.monotonic()
+    while not report_path.exists():
+        state = json.loads(progress_path.read_text())
+        pid = state.get('downloader_pid')
+        if state['status'] in {'incomplete', 'verification_failed', 'blocked_existing_mismatch'}:
+            raise RuntimeError(f"HMC downloader terminal state: {state['status']}")
+        if not isinstance(pid, int) or pid <= 0:
+            raise RuntimeError('HMC downloader has no verifiable process handle')
+        proc = Path('/proc') / str(pid)
+        try:
+            arguments = proc.joinpath('cmdline').read_bytes().split(b'\0')
+            cwd = proc.joinpath('cwd').resolve(strict=True)
+            scripts = [(cwd / a.decode()).resolve() for a in arguments if a.endswith(b'download.py')]
+            if expected_script not in scripts:
+                raise RuntimeError('HMC downloader process handle no longer matches')
+        except FileNotFoundError as exc:
+            # Completion can race process exit; recheck before calling it stopped.
+            if report_path.exists():
+                break
+            raise RuntimeError('HMC downloader exited without a completion report') from exc
+        if time.monotonic() - started > timeout_seconds:
+            raise TimeoutError('HMC preparation wait exceeded 24 hours; downloader not stopped')
+        print('WAIT_HMC', json.dumps(dict(pid=pid, status=state['status'],
+            downloaded=len(state.get('downloaded', [])), pending=state.get('pending_files'))), flush=True)
+        time.sleep(30)
+
+
+def retain_other_allocations(overall, output, base, expected_sha):
+    """Merge ONLY new HMC allocation; copy every other frozen metadata file."""
+    base, output = Path(base), Path(output)
+    if sha(base / 'summary.json') != expected_sha:
+        raise ValueError('Base split summary changed')
+    previous = json.loads((base / 'summary.json').read_text())
+    if previous['upstream_commit'] != COMMIT or set(overall['datasets']) != {'hmc'}:
+        raise ValueError('HMC refresh requires the same pinned upstream and one changed dataset')
+    retained = {}
+    for name, manifest in previous['datasets'].items():
+        if name == 'hmc':
+            continue
+        source = base / name
+        if (json.loads((source / 'manifest.json').read_text()) != manifest
+                or sha(source / 'records.csv') != manifest['records_sha256']):
+            raise ValueError(f'Base allocation changed: {name}')
+        shutil.copytree(source, output / name)
+        if sha(output / name / 'records.csv') != manifest['records_sha256']:
+            raise ValueError(f'Copied allocation changed: {name}')
+        overall['datasets'][name] = manifest
+        retained[name] = manifest['records_sha256']
+    overall['tuh_overlap_audit'] = previous['tuh_overlap_audit']
+    overall['blocking_decisions'] = [item for item in previous['blocking_decisions']
+                                     if not item.startswith('HMC missing recordings:')]
+    overall['refresh'] = dict(base_summary_sha256=expected_sha, changed_datasets=['hmc'],
+                              retained_records_sha256=retained,
+                              warm_start_from_old_trained_checkpoint=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--datasets', nargs='+', choices=[*DEFINITIONS, *EXTRAS],
                         default=[*DEFINITIONS, *EXTRAS])
+    parser.add_argument('--refresh-hmc-from', type=Path,
+                        help='Reallocate complete HMC only; preserve every other frozen allocation')
+    parser.add_argument('--base-summary-sha256')
+    parser.add_argument('--hmc-download-report', type=Path)
+    parser.add_argument('--wait-for-hmc-download', action='store_true',
+                        help='Wait on the verified live downloader before full integrity verification')
     args = parser.parse_args()
+    if args.wait_for_hmc_download and not args.refresh_hmc_from:
+        parser.error('--wait-for-hmc-download requires --refresh-hmc-from')
+    download_proof = None
+    if args.refresh_hmc_from:
+        if not args.base_summary_sha256 or not args.hmc_download_report:
+            parser.error('HMC refresh requires --base-summary-sha256 and --hmc-download-report')
+        if sha(args.refresh_hmc_from / 'summary.json') != args.base_summary_sha256:
+            raise ValueError('Base split summary changed')
+        if args.wait_for_hmc_download:
+            wait_for_complete_hmc(args.hmc_download_report)
+        download_proof = verify_complete_hmc(args.hmc_download_report)
+        args.datasets = ['hmc']
     args.output.mkdir(parents=True, exist_ok=False)
     overall = dict(schema='eegjev-record-splits-1', upstream_commit=COMMIT, seed=42,
                    status='metadata_allocation_only', training_ready=False, datasets={}, errors={},
@@ -455,6 +581,12 @@ def main():
                                              'verify mapping and approve cross-corpus quarantine policy before training')
     if overall['datasets'].get('hmc', {}).get('coverage', {}).get('missing_recordings'):
         overall['blocking_decisions'].append('HMC missing recordings: complete download or explicitly approve subset/defer')
+    if args.refresh_hmc_from and not overall['errors']:
+        counts = overall['datasets']['hmc']['counts']
+        if {s: counts[s]['n_subjects'] for s in SPLITS} != {'train': 103, 'valid': 24, 'test': 24}:
+            raise ValueError('Full HMC allocation must contain 103/24/24 disjoint subjects')
+        retain_other_allocations(overall, args.output, args.refresh_hmc_from, args.base_summary_sha256)
+        overall['refresh']['download_proof'] = download_proof
     overall['preparation_code_sha256'] = sha(Path(__file__))
     write_json(args.output / 'summary.json', overall)
     print('Saved metadata allocations; training_ready=false (QC/identity/preprocessing gates pending)', flush=True)

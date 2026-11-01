@@ -1,4 +1,4 @@
-"""One GPU per matched BSR/JEV readout; no test access, resumable pilot."""
+"""One GPU per EEG/JEV adaptation control; shared splits, sampling and budget."""
 import argparse
 import hashlib
 import json
@@ -9,12 +9,12 @@ import time
 import numpy as np
 import torch
 import torch.nn.functional as F
-from .runtime import CONFIG, digest
+from .runtime import CONFIG, digest, arm_settings
 from .multitask_data import TrialStore, write_json
 from .benchmark_data import classification_metrics
 from .bsr_data import BSRSignalAdapter, encode_batch
 from .online_bsr import OnlineBSR, upstream_files
-from .token_resampler import TokenReadout, KINDS
+from .token_resampler import TokenReadout
 from .jev import JEVBridge, load_jev
 from .task_options import make_variant
 from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
@@ -28,12 +28,15 @@ def code_identity():
         'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
         'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py')]
     paths += upstream_files(CONFIG)
+    if 'leaf_root' in CONFIG:
+        from .online_leaf import upstream_files as leaf_files
+        paths += leaf_files(CONFIG)
     return {str(p): digest(p) for p in paths}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--arm', choices=KINDS, required=True)
+    parser.add_argument('--arm', choices=CONFIG['arms'], required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
@@ -51,7 +54,17 @@ def main():
         stopping = True
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    store, adapter = TrialStore(), BSRSignalAdapter()
+    setting = arm_settings(args.arm)
+    is_leaf = setting['encoder'] == 'leaf'
+    train_encoder = setting['encoder_trainable']
+    if is_leaf and train_encoder:
+        raise ValueError('Current LEAF control must remain frozen')
+    if is_leaf:
+        from .online_leaf import FrozenLEAF, LEAFSignalAdapter, NativeLEAFReadout
+        adapter = LEAFSignalAdapter()
+    else:
+        adapter = BSRSignalAdapter()
+    store = TrialStore()
     tasks = store.tasks
     total = len(tasks) if args.smoke else CONFIG['steps']
     bridge_only = 1 if args.smoke else CONFIG['bridge_only_steps']
@@ -63,7 +76,8 @@ def main():
     import transformers
     root = Path('laya/JEV-27B-VL')
     identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, code_sha256=hashes,
-        checkpoint_sha256=digest(CONFIG['checkpoint']),
+        checkpoint_sha256=digest(CONFIG['leaf_checkpoint'] if is_leaf else CONFIG['checkpoint']),
+        adaptation=setting,
         cache_indexes={tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
         runtime=dict(torch=torch.__version__, transformers=transformers.__version__),
         jev_config_sha256={p: digest(root / p) for p in ('config.json', 'model.safetensors.index.json',
@@ -77,17 +91,23 @@ def main():
     print('LOADING_RELEASE_MODELS', args.arm, flush=True)
     seed_rng(CONFIG['seed'])
     text, weight, bias, tokenizer = load_jev('cuda:0')
-    # Reset after release loading: identical shared connector across all arms.
+    # Reset after release loading; native encoder widths may differ by arm.
     seed_rng(CONFIG['seed'])
-    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16, input_dim=768)
+    encoder = FrozenLEAF(CONFIG).cuda() if is_leaf else OnlineBSR(CONFIG, trainable=train_encoder).cuda()
+    # Encoder initialization consumes RNG; reset before the newly trained bridge.
+    seed_rng(CONFIG['seed'])
+    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16,
+                      input_dim=encoder.width if is_leaf else 768)
     with torch.random.fork_rng(devices=[0]):
         torch.manual_seed(CONFIG['seed'] + 100)
-        model.add_module('readout', TokenReadout(args.arm).cuda())
-    model.add_module('eeg_encoder', OnlineBSR(CONFIG).cuda())
+        model.add_module('readout', NativeLEAFReadout().cuda() if is_leaf else TokenReadout(setting['readout']).cuda())
+    model.add_module('eeg_encoder', encoder)
     groups = [dict(name='connector', params=list(model.connector.parameters())),
         dict(name='readout', params=list(model.readout.parameters())),
         dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad]),
         dict(name='decision_head', params=[model.head_weight, model.head_bias])]
+    if train_encoder:
+        groups.append(dict(name='eeg_encoder', params=[p for p in encoder.parameters() if p.requires_grad]))
     groups = [g for g in groups if g['params']]
     for g in groups:
         g['lr'] = CONFIG['learning_rates'][g['name']]
@@ -99,11 +119,11 @@ def main():
         write_json(args.out / 'initial_state.json', dict(
             common_connector_sha256=tensor_fingerprint(model.connector.state_dict()),
             jev_adapter_head_sha256=tensor_fingerprint({n:p for n,p in model.named_parameters()
-                if p.requires_grad and not n.startswith(('readout.', 'connector.'))}),
-            frozen_bsr_sha256=frozen_proof,
+                if p.requires_grad and not n.startswith(('readout.', 'connector.', 'eeg_encoder.'))}),
+            released_encoder_sha256=frozen_proof, encoder_frozen=not train_encoder,
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens=model.readout.output_tokens,
-            initialization='released BSR + native JEV + new readout/connector; no old downstream weights',
+            initialization='released encoder + native JEV + new connector; no old downstream weights',
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()))
     step, best_score, best_step = 0, -1., None
     seed_rng(CONFIG['seed'])
@@ -132,7 +152,9 @@ def main():
         for q in questions:
             if q['suffix'] not in prompts:
                 prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
-        tokens, valid = encode_batch(model.eeg_encoder, adapter.batch(rows), len(rows))
+        adapted = adapter.batch(rows)
+        tokens, valid = (model.eeg_encoder(adapted, len(rows)) if is_leaf
+                         else encode_batch(model.eeg_encoder, adapted, len(rows)))
         with torch.autocast('cuda', dtype=torch.bfloat16):
             tokens, valid = model.readout(tokens, valid)
         logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],
@@ -149,8 +171,8 @@ def main():
 
     def save(filename, optimizer_state=True):
         guard()
-        if frozen_proof != tensor_fingerprint(model.eeg_encoder.state_dict()):
-            raise RuntimeError('Frozen BSR weights/buffers changed')
+        if (not train_encoder or step <= bridge_only) and frozen_proof != tensor_fingerprint(model.eeg_encoder.state_dict()):
+            raise RuntimeError('Frozen encoder weights/buffers changed')
         if not all(p.requires_grad for p in active):
             raise RuntimeError('Snapshot must include both training phases')
         value = dict(**capture_model(model), identity=identity, step=step, best_score=best_score,
@@ -215,6 +237,8 @@ def main():
         for step in range(step+1, total+1):
             guard()
             tid, rows = store.sample(step, batch_size, CONFIG['seed'])
+            if train_encoder:
+                model.eeg_encoder.set_adaptation_enabled(step > bridge_only)
             model.train()
             optimizer.zero_grad(set_to_none=True)
             for p in jev_params:
@@ -231,18 +255,22 @@ def main():
                 (loss / len(rows)).backward()
                 loss_sum += float(loss.detach())
                 correct += int((logits.argmax(-1) == labels).sum())
-            if any(p.grad is not None for p in model.eeg_encoder.parameters()):
-                raise RuntimeError('BSR gradient leak')
+            if any(p.grad is not None for p in model.eeg_encoder.parameters()) != (train_encoder and step > bridge_only):
+                raise RuntimeError('Encoder phase gradient contract failed')
             if any(p.grad is not None for p in jev_params) != (step > bridge_only):
                 raise RuntimeError('JEV phase gradient contract failed')
             norms = {g['name']: float(torch.stack([p.grad.float().square().sum() for p in g['params']
                      if p.grad is not None]).sum().sqrt()) if any(p.grad is not None for p in g['params']) else 0. for g in groups}
-            if norms['connector'] <= 0 or (args.arm != 'mean_pool' and norms['readout'] <= 0):
+            if norms['connector'] <= 0 or ('readout' in norms and norms['readout'] <= 0):
                 raise RuntimeError('Missing bridge/readout learning signal')
+            if train_encoder and step > bridge_only and norms['eeg_encoder'] <= 0:
+                raise RuntimeError('Missing encoder learning signal')
             grad = torch.nn.utils.clip_grad_norm_([p for p in active if p.grad is not None], 1., error_if_nonfinite=True)
             optimizer.step()
             for p in jev_params:
                 p.requires_grad_(True)
+            if train_encoder:
+                model.eeg_encoder.set_adaptation_enabled(True)
             completed_step = step
             report(dict(status='training', step=step, total_steps=total, dataset=tasks[tid]['task_id'],
                 loss=loss_sum / batch_size, accuracy=correct / batch_size, gradient_norm=float(grad),
@@ -285,9 +313,14 @@ def main():
             restore_model(model, saved)
             del saved
             full = evaluate('valid', None)
+        final_encoder_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
+        if (final_encoder_proof != frozen_proof) != (train_encoder and (args.smoke or best_step > bridge_only)):
+            raise RuntimeError('Final encoder update/freeze proof failed')
         write_json(args.out / 'complete.json', dict(smoke=args.smoke, updates=step,
             selected_step=best_step, selection_score=best_score, validation=full,
-            test_evaluations=0, checkpoint_reload_verified=True, frozen_bsr_verified=True))
+            test_evaluations=0, checkpoint_reload_verified=True, encoder_update_contract_verified=True,
+            encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
+            selected_encoder_sha256=final_encoder_proof))
         report(dict(status='complete', step=step, selected_step=best_step))
     except BaseException as exc:
         failure = dict(status='failed', attempted_step=step, completed_training_step=completed_step,

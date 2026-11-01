@@ -10,6 +10,7 @@ import pandas as pd
 from .benchmark_data import catalog
 from .runtime import CONFIG, digest
 from .signal_quality import load_quality, excluded_training_indices
+from .split_policy import validate_split_frame
 
 
 def write_json(path, value):
@@ -29,8 +30,7 @@ def locked_records(name):
     if digest(root / name / 'records.csv') != manifest['records_sha256']:
         raise ValueError(f'Locked rows changed: {name}')
     rows = pd.read_csv(root / name / 'records.csv', dtype={'subject': str}, keep_default_na=False)
-    if rows.groupby('subject')['split'].nunique().max() != 1:
-        raise ValueError('Subject split overlap')
+    validate_split_frame(name, manifest, rows)
     return manifest, rows
 
 
@@ -76,7 +76,8 @@ class TrialStore:
                 raise ValueError('Audit cache cannot be used for training')
             if complete['code_sha256'] != digest('scripts/prepare_multitask_signals.py'):
                 raise ValueError('Signal preprocessing code changed')
-            if complete['records_sha256'] != locked_records(name)[0]['records_sha256']:
+            manifest, _ = locked_records(name)
+            if complete['records_sha256'] != manifest['records_sha256']:
                 raise ValueError('Signal cache belongs to another split')
             if complete['index_sha256'] != digest(folder / 'index.csv'):
                 raise ValueError('Epoch index changed')
@@ -85,8 +86,7 @@ class TrialStore:
                 raise ValueError('Invalid split')
             if task['role'] == 'train_only' and set(df['split']) != {'train'}:
                 raise ValueError('Extra data used for evaluation')
-            if df.groupby('subject')['split'].nunique().max() != 1:
-                raise ValueError('Subject leakage in windows')
+            validate_split_frame(name, manifest, df, windows=True)
             self.rows[tid] = [dict(r, task=tid, id=f'{name}:{i}') for i, r in enumerate(df.to_dict('records'))]
             self.meta[tid] = complete
             self.excluded[tid] = excluded_training_indices(df, self.quality[name]['exclusions'])

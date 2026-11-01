@@ -7,7 +7,7 @@ def rates_at(step, total, bridge_only, peaks, warmup=62, minimum=.02):
         raise ValueError('Invalid step or phase boundary')
     rates = {}
     for name, peak in peaks.items():
-        start = bridge_only if name in {'jev_lora', 'decision_head'} else 0
+        start = bridge_only if name in {'jev_lora', 'decision_head', 'eeg_encoder'} else 0
         local, budget = step - start, total - start
         if local <= 0:
             rates[name] = 0.
