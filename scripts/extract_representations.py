@@ -22,9 +22,10 @@ from eeg_align.evaluation import validation_rows
 from eeg_align.jev import JEVBridge, load_jev, assemble_embeddings, choice_logits
 from eeg_align.multitask_data import TrialStore, write_json
 from eeg_align.online_bsr import OnlineBSR
-from eeg_align.runtime import CONFIG, digest
+from eeg_align.runtime import CONFIG, digest, arm_settings
+from eeg_align.aligned_checkpoint import load_aligned_encoder
 from eeg_align.task_options import make_variant
-from eeg_align.token_resampler import TokenReadout, KINDS
+from eeg_align.token_resampler import TokenReadout
 
 
 @torch.no_grad()
@@ -77,7 +78,7 @@ def verify_identity(identity, store):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run', type=Path, required=True)
-    p.add_argument('--arms', choices=KINDS, nargs='+', required=True)
+    p.add_argument('--arms', choices=CONFIG['arms'], nargs='+', required=True)
     p.add_argument('--cap', type=int, default=256)
     p.add_argument('--batch', type=int, default=8)
     args = p.parse_args()
@@ -98,8 +99,6 @@ def main():
             raise FileExistsError(f'Preserve existing diagnostic output: {root/arm}')
     text, weight, bias, tokenizer = load_jev('cuda:0')
     model = JEVBridge(text, weight, bias, tokenizer, True, True, 16, 768)
-    model.add_module('eeg_encoder', OnlineBSR(CONFIG).cuda())
-    initial_bsr_hash = tensor_fingerprint(model.eeg_encoder.state_dict())
     release_hash = digest(CONFIG['checkpoint'])
     for arm in args.arms:
         started = time.monotonic()
@@ -110,8 +109,13 @@ def main():
         verify_identity(saved['identity'], store)
         if saved['identity']['checkpoint_sha256'] != release_hash:
             raise ValueError('BSR release checksum mismatch')
-        model.add_module('readout', TokenReadout(arm).cuda())
+        setting = arm_settings(arm)
+        encoder = OnlineBSR(CONFIG, trainable=setting['encoder_trainable'])
+        load_aligned_encoder(encoder, setting, CONFIG, saved['identity']['cache_indexes'])
+        model.add_module('eeg_encoder', encoder.cuda())
+        model.add_module('readout', TokenReadout(setting['readout']).cuda())
         restore_model(model, saved)
+        initial_bsr_hash = tensor_fingerprint(model.eeg_encoder.state_dict())
         model.eval()
         model.text.gradient_checkpointing_disable()
         selected_step = saved['step']

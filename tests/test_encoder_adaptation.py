@@ -8,7 +8,6 @@ from eeg_align.split_policy import SEED_PROTOCOL, seed_split, validate_split_fra
 from eeg_align.runtime import CONFIG, arm_settings, digest
 from eeg_align.lr_schedule import rates_at
 from eeg_align.online_bsr import OnlineBSR
-from eeg_align.online_leaf import FrozenLEAF
 from scripts.prepare_multitask_splits import extract_methods
 
 
@@ -49,9 +48,11 @@ def test_current_seed_reindex_did_not_change_signals_or_other_datasets():
 
 
 def test_adaptation_configuration_and_schedule():
-    assert arm_settings('leaf_frozen')['encoder_trainable'] is False
-    assert arm_settings('bsr_unfrozen')['readout'] == 'cls'
-    assert arm_settings('bsr_unfrozen')['encoder_trainable'] is True
+    assert len(CONFIG['arms']) == 5
+    assert arm_settings('infonce_cls_frozen')['encoder_trainable'] is False
+    assert arm_settings('infonce_qformer_unfrozen')['readout'] == 'qformer'
+    assert arm_settings('infonce_qformer_unfrozen')['encoder_trainable'] is True
+    assert sum(arm_settings(a)['encoder_trainable'] for a in CONFIG['arms']) == 1
     peaks = CONFIG['learning_rates']
     assert rates_at(340,2040,340,peaks)['eeg_encoder'] == 0
     assert rates_at(341,2040,340,peaks)['eeg_encoder'] > 0
@@ -77,11 +78,3 @@ def test_bsr_phase_controls_parameters_training_and_grad_mode():
     assert model.renderer.pix2eeg.weight.grad is None
     model.eval()
     assert not model.training and model.encoder.weight.requires_grad
-
-
-def test_frozen_leaf_cannot_enter_training_mode():
-    model = FrozenLEAF.__new__(FrozenLEAF)
-    torch.nn.Module.__init__(model)
-    model.leaf = torch.nn.Sequential(torch.nn.BatchNorm1d(2), torch.nn.Dropout(.5)).requires_grad_(False)
-    model.train()
-    assert not any(m.training for m in model.modules())

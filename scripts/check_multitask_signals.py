@@ -16,15 +16,11 @@ from eeg_align.bsr_data import BSRSignalAdapter
 
 STORE = None
 ADAPTER = None
-LEAF_ADAPTER = None
 
 
 def initialize():
-    global ADAPTER, LEAF_ADAPTER
+    global ADAPTER
     ADAPTER = BSRSignalAdapter()
-    if 'leaf_root' in CONFIG:
-        from eeg_align.online_leaf import LEAFSignalAdapter
-        LEAF_ADAPTER = LEAFSignalAdapter()
 
 
 def check_step(step):
@@ -34,10 +30,6 @@ def check_step(step):
             for _, _, pieces in ADAPTER.batch(rows[start:start + CONFIG['microbatch']]):
                 if not all(np.isfinite(x).all() for x in pieces):
                     raise ValueError('Nonfinite BSR input after adaptation')
-            if LEAF_ADAPTER is not None:
-                for _, _, pieces in LEAF_ADAPTER.batch(rows[start:start + CONFIG['microbatch']]):
-                    if not all(np.isfinite(x).all() for x in pieces):
-                        raise ValueError('Nonfinite LEAF input after adaptation')
     except Exception as exc:
         raise ValueError(f'Step {step}, {STORE.tasks[tid]["task_id"]}, IDs={[r["id"] for r in rows]}: {exc}') from exc
     return tid, len(rows)

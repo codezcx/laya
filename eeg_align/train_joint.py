@@ -21,6 +21,7 @@ from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, res
 from .distributed import atomic_save
 from .lr_schedule import rates_at
 from .evaluation import require_split, fixed_training_rows, validation_rows
+from .aligned_checkpoint import load_aligned_encoder, source_spec
 
 
 def code_identity():
@@ -28,9 +29,6 @@ def code_identity():
         'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
         'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py')]
     paths += upstream_files(CONFIG)
-    if 'leaf_root' in CONFIG:
-        from .online_leaf import upstream_files as leaf_files
-        paths += leaf_files(CONFIG)
     return {str(p): digest(p) for p in paths}
 
 
@@ -55,28 +53,30 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     setting = arm_settings(args.arm)
-    is_leaf = setting['encoder'] == 'leaf'
     train_encoder = setting['encoder_trainable']
-    if is_leaf and train_encoder:
-        raise ValueError('Current LEAF control must remain frozen')
-    if is_leaf:
-        from .online_leaf import FrozenLEAF, LEAFSignalAdapter, NativeLEAFReadout
-        adapter = LEAFSignalAdapter()
-    else:
-        adapter = BSRSignalAdapter()
+    if setting['encoder'] != 'bsr':
+        raise ValueError('Current transfer controls require BSR/VideoMAE')
+    adapter = BSRSignalAdapter()
     store = TrialStore()
     tasks = store.tasks
     total = len(tasks) if args.smoke else CONFIG['steps']
     bridge_only = 1 if args.smoke else CONFIG['bridge_only_steps']
     batch_size = CONFIG['global_batch']
     hashes = code_identity()
+    spec = source_spec(setting, CONFIG)
+    source_paths = ([] if spec is None else [Path(spec['checkpoint']),
+                    Path(spec['checkpoint']).parent / 'complete.json'])
+    def source_stats():
+        return {str(p): (p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ctime_ns)
+                for p in source_paths}
+    fixed_source_stats = source_stats()
     def guard():
-        if hashes != code_identity():
+        if hashes != code_identity() or source_stats() != fixed_source_stats:
             raise RuntimeError('Live training code/config changed')
     import transformers
     root = Path('laya/JEV-27B-VL')
     identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, code_sha256=hashes,
-        checkpoint_sha256=digest(CONFIG['leaf_checkpoint'] if is_leaf else CONFIG['checkpoint']),
+        checkpoint_sha256=digest(CONFIG['checkpoint']),
         adaptation=setting,
         cache_indexes={tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
         runtime=dict(torch=torch.__version__, transformers=transformers.__version__),
@@ -91,16 +91,21 @@ def main():
     print('LOADING_RELEASE_MODELS', args.arm, flush=True)
     seed_rng(CONFIG['seed'])
     text, weight, bias, tokenizer = load_jev('cuda:0')
-    # Reset after release loading; native encoder widths may differ by arm.
+    # Reset after release loading; the bridge must match across aligned sources.
     seed_rng(CONFIG['seed'])
-    encoder = FrozenLEAF(CONFIG).cuda() if is_leaf else OnlineBSR(CONFIG, trainable=train_encoder).cuda()
+    encoder = OnlineBSR(CONFIG, trainable=train_encoder)
+    transfer = load_aligned_encoder(encoder, setting, CONFIG, identity['cache_indexes'])
+    encoder = encoder.cuda()
+    if transfer is not None:
+        write_json(args.out / 'transfer_audit.json', transfer)
+        print('ALIGNED_ENCODER_VERIFIED', json.dumps(transfer), flush=True)
     # Encoder initialization consumes RNG; reset before the newly trained bridge.
     seed_rng(CONFIG['seed'])
     model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16,
-                      input_dim=encoder.width if is_leaf else 768)
+                      input_dim=768)
     with torch.random.fork_rng(devices=[0]):
         torch.manual_seed(CONFIG['seed'] + 100)
-        model.add_module('readout', NativeLEAFReadout().cuda() if is_leaf else TokenReadout(setting['readout']).cuda())
+        model.add_module('readout', TokenReadout(setting['readout']).cuda())
     model.add_module('eeg_encoder', encoder)
     groups = [dict(name='connector', params=list(model.connector.parameters())),
         dict(name='readout', params=list(model.readout.parameters())),
@@ -120,10 +125,13 @@ def main():
             common_connector_sha256=tensor_fingerprint(model.connector.state_dict()),
             jev_adapter_head_sha256=tensor_fingerprint({n:p for n,p in model.named_parameters()
                 if p.requires_grad and not n.startswith(('readout.', 'connector.', 'eeg_encoder.'))}),
-            released_encoder_sha256=frozen_proof, encoder_frozen=not train_encoder,
+            encoder_frozen=not train_encoder,
+            initial_encoder_sha256=frozen_proof, aligned_transfer=transfer,
+            readout_sha256=tensor_fingerprint(model.readout.state_dict()),
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens=model.readout.output_tokens,
-            initialization='released encoder + native JEV + new connector; no old downstream weights',
+            initialization=('aligned encoder + native JEV + new readout/connector; encoder-only transfer'
+                            if transfer else 'released encoder + native JEV + new connector; no old downstream weights'),
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()))
     step, best_score, best_step = 0, -1., None
     seed_rng(CONFIG['seed'])
@@ -153,8 +161,7 @@ def main():
             if q['suffix'] not in prompts:
                 prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
         adapted = adapter.batch(rows)
-        tokens, valid = (model.eeg_encoder(adapted, len(rows)) if is_leaf
-                         else encode_batch(model.eeg_encoder, adapted, len(rows)))
+        tokens, valid = encode_batch(model.eeg_encoder, adapted, len(rows))
         with torch.autocast('cuda', dtype=torch.bfloat16):
             tokens, valid = model.readout(tokens, valid)
         logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],

@@ -246,7 +246,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default_name = json.loads((ROOT / 'configs/benchmark_train.json').read_text())['run_name']
     parser.add_argument('--run-dir', type=Path, default=ROOT / 'artifacts/benchmark' / default_name)
-    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer','leaf_frozen','bsr_unfrozen'])
+    parser.add_argument('--arm', help='Arm directory name within the selected run')
     parser.add_argument('--train-dir', type=Path, help='Explicit saved train directory for selected-loss plots')
     parser.add_argument('--parent-train-dir', type=Path, help='Prepend verified parent training logs without marking the boundary')
     parser.add_argument('--loss-datasets', nargs='+', help='Render only these datasets\' training losses')

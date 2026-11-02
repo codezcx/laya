@@ -14,6 +14,32 @@ from eeg_align.runtime import CONFIG, digest
 from eeg_align.multitask_data import write_json
 
 
+def require_gpu_capacity(gpus, minimum_free_mib):
+    """Permit user-authorized co-tenancy; reserve headroom, never kill peers."""
+    rows = subprocess.check_output(['nvidia-smi', '--query-gpu=index,memory.free',
+                                   '--format=csv,noheader,nounits'], text=True)
+    free = {int(i): int(m) for i, m in (r.split(',') for r in rows.strip().splitlines())}
+    if any(free.get(g, 0) < minimum_free_mib for g in gpus):
+        raise RuntimeError(f'Insufficient GPU headroom: need {minimum_free_mib} MiB free; '
+                           f'observed={ {g: free.get(g) for g in gpus} }')
+    return {g: free[g] for g in gpus}
+
+
+def verify_initializations(proofs, config):
+    for key in ('common_connector_sha256', 'jev_adapter_head_sha256'):
+        if len({p[key] for p in proofs.values()}) != 1:
+            raise RuntimeError(f'Arm initialization mismatch: {key}')
+    for arm, proof in proofs.items():
+        setting = config['arm_settings'][arm]
+        if proof['initial_encoder_sha256'] != config['aligned_sources'][setting['aligned_source']]['encoder_sha256']:
+            raise RuntimeError(f'Wrong aligned encoder initialization: {arm}')
+    for readout in {s['readout'] for s in config['arm_settings'].values()}:
+        hashes = {proofs[a]['readout_sha256'] for a in config['arms']
+                  if config['arm_settings'][a]['readout'] == readout}
+        if len(hashes) != 1:
+            raise RuntimeError(f'Unmatched {readout} initialization')
+
+
 def run_on_gpu_slots(arms, gpus, launch, report, *, poll_seconds=15, running=None):
     """Run every arm exactly once, at most one process per assigned GPU.
 
@@ -90,10 +116,8 @@ def main():
                 raise RuntimeError('Queued experiment code/config changed; refusing new launches')
         guard()
         report(code_sha256=hashes, configured_arms=CONFIG['arms'], assigned_gpu_slots=CONFIG['gpus'])
-        rows = subprocess.check_output(['nvidia-smi','--query-gpu=index,memory.free','--format=csv,noheader,nounits'], text=True)
-        free = {int(i):int(m) for i,m in (r.split(',') for r in rows.strip().splitlines())}
-        if any(free.get(g,0) < 75000 for g in CONFIG['gpus']):
-            raise RuntimeError('Every assigned GPU slot must be free before launch')
+        free = require_gpu_capacity(CONFIG['gpus'], CONFIG.get('minimum_free_gpu_mib', 75000))
+        report(launch_free_mib=free, gpu_policy='headroom check; existing peer jobs are never stopped')
         report(status='cpu_signal_preflight')
         subprocess.run([sys.executable, '-u', 'scripts/check_multitask_signals.py',
             '--out', str(output / 'signal_preflight.json')], check=True)
@@ -102,6 +126,7 @@ def main():
             running = []
             def launch(arm, gpu):
                 guard()
+                require_gpu_capacity([gpu], CONFIG.get('minimum_free_gpu_mib', 75000))
                 env = os.environ.copy(); env['CUDA_VISIBLE_DEVICES'] = str(gpu)
                 directory = output / phase / arm
                 directory.parent.mkdir(exist_ok=True)
@@ -115,23 +140,28 @@ def main():
                 lambda **values: report(status=phase + ('_partial_failure' if values['failures'] else ''),
                                         **values), running=running)
             guard()
-            proofs = [json.loads((output / phase / arm / 'initial_state.json').read_text()) for arm in CONFIG['arms']]
-            for key in ('jev_adapter_head_sha256',):
-                if len({p[key] for p in proofs}) != 1:
-                    raise RuntimeError(f'Arm initialization mismatch: {key}')
+            proofs = {arm: json.loads((output / phase / arm / 'initial_state.json').read_text()) for arm in CONFIG['arms']}
+            verify_initializations(proofs, CONFIG)
             if phase == 'smoke':
-                initializations = dict(zip(CONFIG['arms'], proofs))
+                initializations = proofs
             else:
-                for arm, proof in zip(CONFIG['arms'], proofs):
-                    for key in ('common_connector_sha256', 'jev_adapter_head_sha256', 'released_encoder_sha256'):
+                for arm, proof in proofs.items():
+                    for key in ('common_connector_sha256', 'jev_adapter_head_sha256', 'initial_encoder_sha256', 'readout_sha256'):
                         if proof[key] != initializations[arm][key]:
                             raise RuntimeError(f'Smoke weights leaked into formal training: {arm}/{key}')
+            sequences = []
             for arm in CONFIG['arms']:
                 complete = json.loads((output / phase / arm / 'complete.json').read_text())
-                if complete['test_evaluations'] or not complete['checkpoint_reload_verified']:
+                if (complete['test_evaluations'] or not complete['checkpoint_reload_verified']
+                        or not complete['encoder_update_contract_verified']):
                     raise RuntimeError('Unsafe/incomplete preflight')
+                records = [json.loads(line) for line in (output / phase / arm / 'metrics.jsonl').read_text().splitlines()]
+                sequences.append([(r['step'], r['batch_ids_sha256']) for r in records if r['status'] == 'training'])
+            if any(s != sequences[0] for s in sequences[1:]):
+                raise RuntimeError('Arms saw different training samples')
             report(status=phase+'_complete', matched_jev_initialization=True,
-                   connector_note='Native encoder widths differ; no claim of identical connector parameters')
+                   matched_connector_initialization=True, matched_readout_initialization=True,
+                   sampling_matched=True, aligned_encoder_initialization_verified=True)
         for arm in CONFIG['arms']:
             subprocess.run([sys.executable, 'scripts/plot_training_curves.py',
                             '--run-dir', str(output), '--arm', arm], check=True)

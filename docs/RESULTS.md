@@ -1,18 +1,26 @@
 # 当前 EEG→JEV 适配试验与必要历史对照
 
-更新：2026-11-02。当前为 SEED 论文协议下的 LEAF 冻结与 BSR 解冻两组适配试验，[协议](PROTOCOL.md)。此前冻结 BSR 四读出和 LEAF 数字均为历史对照，不是新运行的成绩。
+更新：2026-11-02。当前为文本对齐 VideoMAE 接入 JEV 的五组迁移试验，[协议](PROTOCOL.md)。下方既有数字均为父阶段或历史对照，不是本轮五组的新成绩。
 
-## 🔬 少文本对齐控制
+## 📋 当前五组迁移
+
+运行目录 `artifacts/benchmark/aligned_videomae_jev_20261102/`。InfoNCE／Sigmoid best encoder 各接新 CLS／32-token Q-Former，四组 encoder 冻结；第五组为 InfoNCE＋Q-Former，在 340 步预热后解冻。五组都接 JEV、以分类交叉熵训练，使用同一 17 库划分和 2040 步预算，不访问测试集。
+
+当前已完成迁移代码与配置，正在核验全部输入、源权重和真实 GPU smoke；未将准备完成记作正式训练或结果。GPU 分配为 0、1、4、5、6，不停止正在运行的测评。以新运行的 `pipeline.json`、各组 `transfer_audit.json`、`progress.json`、`complete.json` 为状态证据。
+
+旧配置／实现快照：Git `704ad26`。只迁移训练后的 encoder，CLS／Q-Former、连接器重新初始化，JEV 从原生权重开始；不迁移父 CLS、投影、优化器或 smoke 权重。父完整验证 InfoNCE 47.49%、Sigmoid 46.55% 没有 JEV，不能作为新模型 step 0 的成绩。
+
+## 🔬 父阶段：少文本对齐控制
 
 用户已指定 GPU 6、7 都使用 VideoMAE，分别运行多正例 InfoNCE 与平衡多正例 Sigmoid。配置与解释边界见 [协议](PROTOCOL.md) 的同名章节及 [配置](../configs/contrastive_train.json)。本轮为相同 BSR+CLS、相同固定 MPNet 文本库、相同 2040 步的损失对照；不加载 JEV，不改 GPU 4、5 的任务。
 
-2026-11-01 20:46 UTC 两组已进入正式阶段，先做 step 0 验证，尚无训练后成绩。全部 93 项测试通过（含 11 项新增）；2040 步全部 65,280 次训练输入预检通过，用时约 174 秒。文本库为 49 个规范类别组合、147 条固定文本，同类全部为正例，候选集外不设负例；与旧 MPNet 参考向量 cosine 均 ≥0.99999988。
+两组已完成 2040 步，均选中 step 1700；九库完整验证 BAcc 分别为 InfoNCE 47.49%、Sigmoid 46.55%，encoder 确实更新、未加载 JEV、测试前向为 0。[InfoNCE 完成记录](../artifacts/benchmark/contrastive_videomae_20261101/train/infonce/complete.json)、[Sigmoid 完成记录](../artifacts/benchmark/contrastive_videomae_20261101/train/sigmoid/complete.json)。启动时全部 93 项测试通过；65,280 次训练输入预检通过。文本库为 49 个规范类别组合、147 条固定文本，同类全部为正例，候选集外不设负例。
 
 两组各 17 步真实 smoke 全部完成，分别约 24.5/24.7 秒，峰值分配显存均约 5.75 GiB；覆盖全部数据集、BSR 实际更新、文本不变及磁盘重载输出精确一致。两组发布 encoder、CLS、投影与文本初始化哈希一致，逐步采样哈希一致；正式进程再次从相同发布／新初始化参数开始，不继承 smoke。训练源码提交 `8735329`，未提交数据或权重，未 push。
 
 两组 trainable 参数：BSR 前向路径 86,263,278，CLS 7,091,712，投影 1,182,720；InfoNCE 另有 1 个 scale 参数，Sigmoid 为 scale＋bias 共 2 个。控制器 PID 228501；正式 InfoNCE PID 386898（GPU 6）、Sigmoid PID 386903（GPU 7）。运行产物在 `artifacts/benchmark/contrastive_videomae_20261101`；以 `pipeline.json`、各组 `progress.json` 和 `complete.json` 为完成依据，不把 smoke 成功或进程启动当作正式训练完成。GPU 4、5 原 JEV 适配任务保持运行，受保护源码哈希未变。
 
-## 📋 当前适配试验
+## 📋 历史适配试验：LEAF 冻结／BSR 解冻
 
 - 运行目录：`artifacts/benchmark/encoder_adaptation_seedpaper_20261101`；2026-11-01 20:24 UTC 两组完整 17 步 smoke 均通过，随后启动正式训练。2026-11-02 核对：`bsr_unfrozen` 已完成 2040 步及完整验证，选中 step 2040，九库等权验证 BAcc 31.41%；逐库结果已补入下方历史 LEAF 对照表，测试前向仍为 0。[BSR 解冻完成记录](../artifacts/benchmark/encoder_adaptation_seedpaper_20261101/train/bsr_unfrozen/complete.json)。
 - `leaf_frozen`：原生 LEAF 全程冻结；`bsr_unfrozen`：CLS 读出，340 步连接器预热后解冻 BSR 前向路径。GPU 4、5，各 2040 步、global batch 16。
