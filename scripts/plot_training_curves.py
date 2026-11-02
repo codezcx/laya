@@ -52,20 +52,30 @@ def padded_limits(values, fraction=.12, minimum_pad=.5, lower=None, upper=None):
             min(upper, hi + pad) if upper is not None else hi + pad)
 
 
-def read_records(folder):
+def read_training_records(folder):
     identity_path = folder / 'config.json'
     identity = json.loads(identity_path.read_text())
-    config = identity['config']
+    config = dict(identity['config'])
+    continuation = identity.get('continuation', {})
+    config['start_step'] = continuation.get('start_step', 0)
+    if continuation:
+        config['steps'] = continuation['total_steps']
+        config['run_name'] = continuation['plan']['run_name']
     source_paths = [identity_path, folder / 'metrics.jsonl']
     rows = [json.loads(line) for line in source_paths[1].read_text().splitlines() if line.strip()]
     training = [r for r in rows if r['status'] == 'training']
     if not training:
         raise ValueError('No recorded training loss')
     steps = [r['step'] for r in training]
-    if steps != sorted(set(steps)) or min(steps) < 1 or max(steps) > config['steps']:
+    if steps != sorted(set(steps)) or min(steps) <= config['start_step'] or max(steps) > config['steps']:
         raise ValueError('Duplicate, out-of-order, or invalid training steps')
     if any(not np.isfinite(r['loss']) or r['loss'] < 0 for r in training):
         raise ValueError('Invalid recorded cross-entropy')
+    return config, training, source_paths
+
+
+def read_records(folder):
+    config, training, source_paths = read_training_records(folder)
     files = sorted(folder.glob('valid_step*_subset.json'))
     validation = [json.loads(f.read_text()) for f in files]
     if not validation or validation[0]['step'] != 0:
@@ -130,14 +140,131 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
+def plot_selected_losses(folder, output, datasets, overwrite=False, parent_folder=None):
+    """Replot selected training tasks without touching the original figures."""
+    config, train, sources = read_training_records(folder)
+    boundary = config['start_step']
+    segments = [dict(run_name=config['run_name'], first_step=train[0]['step'], last_step=train[-1]['step'])]
+    if parent_folder is not None:
+        continuation = json.loads((folder / 'config.json').read_text()).get('continuation', {})
+        if not continuation or continuation.get('parent_config_sha256') != sha256(parent_folder / 'config.json'):
+            raise ValueError('Parent config does not match recorded continuation provenance')
+        parent_config, parent_train, parent_sources = read_training_records(parent_folder)
+        if parent_config['start_step'] != 0 or parent_train[-1]['step'] != boundary:
+            raise ValueError('Parent history must start at step 1 and end at the continuation boundary')
+        if parent_config['datasets'] != config['datasets']:
+            raise ValueError('Parent and continuation dataset lists differ')
+        segments.insert(0, dict(run_name=parent_config['run_name'], first_step=parent_train[0]['step'],
+                               last_step=parent_train[-1]['step']))
+        train = parent_train + train
+        sources = parent_sources + sources
+        config['start_step'] = 0
+        config['run_name'] = parent_config['run_name']
+    if not datasets or len(set(datasets)) != len(datasets):
+        raise ValueError('Select a nonempty list of distinct datasets')
+    observed = {r['dataset'] for r in train}
+    if set(datasets) - set(config['datasets']) or set(datasets) - observed:
+        raise ValueError('Selected dataset is not configured or has no training observations')
+    start = config['start_step']
+    if [r['step'] for r in train] != list(range(start + 1, train[-1]['step'] + 1)):
+        raise ValueError('Selected loss plots require a contiguous log; missing updates must not be bridged')
+    output = output.resolve()
+    stem = 'training_loss_selected'
+    names = [f'{stem}.{ext}' for ext in ('png', 'pdf', 'svg', 'csv')]
+    names.append('figure_manifest.json')
+    if not overwrite and any((output / name).exists() for name in names):
+        raise FileExistsError('Selected-loss outputs already exist; use --overwrite deliberately')
+    source_hashes = {str(p.resolve()): sha256(p) for p in sources}
+    output.mkdir(parents=True, exist_ok=True)
+    csv_rows, ranges, counts = [], {}, {}
+    total = train[-1]['step']
+    nrows = (len(datasets) + 2) // 3
+    with plt.style.context(str(STYLE)):
+        fig, axes = plt.subplots(nrows, 3, figsize=(12, 1.8 + 2.8 * nrows), squeeze=False)
+        fig.subplots_adjust(left=.075, right=.98, bottom=.12, top=.85, hspace=.5, wspace=.3)
+        title = 'Continuation training loss' if start else 'Training loss'
+        fig.suptitle(f'{title} | Selected benchmark datasets', fontsize=16, x=.075, ha='left', y=.97)
+        fig.text(.075, .932, f'{config["run_name"]} · {len(datasets)} of {len(config["datasets"])} training datasets shown', fontsize=9)
+        handles = [Line2D([], [], color=GREY, marker='.', linewidth=.6, label='Raw training-batch loss'),
+                   Line2D([], [], color=BLUE, linewidth=1.8, label='Trailing 9 task-observation mean')]
+        fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(.52, .912), ncol=2)
+        for ax, name in zip(axes.flat, datasets):
+            rows = [r for r in train if r['dataset'] == name]
+            tx = np.asarray([r['step'] for r in rows])
+            y = np.asarray([r['loss'] for r in rows])
+            smoothed = trailing_mean(y, 9)
+            ax.plot(tx, y, color=GREY, marker='.', markersize=2.5, linewidth=.6)
+            ax.plot(tx, smoothed, color=BLUE, linewidth=1.8)
+            ax.set_title(f'{DISPLAY.get(name, name)} ({len(rows)} batches)', loc='left', fontsize=11)
+            ax.set_ylabel('Cross-entropy', fontsize=9)
+            ax.set_xlabel('Global training step')
+            ax.set_xlim(start, total)
+            if start:
+                inner = np.arange((start // 500 + 1) * 500, total, 500)
+                inner = inner[(inner - start > .15 * (total - start)) & (total - inner > .15 * (total - start))]
+                ticks = np.r_[start, inner, total]
+            else:
+                ticks = np.linspace(0, total, 4, dtype=int)
+            ax.set_xticks(ticks)
+            ax.set_ylim(*padded_limits(y, minimum_pad=.05, lower=0))
+            ax.grid(axis='y', color='#dddddd', linewidth=.6)
+            ranges[name] = list(ax.get_ylim())
+            counts[name] = len(rows)
+            for row, mean in zip(rows, smoothed):
+                csv_rows.append(dict(step=row['step'], dataset=name, loss=row['loss'],
+                                     trailing_9_mean=float(mean) if np.isfinite(mean) else ''))
+        for ax in list(axes.flat)[len(datasets):]:
+            ax.axis('off')
+        fig.text(.075, .065, f'Recorded steps {start + 1}–{total}. Independent y axes; all raw observations retained; no unrecorded losses added.', fontsize=9)
+        fig.text(.075, .035, f'Training-batch losses, not validation/test losses. The model was jointly trained on all {len(config["datasets"])} datasets.', fontsize=9)
+        for ext in ('png', 'pdf', 'svg'):
+            fig.savefig(output / f'{stem}.{ext}', dpi=300, facecolor='white', transparent=False)
+        plt.close(fig)
+    write_csv(output / f'{stem}.csv', csv_rows)
+    if source_hashes != {str(p.resolve()): sha256(p) for p in sources}:
+        raise RuntimeError('Source logs changed while rendering')
+    manifest = dict(created_utc=datetime.now(timezone.utc).isoformat(), sources_sha256=source_hashes,
+        script_sha256=sha256(__file__), style_sha256=sha256(STYLE),
+        versions=dict(matplotlib=matplotlib.__version__, numpy=np.__version__),
+        run_name=config['run_name'], training_datasets=config['datasets'], displayed_datasets=datasets,
+        omitted_datasets=[d for d in config['datasets'] if d not in datasets],
+        selection_reason='User requested the nine benchmark datasets; other tasks remain in original training logs and figures',
+        total_training_updates=len(train), plotted_updates=len(csv_rows), task_update_counts=counts,
+        continuation_start_step=boundary, recorded_step_range=[train[0]['step'], train[-1]['step']],
+        source_segments=segments, source_boundary_shown=False,
+        planned_endpoint=config['steps'],
+        smoothing='Trailing arithmetic mean of 9 observations within each task; full window required',
+        axes_limits=ranges, missing_step0_training_loss='not recorded, not fabricated',
+        uncertainty='not estimated; one run, no confidence intervals',
+        description='Raw and smoothed training-batch cross-entropy; filtering the figure does not change training or evaluation',
+        outputs_sha256={name: sha256(output / name) for name in names if name != 'figure_manifest.json'})
+    (output / 'figure_manifest.json').write_text(json.dumps(manifest, indent=2, allow_nan=False) + '\n')
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     default_name = json.loads((ROOT / 'configs/benchmark_train.json').read_text())['run_name']
     parser.add_argument('--run-dir', type=Path, default=ROOT / 'artifacts/benchmark' / default_name)
-    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer','leaf_frozen','bsr_unfrozen'], required=True)
+    parser.add_argument('--arm', choices=['mean_pool','cls','cross_attention','qformer','leaf_frozen','bsr_unfrozen'])
+    parser.add_argument('--train-dir', type=Path, help='Explicit saved train directory for selected-loss plots')
+    parser.add_argument('--parent-train-dir', type=Path, help='Prepend verified parent training logs without marking the boundary')
+    parser.add_argument('--loss-datasets', nargs='+', help='Render only these datasets\' training losses')
     parser.add_argument('--out', type=Path)
     parser.add_argument('--overwrite', action='store_true', help='Replace only this script\'s named plot outputs')
     args = parser.parse_args()
+    if args.loss_datasets:
+        if args.train_dir is None and args.arm is None:
+            parser.error('--loss-datasets requires --train-dir or --arm')
+        folder = args.train_dir.resolve() if args.train_dir else args.run_dir.resolve() / 'train' / args.arm
+        output = args.out or folder.parent / 'figures' / 'selected_training_losses'
+        parent = args.parent_train_dir.resolve() if args.parent_train_dir else None
+        manifest = plot_selected_losses(folder, output, args.loss_datasets, args.overwrite, parent_folder=parent)
+        print(json.dumps(dict(output=str(output.resolve()), datasets=manifest['displayed_datasets'],
+                              plotted_updates=manifest['plotted_updates'])))
+        return
+    if args.arm is None or args.train_dir is not None or args.parent_train_dir is not None:
+        parser.error('Full curve plots require --arm; --train-dir is only for --loss-datasets')
     folder = args.run_dir.resolve() / 'train' / args.arm
     output = args.out or args.run_dir / 'figures' / args.arm
     stems = ['training_validation_curves', 'validation_by_dataset', 'training_loss_by_dataset']
