@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from transformers import VideoMAEConfig, VideoMAEModel
 from .runtime import digest
+from .encoder_lora import inject_videomae_lora, is_lora
 
 
 def upstream_files(config):
@@ -49,6 +50,7 @@ class OnlineBSR(nn.Module):
         self.register_buffer('image_std', torch.tensor(IMAGENET_STD).view(1, 3, 1, 1, 1))
         self.channels = frozenset(CHANNELS_1010)
         self.finetune = bool(trainable)
+        self.lora_audit = None
         self.adaptation_enabled = bool(trainable)
         self.requires_grad_(trainable)
         # Released inverse renderer is a reconstruction-only head, not this path.
@@ -60,10 +62,21 @@ class OnlineBSR(nn.Module):
     def train(self, mode=True):
         return super().train(mode and self.finetune and self.adaptation_enabled)
 
+    def enable_videomae_lora(self, spec):
+        if not self.finetune or self.lora_audit is not None:
+            raise ValueError('VideoMAE LoRA requires a trainable, unwrapped BSR encoder')
+        # Renderer and SharedScale retain the original full-tuning policy.
+        self.lora_audit = inject_videomae_lora(self.encoder, spec)
+        self.set_adaptation_enabled(self.adaptation_enabled)
+        return self.lora_audit
+
     def set_adaptation_enabled(self, enabled):
         self.adaptation_enabled = self.finetune and bool(enabled)
-        for module in (self.renderer.eeg2pix, self.adapter, self.encoder):
+        for module in (self.renderer.eeg2pix, self.adapter):
             module.requires_grad_(self.adaptation_enabled)
+        for name, parameter in self.encoder.named_parameters():
+            parameter.requires_grad_(self.adaptation_enabled and
+                                     (getattr(self, 'lora_audit', None) is None or is_lora(name)))
         self.train(self.training)
 
     def forward(self, x, channels):

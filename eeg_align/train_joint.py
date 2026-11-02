@@ -22,6 +22,8 @@ from .distributed import atomic_save
 from .lr_schedule import rates_at
 from .evaluation import require_split, fixed_training_rows, validation_rows
 from .aligned_checkpoint import load_aligned_encoder, source_spec
+from .encoder_lora import (base_fingerprint, lora_fingerprint, is_lora,
+                           verify_matched_recipe, verify_control_initialization)
 
 
 def code_identity():
@@ -53,6 +55,14 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     setting = arm_settings(args.arm)
+    control = verify_matched_recipe(CONFIG)
+    control_batches = None
+    if control is not None:
+        records = [json.loads(line) for line in
+                   (Path(control['directory']) / 'metrics.jsonl').read_text().splitlines()]
+        control_batches = {r['step']: r['batch_ids_sha256'] for r in records if r['status'] == 'training'}
+        if set(control_batches) != set(range(1, CONFIG['steps'] + 1)):
+            raise ValueError('Incomplete control sampling sequence')
     train_encoder = setting['encoder_trainable']
     if setting['encoder'] != 'bsr':
         raise ValueError('Current transfer controls require BSR/VideoMAE')
@@ -83,6 +93,8 @@ def main():
         jev_config_sha256={p: digest(root / p) for p in ('config.json', 'model.safetensors.index.json',
             'adapter_vllm/adapter_config.json', 'adapter_vllm/decision_head.json', 'adapter_vllm/adapter_model.safetensors')},
         jev_shard_stats={p.name: [p.stat().st_size, p.stat().st_mtime_ns] for p in sorted(root.glob('model-*.safetensors'))})
+    if control is not None and identity['runtime'] != control['control_runtime']:
+        raise ValueError('Matched control framework versions changed')
     if args.resume:
         if identity != json.loads((args.out / 'config.json').read_text()):
             raise ValueError('Resume identity mismatch')
@@ -95,6 +107,12 @@ def main():
     seed_rng(CONFIG['seed'])
     encoder = OnlineBSR(CONFIG, trainable=train_encoder)
     transfer = load_aligned_encoder(encoder, setting, CONFIG, identity['cache_indexes'])
+    initial_encoder_sha256 = tensor_fingerprint(encoder.state_dict())
+    lora_audit = None
+    if setting.get('videomae_lora'):
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(CONFIG['seed'] + 200)
+            lora_audit = encoder.enable_videomae_lora(setting['videomae_lora'])
     encoder = encoder.cuda()
     if transfer is not None:
         write_json(args.out / 'transfer_audit.json', transfer)
@@ -120,19 +138,28 @@ def main():
     active = [p for g in groups for p in g['params']]
     jev_params = [p for g in groups if g['name'] in {'jev_lora', 'decision_head'} for p in g['params']]
     frozen_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
+    initial_lora_sha256 = lora_fingerprint(encoder.encoder) if lora_audit else None
     if not args.resume:
-        write_json(args.out / 'initial_state.json', dict(
+        initial = dict(
             common_connector_sha256=tensor_fingerprint(model.connector.state_dict()),
             jev_adapter_head_sha256=tensor_fingerprint({n:p for n,p in model.named_parameters()
                 if p.requires_grad and not n.startswith(('readout.', 'connector.', 'eeg_encoder.'))}),
             encoder_frozen=not train_encoder,
-            initial_encoder_sha256=frozen_proof, aligned_transfer=transfer,
+            initial_encoder_sha256=initial_encoder_sha256, aligned_transfer=transfer,
+            initial_adapted_encoder_sha256=frozen_proof, videomae_lora=lora_audit,
             readout_sha256=tensor_fingerprint(model.readout.state_dict()),
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens=model.readout.output_tokens,
             initialization=('aligned encoder + native JEV + new readout/connector; encoder-only transfer'
                             if transfer else 'released encoder + native JEV + new connector; no old downstream weights'),
-            git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()))
+            git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
+        verify_control_initialization(initial, control)
+        write_json(args.out / 'initial_state.json', initial)
+        if control is not None:
+            write_json(args.out / 'matched_control_audit.json', dict(**control,
+                       initialization_matched=True, learning_rates_matched=True))
+        if lora_audit:
+            print('VIDEOMAE_LORA_VERIFIED', json.dumps(lora_audit), flush=True)
     step, best_score, best_step = 0, -1., None
     seed_rng(CONFIG['seed'])
     if args.resume:
@@ -178,6 +205,8 @@ def main():
 
     def save(filename, optimizer_state=True):
         guard()
+        if lora_audit and base_fingerprint(encoder.encoder) != lora_audit['base_sha256']:
+            raise RuntimeError('Frozen VideoMAE base weights/buffers changed')
         if (not train_encoder or step <= bridge_only) and frozen_proof != tensor_fingerprint(model.eeg_encoder.state_dict()):
             raise RuntimeError('Frozen encoder weights/buffers changed')
         if not all(p.requires_grad for p in active):
@@ -244,6 +273,9 @@ def main():
         for step in range(step+1, total+1):
             guard()
             tid, rows = store.sample(step, batch_size, CONFIG['seed'])
+            batch_sha256 = hashlib.sha256(json.dumps([r['id'] for r in rows]).encode()).hexdigest()
+            if control_batches is not None and batch_sha256 != control_batches[step]:
+                raise RuntimeError('Sampling differs from full-tuning control')
             if train_encoder:
                 model.eeg_encoder.set_adaptation_enabled(step > bridge_only)
             model.train()
@@ -269,6 +301,19 @@ def main():
                 raise RuntimeError('JEV phase gradient contract failed')
             norms = {g['name']: float(torch.stack([p.grad.float().square().sum() for p in g['params']
                      if p.grad is not None]).sum().sqrt()) if any(p.grad is not None for p in g['params']) else 0. for g in groups}
+            lora_norms = {}
+            if lora_audit:
+                if any(p.requires_grad or p.grad is not None for n,p in encoder.encoder.named_parameters()
+                       if not is_lora(n)):
+                    raise RuntimeError('Frozen VideoMAE base entered optimization')
+                monitored = dict(videomae_lora=[p for n,p in encoder.encoder.named_parameters() if is_lora(n)],
+                                 renderer=list(encoder.renderer.eeg2pix.parameters()),
+                                 sharedscale=list(encoder.adapter.parameters()))
+                lora_norms = {name: float(torch.stack([p.grad.float().square().sum() for p in params
+                             if p.grad is not None]).sum().sqrt()) if any(p.grad is not None for p in params) else 0.
+                             for name, params in monitored.items()}
+                if any((value > 0) != (step > bridge_only) for value in lora_norms.values()):
+                    raise RuntimeError(f'LoRA/renderer/SharedScale gradient contract failed: {lora_norms}')
             if norms['connector'] <= 0 or ('readout' in norms and norms['readout'] <= 0):
                 raise RuntimeError('Missing bridge/readout learning signal')
             if train_encoder and step > bridge_only and norms['eeg_encoder'] <= 0:
@@ -283,7 +328,8 @@ def main():
             report(dict(status='training', step=step, total_steps=total, dataset=tasks[tid]['task_id'],
                 loss=loss_sum / batch_size, accuracy=correct / batch_size, gradient_norm=float(grad),
                 group_gradient_norms=norms, learning_rates=rates,
-                batch_ids_sha256=hashlib.sha256(json.dumps([r['id'] for r in rows]).encode()).hexdigest(),
+                encoder_component_gradient_norms=lora_norms,
+                batch_ids_sha256=batch_sha256,
                 peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30))
             if stopping:
                 save('last.pt')
@@ -324,10 +370,19 @@ def main():
         final_encoder_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
         if (final_encoder_proof != frozen_proof) != (train_encoder and (args.smoke or best_step > bridge_only)):
             raise RuntimeError('Final encoder update/freeze proof failed')
+        lora_proof = None
+        if lora_audit:
+            base_unchanged = base_fingerprint(encoder.encoder) == lora_audit['base_sha256']
+            lora_changed = lora_fingerprint(encoder.encoder) != initial_lora_sha256
+            if not base_unchanged or lora_changed != (args.smoke or best_step > bridge_only):
+                raise RuntimeError('VideoMAE LoRA base/update proof failed')
+            lora_proof = dict(base_unchanged=base_unchanged, lora_changed=lora_changed,
+                              rank=lora_audit['rank'], alpha=lora_audit['alpha'])
         write_json(args.out / 'complete.json', dict(smoke=args.smoke, updates=step,
             selected_step=best_step, selection_score=best_score, validation=full,
             test_evaluations=0, checkpoint_reload_verified=True, encoder_update_contract_verified=True,
             encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
+            videomae_lora=lora_proof, matched_control_sampling_verified=control_batches is not None,
             selected_encoder_sha256=final_encoder_proof))
         report(dict(status='complete', step=step, selected_step=best_step))
     except BaseException as exc:

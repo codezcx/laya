@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from eeg_align.runtime import CONFIG, digest
 from eeg_align.multitask_data import write_json
+from eeg_align.encoder_lora import verify_matched_recipe, verify_control_initialization
 
 
 def require_gpu_capacity(gpus, minimum_free_mib):
@@ -27,10 +28,12 @@ def require_gpu_capacity(gpus, minimum_free_mib):
 
 
 def verify_initializations(proofs, config):
+    control = verify_matched_recipe(config)
     for key in ('common_connector_sha256', 'jev_adapter_head_sha256'):
         if len({p[key] for p in proofs.values()}) != 1:
             raise RuntimeError(f'Arm initialization mismatch: {key}')
     for arm, proof in proofs.items():
+        verify_control_initialization(proof, control)
         setting = config['arm_settings'][arm]
         if proof['initial_encoder_sha256'] != config['aligned_sources'][setting['aligned_source']]['encoder_sha256']:
             raise RuntimeError(f'Wrong aligned encoder initialization: {arm}')
@@ -175,6 +178,9 @@ def main():
                     or json.loads((ROOT / 'configs/benchmark_train.json').read_text()) != CONFIG):
                 raise RuntimeError('Queued experiment code/config changed; refusing new launches')
         guard()
+        control = verify_matched_recipe(CONFIG)
+        if control is not None:
+            report(matched_control=control['directory'], matched_recipe_verified=True)
         report(code_sha256=hashes, configured_arms=CONFIG['arms'], assigned_gpu_slots=gpus)
         free = require_gpu_capacity(gpus, CONFIG.get('minimum_free_gpu_mib', 75000))
         report(launch_free_mib=free, gpu_policy='headroom check; existing peer jobs are never stopped')

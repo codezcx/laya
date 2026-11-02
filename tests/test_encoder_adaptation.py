@@ -48,12 +48,13 @@ def test_current_seed_reindex_did_not_change_signals_or_other_datasets():
 
 
 def test_adaptation_configuration_and_schedule():
-    assert len(CONFIG['arms']) == 5
-    assert arm_settings('infonce_cls_frozen')['encoder_trainable'] is False
-    assert arm_settings('infonce_qformer_unfrozen')['readout'] == 'qformer'
-    assert arm_settings('infonce_qformer_unfrozen')['encoder_trainable'] is True
-    assert sum(arm_settings(a)['encoder_trainable'] for a in CONFIG['arms']) == 1
+    assert CONFIG['arms'] == ['infonce_qformer_lora64']
+    setting = arm_settings(CONFIG['arms'][0])
+    assert setting['encoder_trainable'] is True and setting['readout'] == 'qformer'
+    assert setting['videomae_lora']['rank'] == setting['videomae_lora']['alpha'] == 64
+    assert setting['videomae_lora']['dropout'] == 0
     peaks = CONFIG['learning_rates']
+    assert peaks['eeg_encoder'] == 1e-6
     assert rates_at(340,2040,340,peaks)['eeg_encoder'] == 0
     assert rates_at(341,2040,340,peaks)['eeg_encoder'] > 0
 

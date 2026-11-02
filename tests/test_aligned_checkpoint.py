@@ -116,13 +116,17 @@ def test_source_hash_and_completion_gate(saved_source):
 
 
 def test_five_arm_initializations_match_by_source_and_readout():
+    config = copy.deepcopy(CONFIG)
+    config.pop('matched_control', None)
+    config['arms'] = ['a', 'b']
+    config['arm_settings'] = {a:dict(readout='qformer', aligned_source='infonce') for a in config['arms']}
     proofs = {a: dict(common_connector_sha256='bridge', jev_adapter_head_sha256='jev',
-                     initial_encoder_sha256=CONFIG['aligned_sources'][CONFIG['arm_settings'][a]['aligned_source']]['encoder_sha256'],
-                     readout_sha256=CONFIG['arm_settings'][a]['readout']) for a in CONFIG['arms']}
-    verify_initializations(proofs, CONFIG)
-    proofs['infonce_qformer_unfrozen']['readout_sha256'] = 'different'
+                     initial_encoder_sha256=config['aligned_sources']['infonce']['encoder_sha256'],
+                     readout_sha256='qformer') for a in config['arms']}
+    verify_initializations(proofs, config)
+    proofs['b']['readout_sha256'] = 'different'
     with pytest.raises(RuntimeError, match='Unmatched qformer'):
-        verify_initializations(proofs, CONFIG)
+        verify_initializations(proofs, config)
 
 
 def test_gpu_headroom_allows_existing_small_jobs_but_rejects_overcommit(monkeypatch):

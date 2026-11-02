@@ -1,30 +1,35 @@
-# EEG→JEV：文本对齐编码器的五组迁移试验
+# EEG→JEV：固定学习率的 VideoMAE LoRA-r64 对照
 
-_更新：2026-11-02。当前运行 `aligned_videomae_jev_20261102`，配置见 [benchmark_train.json](../configs/benchmark_train.json)。_
+_更新：2026-11-02。当前运行 `aligned_videomae_jev_lora64_20261102`，配置见 [benchmark_train.json](../configs/benchmark_train.json)。_
 
 ---
 
 ## 🎯 要回答的问题
 
-1. What is the problem? 直接解冻发布 VideoMAE 接入 JEV 的一轮验证 BAcc 仅 31.41%，需要检验先做 EEG–文本对齐能否改善 JEV 的信号利用。
-2. Why is it important? 区分 EEG 表征、token 读出和 JEV 适配问题，避免把一轮失败推广为信号编码器不可用。
-3. Why is it hard? 固定类别文本的信息量有限，MPNet 对齐空间不等于 JEV 隐空间，多任务、小样本、不同通道及长度仍带来困难。
-4. Prior limitations? 对比学习 47.49%／46.55% 没有加载 JEV；旧冻结 BSR 组的 SEED 协议又不同，不能直接作为匹配对照。
-5. Proposed components? 迁移两组对齐 best encoder，做“对齐损失来源×读出结构”四组冻结控制，再加 InfoNCE＋Q-Former 解冻控制。
+1. What is the problem? InfoNCE＋Q-Former→JEV 全参组完整验证 BAcc 为 44.15%，需要检验限制 VideoMAE 的可更新参数是否有帮助。
+2. Why is it important? 在相同训练预算和学习率下区分参数更新方式的影响，避免同时调参导致无法归因。
+3. Why is it hard? LoRA 与全参的有效权重更新并不相同，固定学习率只能回答本设定下的差异，不能证明某种方法的最优性能。
+4. Prior limitations? 父 InfoNCE 的 47.49% 没有 JEV；不同协议的 LEAF 或旧 VideoMAE 数字不是本轮匹配控制。
+5. Proposed components? 复用同一 InfoNCE encoder、新初始化且种子匹配的 Q-Former／连接器／原生 JEV，只将 VideoMAE 更新替换为 rank=64 LoRA。
 
-本轮五组都接 JEV，第二阶段仅使用任务分类交叉熵，不继续叠加 InfoNCE／Sigmoid 损失。名字中的 InfoNCE／Sigmoid 表示第一阶段权重来源。仍是有监督多任务试验，不是 zero-shot，也不把通用连接器结构本身当作 novelty。
+第二阶段仅使用任务分类交叉熵，不继续叠加 InfoNCE 损失。名字中的 InfoNCE 表示第一阶段权重来源。仍是有监督多任务试验，不是 zero-shot，不把通用连接器或 LoRA 本身当作 novelty。
 
-## 🔌 五组结构与初始化
+## 🔌 LoRA 结构与匹配控制
 
-| 实验标识 | 对齐权重来源 | 新读出 | EEG 编码器策略 | GPU |
-| --- | --- | --- | --- | ---: |
-| infonce_cls_frozen | InfoNCE best，step 1700 | CLS，1 token | 全程冻结 | 0 |
-| infonce_qformer_frozen | InfoNCE best，step 1700 | Q-Former，32 tokens | 全程冻结 | 1 |
-| sigmoid_cls_frozen | Sigmoid best，step 1700 | CLS，1 token | 全程冻结 | 4 |
-| sigmoid_qformer_frozen | Sigmoid best，step 1700 | Q-Former，32 tokens | 全程冻结 | 5 |
-| infonce_qformer_unfrozen | InfoNCE best，step 1700 | Q-Former，32 tokens | 1–340 步冻结，341–2040 步解冻 | 6 |
+| 配置项 | 全参控制 | 本轮 LoRA-r64 |
+| --- | --- | --- |
+| 实验标识 | infonce_qformer_unfrozen | infonce_qformer_lora64 |
+| VideoMAE | 全参更新 | base 冻结，仅训练 LoRA A/B |
+| renderer／SharedScale | 预热后训练 | 相同，不额外冻结 |
+| encoder 组学习率 | 1e-6 | 1e-6 |
+| Q-Former／连接器 | 新初始化，参与训练 | 相同初值与训练方式 |
+| JEV | 原生 LoRA＋choice head 按阶段训练 | 相同 |
+| 训练预算 | 2040 步 | 2040 步 |
+| 完整验证 BAcc | 44.15% | 待完成 |
 
-用户已允许与现有测评共卡；本次选用当前余量更大的五张卡，不停止、迁移或重启已有测评进程。每次启动子进程前检查至少 72,000 MiB 空闲；实际峰值以五组真实 smoke 为准。
+本轮只新增一个实验，使用 GPU 0，启动前要求至少 72,000 MiB 空闲。LoRA 的 rank=64、alpha=64，缩放系数 alpha/r=1，dropout=0；A 为 Kaiming-uniform，B 为零，初始增量为零。12 层每层注入 query/key/value、attention.output.dense、intermediate.dense、output.dense，共 72 个线性层；bias、LayerNorm 和 patch embedding 等原 VideoMAE 参数全部冻结，不合并低秩增量到 base。LoRA 共 10,616,832 个参数；另保留原 renderer／SharedScale 的 26,862 个可训练参数。
+
+控制为 `aligned_videomae_jev_20261102/train/infonce_qformer_unfrozen`，不是从其选中的下游 checkpoint 继续训练。配置中的 `matched_control` 固定控制组配置／初值／完成记录 SHA-256；只允许运行标识、GPU 调度和 VideoMAE LoRA 设置差异。训练数据、全部学习率、优化器配置、预算、评估规则等任一其他变化均拒绝启动。逐步训练样本 ID 哈希也与原组核对。
 
 权重来自 `artifacts/benchmark/contrastive_videomae_20261101/train/{infonce,sigmoid}/best.pt`，两组均按第一阶段固定验证子集选中 step 1700，不重新挑选更有利于第二阶段的父 checkpoint：
 
@@ -37,7 +42,7 @@ _更新：2026-11-02。当前运行 `aligned_videomae_jev_20261102`，配置见 
 
 仅迁移训练后的 `renderer.eeg2pix`、SharedScale、VideoMAE 及全部 encoder buffers，包括未进入普通 state_dict 的 STFT／电极索引 buffers。重建专用 `pix2eeg` 保持原发布权重，不参与前向和训练。源 checkpoint 的 CLS、投影层、scale/bias、文本向量、优化器与 RNG 都不迁移。
 
-CLS 和 Q-Former 都从固定种子重新初始化，避免“已训练 CLS 对随机 Q-Former”的初始化混杂。同结构读出跨来源初值一致，三组 Q-Former 初值一致；五组连接器与原生 JEV LoRA／head 初值一致。因此 47.49%／46.55% 不能当作新模型 step 0 应达到的成绩。
+本轮只使用 InfoNCE 父权重。Q-Former、连接器和原生 JEV 从与全参组相同种子重新初始化，逐项核对参数哈希，不迁移父 CLS／投影或全参组下游权重。上表两个父成绩保留为来源参考，不能当作新模型 step 0 应达到的成绩。
 
 CLS 是新学习的全局 query＋一层 self-attention/FFN，不是 VideoMAE 的第一个 patch，也不是逐帧 CLS。Q-Former 为 4 层 query self-attention＋cross-attention＋FFN，32 个 learnable queries、768 维、12 heads；不是预训练 BLIP-2 权重。连接器均为 LN→Linear(768,5120)→GELU→Linear(5120,5120)。任务说明、问题和候选选项只进入 JEV，真实类别只用于监督。
 
@@ -77,19 +82,19 @@ SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处�
 - 保留第一阶段输入适配：微伏、69 通道网格、200 Hz、200 点 STFT 幅值谱、16 帧、SharedScale、ImageNet 归一化；长窗分段后全部拼接，不裁尾部
 - 单 seed=42；2040 步，global batch=16，microbatch=8，eval microbatch=8
 - 17 库周期随机轮转，库内类别均衡／被试均匀；每库 120 个 batch、1920 次样本呈现，不是 120 个完整 epoch
-- 1–340 步仅训练新读出和连接器；341–2040 步开放 JEV 原生 LoRA 与 choice head，第五组同时开放 BSR 前向路径
-- 编码器解冻是完整前向参数更新，不是 encoder LoRA；JEV 基础权重始终冻结
-- AdamW：读出／连接器 LR 1e-4，JEV LoRA 5e-6，choice head 1e-5，第五组 encoder 1e-6；weight decay .01，clip norm 1
+- 1–340 步仅训练新读出和连接器；341–2040 步开放 JEV 原生 LoRA、choice head、VideoMAE LoRA、renderer 和 SharedScale
+- VideoMAE 基础参数全程冻结；JEV 基础权重始终冻结；重建专用 pix2eeg 始终冻结
+- AdamW：读出／连接器 LR 1e-4，JEV LoRA 5e-6，choice head 1e-5，encoder 组 1e-6；weight decay .01，clip norm 1
 - 每个参数组自开放日起 warmup 62 步，随后 cosine 衰减至峰值 2%；沿用现有日程，不为某组单独调参
-- 正式训练重新加载相同父 best 权重，不继承 smoke 更新；第五组与 InfoNCE＋Q-Former 冻结组仅 encoder 适配策略不同
+- 正式训练重新加载相同父 best 权重，不继承 smoke 更新；不从 44.15% 下游 checkpoint 续训
 - 保存每步每库 loss、batch Acc、LR、梯度、样本哈希与显存，供后续训练曲线和表征分析
-- 本轮新增五组各 2040 步；父对齐训练是额外预算，不与无对齐旧组宣称等总预算
+- 本轮只新增一个 2040 步实验；与全参控制使用相同父对齐权重，不另外增加对齐训练
 
 ## 📊 验证与启动门控
 
 从 step 0 记录固定每库 ≤512 验证窗和 ≤128 训练监控窗；每 340 步重复。按九库等权验证 BAcc 选择 best，同分保留较早 step。结束后仅对 best 跑完整 61,327 窗验证，保存逐窗预测，自动绘制 loss 与验证曲线。测试集保持关闭，训练子集监控不能称为完整训练集准确率。
 
-启动顺序：全部计划训练输入 CPU 检查；五组各 17 步真实 GPU smoke；核对源权重、相同初始化、逐步样本、冻结／解冻梯度及权重变化、磁盘重载；全部通过后并行正式训练。只读加载需通过源 checkpoint 文件哈希、选中步数、未访问测试集、相同 split/QC/cache/类别语义检查，并逐项核对所有 encoder 前向参数与 buffers。
+启动顺序：全部计划训练输入 CPU 检查；17 步真实 GPU smoke；核对源权重、匹配控制初值、逐步样本、VideoMAE base 不变、LoRA／renderer／SharedScale 梯度及更新、磁盘重载；全部通过后正式训练。只读加载需通过源 checkpoint 文件哈希、选中步数、未访问测试集、相同 split/QC/cache/类别语义检查，并逐项核对所有 encoder 前向参数与 buffers。
 
 `transfer_audit.json` 记录父 checkpoint、encoder 哈希和迁移范围；`initial_state.json` 记录新读出、连接器、JEV 初值。源码／配置在运行期有 hash guard；源 checkpoint 文件大小与时间戳也受监控。已有任务运行期间不得改其导入模块，恢复只用相同身份的未完成 `last.pt`。
 
@@ -100,11 +105,11 @@ laya/.venv-eeg/bin/python -m pytest -q tests
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
 ```
 
-输出 `artifacts/benchmark/aligned_videomae_jev_20261102/`。控制器状态 `pipeline.json`，分组进度 `train/<arm>/progress.json`。同目录不可重复启动；控制器脱离终端运行。失败时保留独立在跑的组及全部产物，不杀其他用户任务。
+输出 `artifacts/benchmark/aligned_videomae_jev_lora64_20261102/`。控制器状态 `pipeline.json`，分组进度 `train/infonce_qformer_lora64/progress.json`。同目录不可重复启动；控制器脱离终端运行。失败时保留全部产物，不杀其他用户任务。
 
 ## ⚠️ 解释边界与历史复现
 
-旧 LEAF 适配入口与配置已在 Git `704ad26` 归档，当前工作树只维护这五组迁移及其上游对齐组件。父对齐实验代码仍作为本方法第一阶段保留，历史运行必须从对应提交的隔离 worktree 复现，不能覆盖当前源码。
+旧 LEAF 适配入口与配置已在 Git `704ad26` 归档，五组迁移及四卡恢复入口在 `828a17d`。当前工作树维护同一方法的 LoRA 适配控制及其共享组件。父对齐代码仍作为第一阶段保留，历史运行必须从对应提交的隔离 worktree 复现，不能覆盖当前源码。
 
 SEED 被试内，其余八个 benchmark 跨被试；TUAB/TUEV 19 个候选共享 ID、其中 5 个跨库角色冲突仍未解决，基模预训练重叠及额外缓存来源风险也未排除。HMC 151 份已补齐，但作者随机名单未确认。不声称完全复现 EEG-FM-Bench 或严格无泄漏。
 

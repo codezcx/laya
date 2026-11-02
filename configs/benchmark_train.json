@@ -1,5 +1,5 @@
 {
-  "run_name": "aligned_videomae_jev_20261102",
+  "run_name": "aligned_videomae_jev_lora64_20261102",
   "protocol": "encoder_only_aligned_transfer_readout_controls_seed_within_subject_other_benchmarks_subject_holdout",
   "split_root": "artifacts/benchmark/multitask_splits_seedpaper_20261101",
   "split_summary_sha256": "9a4d302b25413d5e06f728e6fd9caad7b1b3dbf1590e1e7d03121dd2cc19a222",
@@ -12,13 +12,24 @@
   "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3/ckpts/B1_regen_21e31e56baf2.pt",
   "checkpoint_sha256": "21e31e56baf23c0d5446e750ac4eb54a5032d4fe34d2845788e6d22c373bba36",
   "text_root": "artifacts/benchmark/multitask_text_20261029",
-  "arms": ["infonce_cls_frozen", "infonce_qformer_frozen", "sigmoid_cls_frozen", "sigmoid_qformer_frozen", "infonce_qformer_unfrozen"],
+  "arms": ["infonce_qformer_lora64"],
   "arm_settings": {
-    "infonce_cls_frozen": {"encoder": "bsr", "encoder_trainable": false, "readout": "cls", "aligned_source": "infonce"},
-    "infonce_qformer_frozen": {"encoder": "bsr", "encoder_trainable": false, "readout": "qformer", "aligned_source": "infonce"},
-    "sigmoid_cls_frozen": {"encoder": "bsr", "encoder_trainable": false, "readout": "cls", "aligned_source": "sigmoid"},
-    "sigmoid_qformer_frozen": {"encoder": "bsr", "encoder_trainable": false, "readout": "qformer", "aligned_source": "sigmoid"},
-    "infonce_qformer_unfrozen": {"encoder": "bsr", "encoder_trainable": true, "readout": "qformer", "aligned_source": "infonce"}
+    "infonce_qformer_lora64": {
+      "encoder": "bsr", "encoder_trainable": true, "readout": "qformer", "aligned_source": "infonce",
+      "videomae_lora": {
+        "rank": 64, "alpha": 64, "dropout": 0.0,
+        "targets": ["attention.attention.query", "attention.attention.key", "attention.attention.value", "attention.output.dense", "intermediate.dense", "output.dense"]
+      }
+    }
+  },
+  "matched_control": {
+    "directory": "artifacts/benchmark/aligned_videomae_jev_20261102/train/infonce_qformer_unfrozen",
+    "arm": "infonce_qformer_unfrozen",
+    "sha256": {
+      "config.json": "f9ec9a2d7ba88b9ed8230cdbaf805a0c94fd5a5ccf1c4e261df0203e9590315e",
+      "initial_state.json": "ac8c9cae9fad016c77d3c898911c993325059eaa88b415549b10c5fbd0316df2",
+      "complete.json": "b4a609c3618a5c7fade3546413a693aeac281399d8af2af5df922a8654b4d7e5"
+    }
   },
   "aligned_sources": {
     "infonce": {
@@ -62,11 +73,7 @@
   "train_monitor_per_dataset": 128,
   "checkpoint_every": 20,
   "gpus": [
-    0,
-    1,
-    4,
-    5,
-    6
+    0
   ],
   "minimum_free_gpu_mib": 72000,
   "cpu_workers": 4,
