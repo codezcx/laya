@@ -93,6 +93,8 @@ SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处�
 
 `transfer_audit.json` 记录父 checkpoint、encoder 哈希和迁移范围；`initial_state.json` 记录新读出、连接器、JEV 初值。源码／配置在运行期有 hash guard；源 checkpoint 文件大小与时间戳也受监控。已有任务运行期间不得改其导入模块，恢复只用相同身份的未完成 `last.pt`。
 
+节点更换仅通过启动器 `--start --resume --gpus 0 1 2 3` 覆盖调度槽位，不改已保存配置中的 GPU 列表或训练身份。跳过已完成组，保留中断的审计和预测快照，并使用原训练器恢复；若已到 2040 步，则不新增优化器更新，只重新执行完整验证。完整验证不跨中断拼接部分统计，测试集仍不访问。
+
 ```bash
 laya/.venv-eeg/bin/python -m pytest -q tests
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start

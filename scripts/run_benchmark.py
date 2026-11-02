@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import time
@@ -76,24 +77,75 @@ def run_on_gpu_slots(arms, gpus, launch, report, *, poll_seconds=15, running=Non
     return processes
 
 
+def unfinished_arms(output, config):
+    """Resume only this recipe, without changing checkpoint identity for new GPUs."""
+    pending = []
+    for arm in config['arms']:
+        directory = output / 'train' / arm
+        identity = json.loads((directory / 'config.json').read_text())
+        if identity['arm'] != arm or identity['config'] != config or identity['smoke']:
+            raise ValueError(f'Resume identity mismatch: {arm}')
+        if any(not Path(p).is_file() or digest(p) != h
+               for p, h in identity['code_sha256'].items()):
+            raise ValueError(f'Resume code hash mismatch: {arm}')
+        if (directory / 'complete.json').is_file():
+            continue
+        if not all((directory / name).is_file() for name in ('last.pt', 'best.pt')):
+            raise ValueError(f'Resume requires last.pt and best.pt: {arm}')
+        pending.append(arm)
+    return pending
+
+
+def snapshot_interrupted_outputs(output, destination, arms):
+    """Keep interrupted audits/predictions; checkpoint files are never moved."""
+    if (output / 'pipeline.json').is_file():
+        shutil.copy2(output / 'pipeline.json', destination / 'previous_pipeline.json')
+    for arm in arms:
+        source = output / 'train' / arm
+        target = destination / 'before_resume' / arm
+        target.mkdir(parents=True, exist_ok=False)
+        for path in source.iterdir():
+            if path.is_file() and path.suffix in {'.json', '.jsonl', '.npz'}:
+                shutil.copy2(path, target / path.name)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--start', action='store_true')
     mode.add_argument('--execute', action='store_true')
+    parser.add_argument('--resume', action='store_true', help='Recover unfinished formal arms; skip smoke')
+    parser.add_argument('--gpus', type=int, nargs='+', help='GPU slots for this launch only; saved recipe is unchanged')
+    parser.add_argument('--recovery-dir', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     os.chdir(ROOT)
     output = Path('artifacts/benchmark') / CONFIG['run_name']
+    gpus = CONFIG['gpus'] if args.gpus is None else args.gpus
+    if not gpus or len(set(gpus)) != len(gpus) or any(g < 0 for g in gpus):
+        parser.error('GPU slots must be nonempty, unique, and nonnegative')
     if args.start:
-        output.mkdir(parents=True, exist_ok=False)
+        if args.resume:
+            unfinished_arms(output, CONFIG)
+            # Check the shared controller lock before creating recovery artifacts.
+            with (output / 'controller.lock').open('a') as probe:
+                fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            args.recovery_dir = output / 'recovery' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + f'_{os.getpid()}')
+            args.recovery_dir.mkdir(parents=True, exist_ok=False)
+            log_path = args.recovery_dir / 'controller.log'
+        else:
+            output.mkdir(parents=True, exist_ok=False)
+            log_path = output / 'controller.log'
         env = os.environ.copy()
         env.update(OMP_NUM_THREADS='3', MKL_NUM_THREADS='3', OPENBLAS_NUM_THREADS='3',
                    TOKENIZERS_PARALLELISM='false', HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
-        with (output / 'controller.log').open('x') as log:
-            process = subprocess.Popen([sys.executable, '-u', __file__, '--execute'],
+        command = [sys.executable, '-u', __file__, '--execute', '--gpus', *map(str, gpus)]
+        if args.resume:
+            command += ['--resume', '--recovery-dir', str(args.recovery_dir)]
+        with log_path.open('x') as log:
+            process = subprocess.Popen(command,
                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True, env=env, cwd=ROOT)
-        print(json.dumps(dict(controller_pid=process.pid, output=str(output))))
+        print(json.dumps(dict(controller_pid=process.pid, output=str(output), log=str(log_path), gpus=gpus)))
         return
     lock = (output / 'controller.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -104,6 +156,14 @@ def main():
         print(json.dumps(state), flush=True)
     running = []
     try:
+        pending = CONFIG['arms']
+        if args.resume:
+            if args.recovery_dir is None or not args.recovery_dir.is_dir():
+                raise ValueError('Start recovery with --start --resume')
+            pending = unfinished_arms(output, CONFIG)
+            snapshot_interrupted_outputs(output, args.recovery_dir, pending)
+            state.update(resumed=True, recovery_directory=str(args.recovery_dir),
+                         previously_complete=[a for a in CONFIG['arms'] if a not in pending])
         watched = sorted((ROOT / 'eeg_align').glob('*.py')) + [ROOT / p for p in (
             'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
             'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py',
@@ -115,14 +175,16 @@ def main():
                     or json.loads((ROOT / 'configs/benchmark_train.json').read_text()) != CONFIG):
                 raise RuntimeError('Queued experiment code/config changed; refusing new launches')
         guard()
-        report(code_sha256=hashes, configured_arms=CONFIG['arms'], assigned_gpu_slots=CONFIG['gpus'])
-        free = require_gpu_capacity(CONFIG['gpus'], CONFIG.get('minimum_free_gpu_mib', 75000))
+        report(code_sha256=hashes, configured_arms=CONFIG['arms'], assigned_gpu_slots=gpus)
+        free = require_gpu_capacity(gpus, CONFIG.get('minimum_free_gpu_mib', 75000))
         report(launch_free_mib=free, gpu_policy='headroom check; existing peer jobs are never stopped')
-        report(status='cpu_signal_preflight')
-        subprocess.run([sys.executable, '-u', 'scripts/check_multitask_signals.py',
-            '--out', str(output / 'signal_preflight.json')], check=True)
-        initializations = {}
-        for phase in ('smoke','train'):
+        if not args.resume:
+            report(status='cpu_signal_preflight')
+            subprocess.run([sys.executable, '-u', 'scripts/check_multitask_signals.py',
+                '--out', str(output / 'signal_preflight.json')], check=True)
+        initializations = ({arm: json.loads((output / 'smoke' / arm / 'initial_state.json').read_text())
+                            for arm in CONFIG['arms']} if args.resume else {})
+        for phase in (('train',) if args.resume else ('smoke','train')):
             running = []
             def launch(arm, gpu):
                 guard()
@@ -132,13 +194,17 @@ def main():
                 directory.parent.mkdir(exist_ok=True)
                 command = [sys.executable, '-u', '-m', 'eeg_align.train_joint', '--arm', arm, '--out', str(directory)]
                 if phase == 'smoke': command.append('--smoke')
-                with (output / f'{phase}_{arm}.log').open('x') as log:
+                if args.resume: command.append('--resume')
+                log_root = args.recovery_dir if args.resume else output
+                with (log_root / f'{phase}_{arm}.log').open('x') as log:
                     child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
                         stderr=subprocess.STDOUT, env=env, start_new_session=True)
                 return child
-            run_on_gpu_slots(CONFIG['arms'], CONFIG['gpus'], launch,
-                lambda **values: report(status=phase + ('_partial_failure' if values['failures'] else ''),
-                                        **values), running=running)
+            phase_arms = pending if args.resume else CONFIG['arms']
+            if phase_arms:
+                run_on_gpu_slots(phase_arms, gpus, launch,
+                    lambda **values: report(status=phase + ('_partial_failure' if values['failures'] else ''),
+                                            **values), running=running)
             guard()
             proofs = {arm: json.loads((output / phase / arm / 'initial_state.json').read_text()) for arm in CONFIG['arms']}
             verify_initializations(proofs, CONFIG)
