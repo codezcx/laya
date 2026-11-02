@@ -6,7 +6,17 @@
 
 运行目录 `artifacts/benchmark/aligned_videomae_jev_20261102/`。InfoNCE／Sigmoid best encoder 各接新 CLS／32-token Q-Former，四组 encoder 冻结；第五组为 InfoNCE＋Q-Former，在 340 步预热后解冻。五组都接 JEV、以分类交叉熵训练，使用同一 17 库划分和 2040 步预算，不访问测试集。
 
-当前已完成迁移代码与配置，正在核验全部输入、源权重和真实 GPU smoke；未将准备完成记作正式训练或结果。GPU 分配为 0、1、4、5、6，不停止正在运行的测评。以新运行的 `pipeline.json`、各组 `transfer_audit.json`、`progress.json`、`complete.json` 为状态证据。
+2026-11-02 07:45 UTC：108 项测试通过，32,640 次计划训练输入 CPU 预检通过（约 74 秒），五组各 17 步真实 GPU smoke 全部通过。四组 encoder 权重不变、第五组确实更新；相同初始化／采样、encoder 完整迁移和磁盘重载检查通过。控制器 PID 1365757 已启动五个正式子进程；07:47 UTC 五组均已重新加载父权重并进入 step 0 验证，还没有训练后成绩。实际运行源码提交 `13146a9`，未 push。
+
+| 实验 | GPU | 正式进程 PID | encoder 策略 | 读出 tokens |
+| --- | ---: | ---: | --- | ---: |
+| infonce_cls_frozen | 0 | 1554856 | 冻结 | 1 |
+| infonce_qformer_frozen | 1 | 1555168 | 冻结 | 32 |
+| sigmoid_cls_frozen | 4 | 1555388 | 冻结 | 1 |
+| sigmoid_qformer_frozen | 5 | 1555622 | 冻结 | 32 |
+| infonce_qformer_unfrozen | 6 | 1555847 | 340 步预热后解冻 | 32 |
+
+没有停止已有测评。以新运行的 [pipeline.json](../artifacts/benchmark/aligned_videomae_jev_20261102/pipeline.json)、各组 `transfer_audit.json`、`progress.json`、`complete.json` 为最新状态证据，不把上述启动记录当作训练完成。
 
 旧配置／实现快照：Git `704ad26`。只迁移训练后的 encoder，CLS／Q-Former、连接器重新初始化，JEV 从原生权重开始；不迁移父 CLS、投影、优化器或 smoke 权重。父完整验证 InfoNCE 47.49%、Sigmoid 46.55% 没有 JEV，不能作为新模型 step 0 的成绩。
 
