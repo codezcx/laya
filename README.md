@@ -2,7 +2,17 @@
 
 当前保留的方法：先用多正例 InfoNCE 将纯 LEAF Tower 与固定类别文本向量对齐，再只迁移 Tower，保留全部 token 经 MLP 输入 Qwen-JEV。EEG 路径不用 FiLM 或 LEAF Q-Former；对比阶段的 MPNet 只提供冻结文本向量，不接收 EEG，也不进入下游 JEV。Sigmoid 是已完成的对比预训练参考，其后续 JEV 实验已按用户要求取消。
 
-## 📋 当前实验
+## 📋 当前实验：冻结服务器的个人少样本校准
+
+在已完成的 InfoNCE→LEAF Tower→MLP/JEV 上，新增配对 B/C 控制：B 仅更新输出端残差 adapter（33,088 参数），C 仅更新 Tower 最后两层双分支 Q/V LoRA-r8（32,768 参数）。JEV、连接器、固定文本向量及本地文本投影头全部冻结。只用个人 support 标签做多正例 InfoNCE，不经 JEV 反传。
+
+- 首轮只测运动想象：2a 每类 5/10/20 trial、T session 校准→E session 评估；PhysioMI 每类 5/10、前四个想象 run 校准→后两个评估。
+- 每个配置 3 个校准采样种子，保留 0-shot；23 个留出被试、288 次适配。GPU 0/1 跑 B，GPU 2/3 跑 C，各 72 次，独立进程而非 DDP。
+- B/C 均从最终 JEV 阶段 best step 1360 的同一 Tower 出发；只用原训练被试重拟合公共文本投影头，再冻结。不是把第一阶段 51.39% 的 encoder 和另一阶段 JEV 混接。
+- 固定 100 次更新、batch 16、LR 1e-4；query 不参与微调、停止或超参数选择。逐 trial 保存预测，分别报告直接文本与冻结 JEV 的 Acc/BAcc、负迁移和耗时。
+- 新运行目录 `artifacts/benchmark/leaf_personalization_20261123/`，先 prepare→四卡验证被试短测→四卡正式 episode→配对审计→`summary.json`/`summary.md`。以 `pipeline.json` 为准；未完成不填成绩。
+
+## 📋 已完成的共享模型
 
 - InfoNCE 下游四卡训练和完整验证已完成，best step 1360，九库等权 BAcc 47.83%、Acc 50.01%。全局 batch 16，每卡 4。
 - 2026-11-23 用户选择保留 InfoNCE：Sigmoid→JEV 短测在 step 7 保存并停止，正式训练未启动，队列已关闭。所有权重/日志保留，四张卡已释放。
@@ -15,14 +25,14 @@
 
 ## 🔧 使用
 
-本轮已结束并存在 `cancelled.json`。以下为历史队列入口，当前 `--start` 和 `--resume` 都会明确拒绝重启被取消的实验；新增训练需要新的用户授权和运行计划。
+当前个人校准入口（只启动一次；意外中断可显式加 `--resume`，已完成或取消会拒绝重启）：
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
-laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
+laya/.venv-eeg/bin/python scripts/run_personalization.py --start
 ```
 
-运行时先做 CPU 输入检查和真实短测。对比阶段从发布 Tower 初始化；下游仅加载已完成对比训练的 best Tower，MLP/JEV 重新初始化。不会继承 smoke、旧 SFT 或对比投影头。未取消任务的恢复需同一代码/配置，不覆盖产物；用户取消不同于意外中断。
+个人校准先检查原划分与独立 trial 身份，source-only 拟合投影头，验证被试上做 B/C 三步短测，核对冻结、梯度、保存重载及配对批次后才正式执行。每个 episode 从同一父 checkpoint 重置；恢复跳过已完成 episode，未完成的重跑，不累积其他用户的更新。旧 `run_contrastive.py` 队列仍被 `cancelled.json` 关闭，不重启 Sigmoid。
 
 ## 📚 文档与边界
 
