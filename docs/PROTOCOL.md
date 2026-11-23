@@ -4,38 +4,51 @@ _2026-11-23；两组文本对齐及匹配下游。配置：[contrastive_train.js
 
 当前选择：在已完成的 InfoNCE→Tower→MLP/JEV 上进行下面的个人少样本校准。共享模型 InfoNCE 全流程已完成；Sigmoid 对比预训练已完成，但其 JEV 短测在 step 7 保存并停止，正式 SFT 未开始。旧队列关闭且用 `cancelled.json` 拦截恢复。下方后续章节保留共享模型的可复现参数，不表示 Sigmoid 仍在排队；完成结果见 [RESULTS](RESULTS.md)。
 
-## 🧪 当前：B/C 个人校准，服务器完全冻结
+## 🧪 当前：JEV CE × 语言 LoRA 配对个人校准
 
-问题：本地仅更新小量信号侧参数，能否改善新用户分类，同时保持与服务器 JEV 的接口兼容？这是带标签的 supervised few-shot calibration，不是无标签 TTT、严格 zero-shot 或隐私保证。首先只测 MI；不把 ADFTD 这类每用户单一诊断标签的任务强行做每人每类 k-shot。
+检验：JEV CE 是否比本地InfoNCE更适合冻结服务器，以及相同CE下开放LM LoRA是否增加收益。上一轮实现/配置/协议归档到Git `e71c334`，旧数据/权重/日志均保留。当前复用小模块和数据，替换个人InfoNCE入口，不积累独立vN代码。
 
-公共初始化使用 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`（最终 SFT best step 1360），严格恢复 Tower、connector、JEV LoRA/head 和 buffers，再冻结全部服务器参数。Tower 19,557,632 个原参数不更新。第一阶段投影已因后续 Tower SFT 发生接口变化，因此从原对齐投影初始化，只用 2a/PhysioMI 原训练被试的 9,090 个窗口重新拟合公共投影头：Tower 冻结，两个库交替、类均衡 batch 32、1000 次更新、AdamW LR 1e-4/weight decay 0.01、clip 1；固定温度和文本向量，不使用目标用户数据。之后该投影也完全冻结。这是两组共用的准备步骤，不是个人适配参数。
+公共起点仍为 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`（step1360），不是某人的适配后权重。每个用户、shot、方法都重置信号模块和LM LoRA，不传递到下一人。
 
-| 方法 | 可更新位置 | 可训练参数 | 冻结部分 |
-| --- | --- | ---: | --- |
-| B：残差 adapter | 每个 256 维 Tower token 后：x + Linear(64,256)(GELU(Linear(256,64)(x))) | 33,088 | Tower 原参数、MPNet 文本/投影、connector、全部 JEV |
-| C：Tower LoRA | mask/next 两分支各最后两层的 Q/V；rank 8、alpha 8，K/out/FFN 不动 | 32,768 | Tower 原参数、MPNet 文本/投影、connector、全部 JEV |
+| GPU | 组别 | 信号侧可训练参数 | LM可训练参数 | 共同冻结部分 |
+| --- | --- | ---: | ---: | --- |
+| 0 | residual_frozen | B：33,088 | 0 | 原Tower、JEV base、connector/head、文本读出 |
+| 1 | residual_lm_lora | B：33,088 | 217,579,520 | 同上 |
+| 2 | lora_frozen | C：32,768 | 0 | 同上 |
+| 3 | lora_lm_lora | C：32,768 | 217,579,520 | 同上 |
 
-B 的上投影零初始化，C 的 LoRA B 矩阵零初始化，短测验证二者起点均是同一个函数。LoRA rank/layer 范围是本轮显式的新设置，不继承历史 VideoMAE rank 64。Tower 始终 eval：dropout 关闭，BatchNorm buffers 冻结。
+B仍为256→64→256残差网络，上投影零初始化；C仍是Tower双分支各最后两层Q/V LoRA，rank8/alpha8，B矩阵零初始化。原Tower 19,557,632参数冻结。新开放的是父checkpoint已有语言attention/MLP LoRA-r32/alpha64，不是新随机LoRA；choice head冻结，不能把只更新分类头称为LM更新。
 
-| 数据集 | 处理后窗口数：总计（原全局训／验／测） | 任务种类（分类数） | 划分协议 | 被试数：总计（原全局训／验／测） | 个人校准数量 | 独立 query |
+| 数据集 | 处理后窗口总计（原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（原训／验／测） | 个人校准 | 独立query |
 | --- | ---: | --- | --- | ---: | --- | --- |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4 类） | 父模型固定跨被试；个人 T session→E session | 9（5/2/2） | 被试 8/9；每类 5/10/20，共 20/40/80 trial | 每人 E session 全部 288，共 576 |
-| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4 类） | 父模型固定跨被试；个人 R04/06/08/10→R12/14 | 109（69/19/21） | 被试 89–109；每类 5/10，共 20/40 trial | 后两个 run 全部，共 632 |
+| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 父模型跨被试；个人T→E | 9（5/2/2） | 被试8/9，每类5/10/20，共20/40/80条 | 每人288，共576 |
+| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 父模型跨被试；个人R04/06/08/10→R12/14 | 109（69/19/21） | 被试89–109，每类5/10，共20/40条 | 后两run全部，共632 |
 
-每个 event 只有一个四秒活动窗，不将滑窗当作独立 trial。2a 缓存的 event/start 在六个 run 中重置，必须核验每个 session 为六个完整的 48-trial run，再用 session＋run＋event 做身份。PhysioMI 的校准池不足以支持每类 20 个并保持独立后续 run，因此不做 20-shot、不用重复抽样伪造独立 trial。PhysioMI 是同日跨 run，不宣称跨日。
+每个event一个四秒窗；2a使用已核验的session＋run＋event身份，六个run重置的event不能混同。PhysioMI校准池不足每类20个，不伪造独立trial；该库仅同日跨run，2a仅2名目标被试。原benchmark文件不修改，但这是使用目标用户support标签的个人评估，不是原完整跨被试测试。
 
-- 每个被试、每个规模、每个方法都从同一共享模型开始，个人权重绝不传递给下一人或下一个规模。
-- 采样种子 42/43/44，5-shot 是 10-shot 的子集，2a 再嵌套于 20-shot。B/C support/query IDs 及 100 步训练 batch IDs 完全配对。
-- B/C 均固定 100 次更新、batch 16、AdamW LR 1e-4、weight decay 0.01、梯度裁剪 1、恒定学习率。小 support 内 SGD 可重复呈现样本，但独立 trial 数不变。不因方法改变 LR，也不以 query 分数选更新步。
-- 损失沿用任务内多正例 InfoNCE：masked mean 全部 Tower token→冻结投影→固定文本。个人标签只允许来自已登记 support；query 标签只在最终指标计算使用。JEV 不参与 loss 或反传。
-- 在相同 query 上先记录 0-shot，再分别记录适配后的直接文本匹配、冻结 JEV 的 Acc/BAcc。若文本改善而 JEV 下降，视为语义头适配不等于服务器兼容，不隐藏这个结果。
-- 先在原验证被试 6/70 上做三步实现短测（只核验、不调参），通过后再执行 23 个原留出测试被试的个人 support/query 实验。原 benchmark CSV 和 test 集合不修改，但本实验显式用到了部分目标用户标签，不能与未适配完整测试分数等同。
-- 共 288 个 episode：2a 36、PhysioMI 252；GPU 0/1 跑 B、GPU 2/3 跑 C，各 72 个独立 episode，不是四卡同步训练一个用户。固定服务器共置 GPU 只为评估便利；本地训练图不含 JEV。
-- 汇总先在每个被试内平均三个种子，再对被试等权平均，保留逐人结果、负迁移比例、标准差和训练秒数。2a 独立目标被试只有 2 名，不能把随机种子当独立被试。显存数字包含共置 JEV，不冒充边缘设备实测。
+### 固定条件与审计
 
-配置：[personalization.json](../configs/personalization.json)。入口 `scripts/run_personalization.py --start`；输出 `artifacts/benchmark/leaf_personalization_20261123/` 下的 `manifest.json`、`prepared.json`、`episodes/*/{adapter.pt,predictions.pt,support_history.json,complete.json}` 与最终 `summary.json`/`summary.md`。同源恢复会跳过已完成 episode、重跑未完成 episode；源代码哈希变化或取消会停止队列。
+- 第一轮seed42，总计192次、每组48次；只减少重复种子数，不改单次预算。5-shot嵌套于10/20-shot，四组support/query和训练batch IDs完全一致，并与上一轮同seed逐项核对。
+- 四组均100次更新、有效batch16=microbatch4×4，loss按microbatch样本比例累积。signal LR1e-4；新开放LM LR5e-6沿用共享SFT的LM峰值，但本轮恒定LR，无warmup/cosine。AdamW weight decay0.01；signal/LM各自clip1，避免LM梯度范数额外改变signal裁剪规则。
+- loss仅JEV四分类CE。冻结LM组仍允许梯度经LM回到信号侧，不能用no_grad包住训练forward。启用非重入gradient checkpointing，检查LM dropout为0；Tower始终eval、BN buffers冻结。
+- connector/head/文本投影不更新。直接文本只作诊断。本轮只读复用上一轮的输入及冻结文本头，不重做其1000步源MI投影拟合；这一历史额外训练仍是读出比较的限制。
+- 记录每个episode的support JEV CE/Acc/BAcc、query文本/JEV Acc/BAcc、负迁移、耗时、参数计数及逐trial预测。query不用于选checkpoint、调LR或停止步，仅报告固定step100。
+- 用哈希/参数版本号证明原Tower、JEV base、connector/head、文本头不变；开放LM LoRA必须实测更新，冻结组不能更新。保存/重载个人模块和LM LoRA后，同batch探针的logits必须完全一致。
+- 原验证被试6/70各做3步短测，共8个episode，不调参、不带入正式权重；通过后四卡各跑一组，不是DDP，不自动增加seed43/44或恢复已取消Sigmoid。
+- 每用户/配置存独立LM adapter，两组共96份约84GB FP32语言LoRA权重；启动检查至少120GiB可用磁盘，不删除旧产物。中断后跳过已完成episode，未完成的从公共起点重跑。
+- 汇总以被试为单位，单seed初探不宣称显著，也不将多个shot视为独立被试。旧InfoNCE须筛seed42再比较。
 
-实验设计技能用于配对、嵌套采样、被试级汇总和防止伪重复；并非模型算法贡献。工具方法来源：Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). [Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents](https://doi.org/10.48550/arXiv.2609.00065)。已核对当前 arXiv 记录。
+### 模型规模与部署边界
+
+本轮backbone一直是同一个27B级模型，仅改变可训练参数集合。LM LoRA改善不能证明“模型太大”；support拟合好而query差也只提示进一步排查过拟合。更新LM组需要服务器反传/集中训练，并为不同用户选择不同LM adapter，不再是纯边缘端更新。
+
+已核实同系列公开9B模型[^jev9]，可作为后续候选，但本轮未下载/训练。不同宽度不能直接复用27B的连接器，需匹配EEG共享训练、数据/划分、目标和预算；原生决策预训练及可训练LoRA量也不同，仍须说明这些混杂因素。
+
+配置：[personalization.json](../configs/personalization.json)。入口 `scripts/run_personalization.py --start`，输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`。旧结果仍在 `leaf_personalization_20261123/summary.md`。源码/config和输入身份受运行期哈希保护。
+
+实验设计技能用于配对、被试级汇总和区分损失/LM更新/模型规模三个因素，Markdown技能用于更新当前文档而非另建版本；工具方法来源：Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). [Scientific Agent Skills](https://doi.org/10.48550/arXiv.2609.00065)，已核对当前版本。
+
+[^jev9]: AutoTrust. [AutoTrust-Decider-Mini-9B / JEV-9B模型卡](https://huggingface.co/autotrust/AutoTrust-Decider-Mini-9B)，2026-11-23核对。本轮未换用，模型卡性能不是EEG证据。
 
 ---
 

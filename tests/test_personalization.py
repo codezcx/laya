@@ -4,7 +4,7 @@ from torch import nn
 
 from eeg_align.personalization import (CONFIG, QVDelta, ResidualAdapter, check_support_rows,
     copy_trainable, frozen_hash, install_lora, select_support, separate_session_rows,
-    trainable_state)
+    trainable_state, configure_lm, fixed_server_versions, copy_named)
 from eeg_align.task_options import make_variant
 
 
@@ -123,8 +123,70 @@ def test_query_prompt_is_label_independent():
 
 
 def test_budget_and_objective_are_matched():
-    assert CONFIG['arms'] == ['residual','lora']
+    assert CONFIG['arms'] == ['residual_frozen','residual_lm_lora','lora_frozen','lora_lm_lora']
     assert CONFIG['steps'] == 100 and CONFIG['batch_size'] == 16
-    assert CONFIG['seeds'] == [42,43,44]
+    assert CONFIG['seeds'] == [42]
     assert CONFIG['lora_targets'] == ['q','v']
     assert CONFIG['datasets'] == {'bcic_2a':[5,10,20], 'motor_mv_img':[5,10]}
+    assert CONFIG['objective']=='jev_ce' and CONFIG['microbatch']==4
+    assert CONFIG['learning_rate']==1e-4 and CONFIG['lm_learning_rate']==5e-6
+
+
+class TinyLM(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.base=nn.Linear(4,4)
+        self.lora_A=nn.Parameter(torch.randn(2,4)*.1)
+        self.lora_B=nn.Parameter(torch.randn(4,2)*.1)
+
+    def forward(self,x):
+        return self.base(x)+x@self.lora_A.T@self.lora_B.T
+
+
+def test_only_language_lora_opened_and_base_unchanged():
+    server=nn.Module()
+    server.text=TinyLM()
+    server.connector=nn.Linear(4,4)
+    server.head_weight=nn.Parameter(torch.randn(4,4))
+    server.eeg_encoder=nn.Linear(4,4)
+    encoder_flags=[p.requires_grad for p in server.eeg_encoder.parameters()]
+    parameters=configure_lm(server,True)
+    assert set(parameters)=={'text.lora_A','text.lora_B'}
+    assert [p.requires_grad for p in server.eeg_encoder.parameters()]==encoder_flags
+    fixed=fixed_server_versions(server)
+    initial={n:p.detach().clone() for n,p in parameters.items()}
+    opt=torch.optim.AdamW(list(parameters.values()),lr=5e-6)
+    x=torch.randn(5,4,requires_grad=True)
+    server.text(server.connector(x)).square().mean().backward()
+    assert x.grad is not None and x.grad.abs().sum()>0
+    assert all(p.grad is not None for p in parameters.values())
+    assert server.connector.weight.grad is None and server.text.base.weight.grad is None
+    opt.step()
+    assert fixed_server_versions(server)==fixed
+    assert any(not torch.equal(p,initial[n]) for n,p in parameters.items())
+    copy_named(parameters,initial)
+    assert all(torch.equal(p,initial[n]) for n,p in parameters.items())
+
+
+def test_frozen_lm_still_passes_input_gradient():
+    server=nn.Module()
+    server.text=TinyLM()
+    assert configure_lm(server,False)=={}
+    x=torch.randn(5,4,requires_grad=True)
+    server.text(x).square().mean().backward()
+    assert x.grad.abs().sum()>0
+    assert all(p.grad is None for p in server.parameters())
+
+
+def test_accumulation_matches_full_ce_gradient():
+    torch.manual_seed(11)
+    a=nn.Linear(4,4)
+    b=nn.Linear(4,4)
+    b.load_state_dict(a.state_dict())
+    x=torch.randn(16,4)
+    y=torch.arange(16)%4
+    nn.functional.cross_entropy(a(x),y).backward()
+    for start in range(0,16,4):
+        (nn.functional.cross_entropy(b(x[start:start+4]),y[start:start+4])/4).backward()
+    assert torch.allclose(a.weight.grad,b.weight.grad,atol=1e-7)
+    assert torch.allclose(a.bias.grad,b.bias.grad,atol=1e-7)

@@ -4,7 +4,13 @@ _更新：2026-11-23。当前在已完成的 Tower InfoNCE→JEV 上做 B/C 个�
 
 ---
 
-## 🧪 当前个人少样本实验
+## 🧪 当前：JEV CE 与 LM LoRA 对照
+
+配置已锁定：GPU0 B＋冻结LM、GPU1 B＋既有LM LoRA、GPU2 C＋冻结LM、GPU3 C＋既有LM LoRA；connector/head均冻结。保持100步、有效batch16、信号LR1e-4，新增LM LR5e-6，第一轮seed42，总计192次。输入和support/query逐项复用上一轮，旧InfoNCE须筛同seed42。102项自动测试通过。输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`，尚未得到正式成绩，不能据此判断27B规模。
+
+2026-11-23 13:57:26 UTC，验证被试上的8次真实GPU短测全部通过，正式四组已启动（控制器767389，worker 849831/849835/849838/849843）。已核验四组共同初始预测、support/query与训练batch IDs完全一致，也与上一轮同seed对齐；原Tower、JEV base、connector/head、文本读出未变，指定语言LoRA确实更新，个人模块与LM adapter保存重载的预测完全一致。[短测审计](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/smoke_verified.json)、[运行状态](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pipeline.json)。短测仅验证执行正确性，不作为准确率提升证据。每组三步适配约22–28秒，正式100步及完整query评估耗时仍需实测。
+
+## 📊 已完成：本地 InfoNCE 个人校准
 
 已固定 B（输出残差 adapter，33,088 参数）与 C（Tower 最后两层双分支 Q/V LoRA-r8，32,768 参数），均只更新个人信号侧小模块，冻结 JEV/connector/文本读出。2a 每类 5/10/20 trial，PhysioMI 每类 5/10；3 个采样种子。23 名留出目标被试，共 288 次独立适配，包含共同的 0-shot 控制。协议和源代码预检完成后由四卡真实短测门控正式运行。
 

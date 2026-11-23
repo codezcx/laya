@@ -1,11 +1,12 @@
 # Git 与实验产物归档
 
-当前维护纯信号 LEAF Tower 的多正例 InfoNCE／Sigmoid 对齐及匹配 MLP/JEV 下游，见 [协议](PROTOCOL.md)。VideoMAE 与旧文本条件化 LEAF 实现由 Git 归档恢复，运行产物仍在原位置。
+当前维护纯信号 LEAF Tower→JEV 的个人CE与LM LoRA配对控制，复用已完成的全局InfoNCE/shared SFT，见 [协议](PROTOCOL.md)。历史实现由Git归档恢复，原运行产物保留。
 
 `ef07d2c` 保存本轮新增对齐前的纯 Tower 无对比基线：2040 步、完整验证 BAcc 43.41%、Acc 46.32%。`artifacts/benchmark/leaf_tower_jev_20261123/` 中的权重、日志、曲线均保留。历史 VideoMAE 对比实现从 `6247e46` 的隔离 worktree 检查；仅将适用于当前 Tower 的损失/模板/训练协议复用到当前共享模块，不恢复旧 encoder 分支。
 
 | 提交 | 可恢复的历史状态 |
 | --- | --- |
+| `e71c334` | 本地InfoNCE B/C个人校准完整状态：288次、3个seed、冻结JEV；运行源码 `36493bb` |
 | `6247e46` | VideoMAE LoRA-r64 完成状态、五组迁移/对比学习代码、历史结果表；本轮 Tower-only 替换前快照 |
 | `373492a` | VideoMAE LoRA-r64 实际训练源码 |
 | `828a17d` | 五组对齐 encoder→JEV 迁移、四卡节点恢复入口；LoRA-r64 修改前代码与配置 |

@@ -1,4 +1,4 @@
-"""Matched support-only residual/LoRA calibration of a fixed LEAF/JEV interface."""
+"""Matched support-only signal adaptation with frozen versus LoRA-updated JEV."""
 from collections import defaultdict
 import hashlib
 import json
@@ -114,13 +114,12 @@ def make_manifest(store, smoke=False):
                     for arm in CONFIG['arms']:
                         cases.append(dict(key=f'{name}_s{subject}_{arm}_k{shots}_seed{seed}',
                             dataset=name, task=tid, subject=subject, arm=arm, shots_per_class=shots,
+                            **CONFIG['arm_settings'][arm],
                             seed=seed, original_split=split, support_ids=[r['id'] for r in support],
                             query_ids=[r['id'] for r in query], support_sha256=ids_hash(support),
                             query_sha256=ids_hash(query)))
-    # Stable distribution: two workers per arm, alternating users/cases within arm.
-    for arm, workers in [('residual', (0, 1)), ('lora', (2, 3))]:
-        for i, case in enumerate(c for c in cases if c['arm'] == arm):
-            case['worker'] = workers[i % len(workers)]
+    for case in cases:
+        case['worker'] = CONFIG['arms'].index(case['arm'])
     return dict(config=CONFIG, smoke=smoke, original_split=split, cohorts=cohorts, cases=cases,
                 cache_indexes={store.tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
                 query_used_for_selection=False, original_splits_modified=False)
@@ -207,14 +206,6 @@ def projection_module():
     return nn.Sequential(nn.LayerNorm(256), nn.Linear(256, 768), nn.GELU(), nn.Linear(768, 768))
 
 
-def projection_initialization():
-    saved = torch.load(Path(CONFIG['projection_parent'])/'best.pt', map_location='cpu', mmap=True, weights_only=False)
-    head = projection_module()
-    head.load_state_dict({k.removeprefix('projection.'): v for k, v in saved['trainable'].items()
-                         if k.startswith('projection.')}, strict=True)
-    return head, saved['trainable']['log_scale'].detach().clone()
-
-
 def pooled(tokens, valid):
     return (tokens * valid[..., None]).sum(1) / valid.sum(1, keepdim=True)
 
@@ -253,4 +244,33 @@ def copy_trainable(module, state):
     if parameters.keys() != state.keys():
         raise ValueError('Personal parameter keys changed')
     for n, p in parameters.items():
+        p.copy_(state[n])
+
+
+def is_lm_lora(name):
+    return name.startswith('text.') and name.endswith(('lora_A', 'lora_B'))
+
+
+def configure_lm(server, enabled):
+    """Signal trainability is managed separately; connector/head never update."""
+    selected = {}
+    for name, parameter in server.named_parameters():
+        if name.startswith('eeg_encoder.'):
+            continue
+        parameter.requires_grad_(enabled and is_lm_lora(name))
+        if parameter.requires_grad:
+            selected[name] = parameter
+    return selected
+
+
+def fixed_server_versions(server):
+    return {n:p._version for n,p in server.named_parameters()
+            if not n.startswith('eeg_encoder.') and not p.requires_grad}
+
+
+@torch.no_grad()
+def copy_named(parameters, state):
+    if parameters.keys() != state.keys():
+        raise ValueError('LM adapter parameter keys changed')
+    for n,p in parameters.items():
         p.copy_(state[n])

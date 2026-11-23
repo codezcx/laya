@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -33,21 +34,26 @@ def verify_paired(root, smoke=False):
         if result['smoke'] != smoke or result['case'] != case or result['code_sha256'] != source_identity():
             raise ValueError('Mismatched episode identity')
         if not all(result[k] for k in ('parent_encoder_frozen_verified', 'text_readout_frozen_verified',
-                                       'jev_frozen_verified', 'checkpoint_reload_verified')):
+                                       'jev_base_connector_head_frozen_verified', 'checkpoint_reload_verified',
+                                       'reference_batch_ids_verified', 'reference_baseline_verified')):
             raise ValueError('Freeze/reload checks failed')
+        if result['lm_lora_updated'] != case['train_lm_lora'] or result['objective'] != 'jev_ce':
+            raise ValueError('Incorrect language update/objective')
         if result['query_used_for_selection'] or result['steps'] != (3 if smoke else CONFIG['steps']):
             raise ValueError('Invalid query use or training budget')
         key = (case['dataset'], case['subject'], case['shots_per_class'], case['seed'])
         pairs.setdefault(key, {})[case['arm']] = result
     for pair in pairs.values():
-        if set(pair) != {'residual','lora'}:
+        if set(pair) != set(CONFIG['arms']):
             raise ValueError('Unpaired methods')
-        b, c = pair['residual'], pair['lora']
-        for field in ('support_sha256', 'query_sha256'):
-            if b['case'][field] != c['case'][field]:
-                raise ValueError('B/C used different trials')
-        if b['training_batch_ids_sha256'] != c['training_batch_ids_sha256'] or b['baseline'] != c['baseline']:
-            raise ValueError('B/C batch stream or common baseline differs')
+        first = pair[CONFIG['arms'][0]]
+        for result in pair.values():
+            for field in ('support_sha256', 'query_sha256'):
+                if result['case'][field] != first['case'][field]:
+                    raise ValueError('Arms used different trials')
+            if (result['training_batch_ids_sha256'] != first['training_batch_ids_sha256']
+                    or result['baseline'] != first['baseline']):
+                raise ValueError('Arm batch stream or common baseline differs')
     return dict(episodes=len(manifest['cases']), paired_comparisons=len(pairs),
                 frozen_and_reload_verified=True, same_support_query_batches_and_baseline=True)
 
@@ -142,6 +148,8 @@ def main():
     try:
         report(status='preflight')
         free = require_capacity()
+        if shutil.disk_usage(root).free < CONFIG['minimum_free_disk_gib']*1024**3:
+            raise RuntimeError('Insufficient free space for all personal LM adapters and reserve')
         manifest = make_manifest(TrialStore())
         report(status='preparing', episodes=len(manifest['cases']), subjects=len(manifest['cohorts']), free_mib=free)
         report(jobs=[launch('prepare')])
