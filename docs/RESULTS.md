@@ -8,7 +8,9 @@ _更新：2026-11-23。当前只维护纯信号 Tower→MLP→Qwen-JEV，四卡�
 
 运行名 `leaf_tower_jev_20261123`，arm `leaf_tower_mlp`。代码与 73 项单元测试已通过，含四进程梯度等价性、原始 Tower 输出一致性、无文本模块、分块/有效 token 掩码、冻结划分及测试集禁用检查。
 
-待执行 CPU 全部计划输入检查、真实四卡 smoke 和正式训练。此处没有新准确率，不能把旧 LEAF/VideoMAE 成绩当作当前结果。实际进展以 `artifacts/benchmark/leaf_tower_jev_20261123/pipeline.json` 和 `train/leaf_tower_mlp/progress.json` 为准。
+2026-11-23 07:38:57 UTC：32,640 次计划训练输入 CPU 检查通过（123.6 秒）；四卡真实 17 步 smoke 完成（模型载入后 130.9 秒，含重载和训练子集评估）。LEAF Tower 确实更新、四 rank 权重一致、全局 batch 划分一致、磁盘重载 logits 精确一致，测试前向为 0。正式四卡进程已由控制器启动，重新载入发布权重；此时尚无正式训练后准确率。
+
+控制器 PID 575553，正式 torchrun PID 768989；运行源码提交 `d23b5e8`。初始参数量：Tower 前向 19,557,632；connector 27,535,872；JEV LoRA 217,579,520；choice head 81,936。短测峰值分配显存约 54.6 GiB/rank，后半段约 4.8–5.5 秒/step；训练加验证暂估 3–4 小时，不承诺四卡带来四倍加速。实际进展以 [pipeline.json](../artifacts/benchmark/leaf_tower_jev_20261123/pipeline.json) 和 `train/leaf_tower_mlp/progress.json` 为准，不能把旧 LEAF/VideoMAE 成绩当作本轮结果。
 
 - 四张 H100 80GB；global batch 16 = 每 rank 4。
 - 2040 步；前 340 步仅连接器，之后 LEAF Tower 全参＋JEV 已有 LoRA/head；JEV base 不更新。
@@ -20,14 +22,14 @@ _更新：2026-11-23。当前只维护纯信号 Tower→MLP→Qwen-JEV，四卡�
 
 以下仅为同一 SEED/HMC151 协议下的历史完整验证参考，61,327 窗、九库等权平均，全部测试前向为 0。与新 Tower-only 不是严格单因素消融。
 
-| 方法 | encoder 更新 | best step | 完整验证 Acc（%） | 完整验证 BAcc（%） |
-| --- | --- | ---: | ---: | ---: |
-| InfoNCE＋CLS→JEV | 冻结 | 1700 | 46.37 | 43.91 |
-| InfoNCE＋Q-Former→JEV | 冻结 | 1360 | 47.28 | 43.94 |
-| Sigmoid＋CLS→JEV | 冻结 | 1020 | 44.47 | 43.27 |
-| Sigmoid＋Q-Former→JEV | 冻结 | 680 | 47.61 | 45.56 |
-| InfoNCE＋Q-Former→JEV | 全参 | 1700 | 47.79 | 44.15 |
-| InfoNCE＋Q-Former→JEV | LoRA-r64 | 1700 | 46.47 | 44.28 |
+| 方法　　　　　　　　　| encoder 更新 | best step | 完整验证 Acc（%） | 完整验证 BAcc（%） |
+| -----------------------| --------------| ----------:| ------------------:| -------------------:|
+| InfoNCE＋CLS→JEV　　　| 冻结　　　　 | 1700      | 46.37　　　　　　 | 43.91　　　　　　　|
+| InfoNCE＋Q-Former→JEV | 冻结　　　　 | 1360      | 47.28　　　　　　 | 43.94　　　　　　　|
+| Sigmoid＋CLS→JEV　　　| 冻结　　　　 | 1020      | 44.47　　　　　　 | 43.27　　　　　　　|
+| Sigmoid＋Q-Former→JEV | 冻结　　　　 | 680       | 47.61　　　　　　 | 45.56　　　　　　　|
+| InfoNCE＋Q-Former→JEV | 全参　　　　 | 1700      | 47.79　　　　　　 | 44.15　　　　　　　|
+| InfoNCE＋Q-Former→JEV | LoRA-r64　　 | 1700      | 46.47　　　　　　 | 44.28　　　　　　　|
 
 LoRA 相对全参 BAcc +0.13 个百分点、Acc -1.32 个百分点，单 seed 不宣称可靠提升。两者已核对相同初始化、学习率、2040 个全局 batch 和验证样本 ID；LoRA 基础 VideoMAE 未变、低秩参数已更新。[五组完成记录](../artifacts/benchmark/aligned_videomae_jev_20261102/pipeline.json)、[LoRA 完成记录](../artifacts/benchmark/aligned_videomae_jev_lora64_20261102/train/infonce_qformer_lora64/complete.json)。
 
@@ -68,16 +70,16 @@ VideoMAE 列现使用 `bsr_jev_readouts_hmc151_20261031/train/cls`：发布 BSR-
 
 其他八个库只用于训练，不参加验证／测试。以下是 QC 前缓存数量；CHB_MIT 中 1,144 个全零／无效训练窗口被固定 QC 排除，其他数量不变。
 
-| 数据集 | 缓存窗口总数（训／验／测） | 任务种类（分类数） | 划分方式 | 被试总数（训／验／测） |
-| --- | ---: | --- | --- | ---: |
-| BNCI2015001 | 2,400（2,400/0/0） | 运动想象（2 类） | 全部 train-only | 12（12/0/0） |
-| BNCI2014008 | 33,600（33,600/0/0） | P300（2 类） | 全部 train-only | 8（8/0/0） |
-| BNCI2014009 | 5,760（5,760/0/0） | P300（2 类） | 全部 train-only | 10（10/0/0） |
-| CHB_MIT | 27,436（27,436/0/0） | 癫痫检测（2 类） | 全部 train-only | 23（23/0/0） |
-| SleepEDF | 414,961（414,961/0/0） | 睡眠分期（5 类） | 全部 train-only | 78（78/0/0） |
-| AlexMI | 480（480/0/0） | 运动想象／静息（3 类） | 全部 train-only | 8（8/0/0） |
-| Zhou2016 | 614（614/0/0） | 运动想象（3 类） | 全部 train-only | 4（4/0/0） |
-| Nakanishi2015 | 1,800（1,800/0/0） | SSVEP（12 类） | 全部 train-only | 10（10/0/0） |
+| 数据集　　　　| 缓存窗口总数（训／验／测） | 任务种类（分类数）　　 | 划分方式　　　　| 被试总数（训／验／测） |
+| ---------------| ---------------------------:| ------------------------| -----------------| -----------------------:|
+| BNCI2015001　 | 2,400（2,400/0/0）　　　　 | 运动想象（2 类）　　　 | 全部 train-only | 12（12/0/0）　　　　　 |
+| BNCI2014008　 | 33,600（33,600/0/0）　　　 | P300（2 类）　　　　　 | 全部 train-only | 8（8/0/0）　　　　　　 |
+| BNCI2014009　 | 5,760（5,760/0/0）　　　　 | P300（2 类）　　　　　 | 全部 train-only | 10（10/0/0）　　　　　 |
+| CHB_MIT　　　 | 27,436（27,436/0/0）　　　 | 癫痫检测（2 类）　　　 | 全部 train-only | 23（23/0/0）　　　　　 |
+| SleepEDF　　　| 414,961（414,961/0/0）　　 | 睡眠分期（5 类）　　　 | 全部 train-only | 78（78/0/0）　　　　　 |
+| AlexMI　　　　| 480（480/0/0）　　　　　　 | 运动想象／静息（3 类） | 全部 train-only | 8（8/0/0）　　　　　　 |
+| Zhou2016　　　| 614（614/0/0）　　　　　　 | 运动想象（3 类）　　　 | 全部 train-only | 4（4/0/0）　　　　　　 |
+| Nakanishi2015 | 1,800（1,800/0/0）　　　　 | SSVEP（12 类）　　　　 | 全部 train-only | 10（10/0/0）　　　　　 |
 
 ## ⚠️ 保留的划分、数据与来源问题
 
@@ -94,4 +96,4 @@ VideoMAE 列现使用 `bsr_jev_readouts_hmc151_20261031/train/cls`：发布 BSR-
 
 历史 LEAF step 0–2040 图件未删除：[loss 和验证总图](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training_validation_curves.png)、[各库验证](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/validation_by_dataset.png)、[各库 loss](../artifacts/benchmark/leaf_jev_multitask_pilot_20261029_qc/figures/training_loss_by_dataset.png)。完整训练集准确率只测过 step 2040，不把训练 batch 曲线称为逐 checkpoint 的完整训练准确率。
 
-当前四组指标在各组 `metrics.jsonl`、`valid_step*_subset.json`、`train_step*_subset.json`，完整验证在 `valid_step002040_full.json` 中通过 `selected_step` 标明实际加载的最佳权重。失败或尚未完成不填写准确率。代码变更、历史研究过程和旧方案恢复方式见 [ARCHIVE.md](ARCHIVE.md)。
+本轮指标保存在 `train/leaf_tower_mlp/metrics.jsonl`、`valid_step*_subset.json`、`train_step*_subset.json`；完整验证在 `valid_step002040_full.json` 中通过 `selected_step` 标明实际加载的最佳权重。失败或尚未完成不填写准确率。代码变更、历史研究过程和旧方案恢复方式见 [ARCHIVE.md](ARCHIVE.md)。
