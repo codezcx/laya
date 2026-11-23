@@ -1,214 +1,108 @@
-# LEAF Tower 文本对齐 → MLP → Qwen-JEV
+# 用户条件化 EEG→JEV：当前实验协议
 
-_2026-11-23；两组文本对齐及匹配下游。配置：[contrastive_train.json](../configs/contrastive_train.json)、[benchmark_train.json](../configs/benchmark_train.json)。_
+2026-11-23。配置：[personalization.json](../configs/personalization.json)。当前替换个人梯度适配入口，旧状态归档到 `05403f7`。旧权重、日志、取消标记保留，不恢复已取消的批次。
 
-当前选择：在已完成的 InfoNCE→Tower→MLP/JEV 上做个人少样本校准。用户已将本轮收缩为单被试、单shot、单seed的四组验证，四组均完成，剩余队列于2026-11-23 14:12:56 UTC停止。共享模型 InfoNCE 全流程已完成；Sigmoid 对比预训练已完成，但其 JEV 短测在 step 7 保存并停止，正式 SFT 未开始。两个旧队列分别由 `cancelled.json` 拦截恢复。下方后续章节保留共享模型的可复现参数，不表示还有任务排队；完成结果见 [RESULTS](RESULTS.md)。
+## 研究问题
 
-## 🧪 当前：JEV CE × 语言 LoRA 单被试验证
+1. What is the problem? 能否让冻结的JEV服务利用新用户少量带标签EEG改善判断，而不为每人训练LM或运行个人优化器？
+2. Why is it important? 模型与推理接口保持共享，用户只缓存上下文，减少个人训练与版本维护成本。
+3. Why is it hard? 跨被试/session的信号分布改变；适配后的特征必须保持对冻结JEV可读。support拟合好不保证query泛化好。
+4. Prior limitations? 文本相似度适配与JEV目标不同；逐用户CE需要反传；开放语言LoRA没有在单用户pilot改善query。本轮不预设冻结Tower最好，也不以引用量代替EEG证据。
+5. Proposed components? 集合编码G、FiLM参数映射H、共享残差adapter、冻结JEV query CE；用是否更新Tower的配对控制检验信号表征是否需要共同适配。
 
-检验：JEV CE 是否比本地InfoNCE更适合冻结服务器，以及相同CE下开放LM LoRA是否增加收益。上一轮实现/配置/协议归档到Git `e71c334`，旧数据/权重/日志均保留。当前复用小模块和数据，替换个人InfoNCE入口，不积累独立vN代码。
+## 结构与范式
 
-公共起点仍为 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`（step1360），不是某人的适配后权重。每个用户、shot、方法都重置信号模块和LM LoRA，不传递到下一人。
-
-| GPU | 组别 | 信号侧可训练参数 | LM可训练参数 | 共同冻结部分 |
-| --- | --- | ---: | ---: | --- |
-| 0 | residual_frozen | B：33,088 | 0 | 原Tower、JEV base、connector/head、文本读出 |
-| 1 | residual_lm_lora | B：33,088 | 217,579,520 | 同上 |
-| 2 | lora_frozen | C：32,768 | 0 | 同上 |
-| 3 | lora_lm_lora | C：32,768 | 217,579,520 | 同上 |
-
-B仍为256→64→256残差网络，上投影零初始化；C仍是Tower双分支各最后两层Q/V LoRA，rank8/alpha8，B矩阵零初始化。原Tower 19,557,632参数冻结。新开放的是父checkpoint已有语言attention/MLP LoRA-r32/alpha64，不是新随机LoRA；choice head冻结，不能把只更新分类头称为LM更新。
-
-| 数据集 | 处理后窗口总计（原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（原训／验／测） | 个人校准 | 独立query |
-| --- | ---: | --- | --- | ---: | --- | --- |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 父模型跨被试；个人T→E | 9（5/2/2） | 仅被试8，每类5条，共20条 | E session全部288条 |
-
-每个event一个四秒窗；2a使用已核验的session＋run＋event身份，六个run重置的event不能混同。上表窗口和被试数是父模型原划分，本轮只评估其中被试8的个人适配，不是9名被试的完整评估。原benchmark文件不修改，但这是使用目标用户support标签的个人评估，不是原完整跨被试测试。原本计划的被试9、PhysioMI、更多shot均不再执行；已进入但未完成的10-shot不计入结果。
-
-### 固定条件与审计
-
-- 仅seed42，总计4次、每组1次，不再追加任何seed。原192次启动配置/manifest不回写，作为审计记录保留，取消标记阻止恢复。四组support/query和训练batch IDs完全一致，并与上一轮同一被试/shot/seed逐项核对。
-- 四组均100次更新、有效batch16=microbatch4×4，loss按microbatch样本比例累积。signal LR1e-4；新开放LM LR5e-6沿用共享SFT的LM峰值，但本轮恒定LR，无warmup/cosine。AdamW weight decay0.01；signal/LM各自clip1，避免LM梯度范数额外改变signal裁剪规则。
-- loss仅JEV四分类CE。冻结LM组仍允许梯度经LM回到信号侧，不能用no_grad包住训练forward。启用非重入gradient checkpointing，检查LM dropout为0；Tower始终eval、BN buffers冻结。
-- connector/head/文本投影不更新。直接文本只作诊断。本轮只读复用上一轮的输入及冻结文本头，不重做其1000步源MI投影拟合；这一历史额外训练仍是读出比较的限制。
-- 记录每个episode的support JEV CE/Acc/BAcc、query文本/JEV Acc/BAcc、负迁移、耗时、参数计数及逐trial预测。query不用于选checkpoint、调LR或停止步，仅报告固定step100。
-- 用哈希/参数版本号证明原Tower、JEV base、connector/head、文本头不变；开放LM LoRA必须实测更新，冻结组不能更新。保存/重载个人模块和LM LoRA后，同batch探针的logits必须完全一致。
-- 原验证被试6/70各做3步短测，共8个episode，不调参、不带入正式权重；通过后四卡各跑一组，不是DDP，不自动增加seed43/44或恢复已取消Sigmoid。
-- 两个LM更新组各保留一份独立语言adapter，连同四个个人模块、逐trial预测和日志保留；不删除旧产物。不运行原192次总汇总，不把原计划记为完成；单被试审计单列于 `pilot_summary.json`，不自动重跑未完成episode。
-- 只有一个被试和一个seed，不宣称跨被试有效或统计显著。旧InfoNCE须筛同一被试、shot、seed再比较。缩小范围是用户的计算预算决定，不按各组准确率选择被试或训练步数。
-
-### 模型规模与部署边界
-
-本轮backbone一直是同一个27B级模型，仅改变可训练参数集合。LM LoRA改善不能证明“模型太大”；support拟合好而query差也只提示进一步排查过拟合。更新LM组需要服务器反传/集中训练，并为不同用户选择不同LM adapter，不再是纯边缘端更新。
-
-已核实同系列公开9B模型[^jev9]，可作为后续候选，但本轮未下载/训练。不同宽度不能直接复用27B的连接器，需匹配EEG共享训练、数据/划分、目标和预算；原生决策预训练及可训练LoRA量也不同，仍须说明这些混杂因素。
-
-原启动配置：[personalization.json](../configs/personalization.json)，未修改以保留运行身份。输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`，其中 `cancelled.json` 禁止入口 `scripts/run_personalization.py --start` 或 `--resume` 重新执行；`pilot_summary.json` 记录四组已完成结果，`pipeline.json` 的 `failed_or_stopped` 是主动取消剩余任务，不是四组训练失败。旧结果仍在 `leaf_personalization_20261123/summary.md`。源码/config和输入身份受运行期哈希保护。
-
-实验设计技能用于配对、被试级汇总和区分损失/LM更新/模型规模三个因素，Markdown技能用于更新当前文档而非另建版本；工具方法来源：Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). [Scientific Agent Skills](https://doi.org/10.48550/arXiv.2609.00065)，已核对当前版本。
-
-[^jev9]: AutoTrust. [AutoTrust-Decider-Mini-9B / JEV-9B模型卡](https://huggingface.co/autotrust/AutoTrust-Decider-Mini-9B)，2026-11-23核对。本轮未换用，模型卡性能不是EEG证据。
-
----
-
-## 🎯 要回答的问题
-
-1. What is the problem? 检验纯信号 Tower 在接 JEV 前是否需要显式语义对齐，而非仅靠下游分类损失完成接口适配。
-2. Why is it important? 把信号提取与任务语义处理分开，避免 MPNet 与 Qwen 两套文本接口混用。
-3. Why is it hard? Tower 的信号特征空间并不天然等于 Qwen 的输入空间，且跨库通道、时间长度和标签存在差异。
-4. Prior limitations? 历史 LEAF→JEV 保留了 FiLM/Q-Former；VideoMAE 控制改变了信号表示路径。旧成绩不能直接归因为本轮结构的优劣。
-5. Proposed components? 发布 LEAF Tower、任务内多正例文本对齐、只迁移 Tower 的 MLP/JEV 分类；无对比学习组是必要基线。
-
-本轮是有监督多任务适配验证，不是严格 zero-shot，不将通用连接器本身宣称为 novelty。类别文本来自训练任务的标签语义，不是新采集的逐 trial 文本注释；模板同义改写不增加独立数据量。
-
-## 🔗 新增文本对齐阶段
+采用CNAPS-inspired的amortized feature adaptation，不是原CNAPS完整复现。DeepSets提供排列不变集合编码，FiLM提供条件化特征调制；不复制原CNAPS的分类器生成/度量读出，最终仍使用JEV。[^cnaps] [^sets] [^film]
 
 ```mermaid
 flowchart LR
-    accTitle: LEAF Semantic Alignment Transfer
-    accDescr: Pure EEG Tower tokens are mean pooled and projected toward fixed class texts. Only the trained Tower transfers to a fresh MLP and JEV classification stage.
-    eeg["EEG"] --> tower["Pure LEAF Tower"]
-    tower --> pool["Masked mean + projection"]
-    texts["Fixed MPNet class texts"] --> loss["Multi-positive loss"]
-    pool --> loss
-    tower -->|"Tower weights only"| aligned["Aligned Tower tokens"]
-    aligned --> bridge["Fresh MLP"] --> jev["Native JEV + task text"]
+    accTitle: Support Conditioned EEG Decision
+    accDescr: A labelled support set generates user context that modulates query EEG tokens. A frozen shared JEV decides without personal gradient updates.
+    support["Support EEG and labels"] --> context["Shared Tower and G"]
+    context --> condition["User context and H"]
+    query["Query EEG"] --> tower["Shared LEAF Tower"]
+    tower --> adapter["Conditional residual adapter"]
+    condition --> adapter
+    adapter --> jev["Frozen connector and JEV"]
+    prompt["Task question and options"] --> jev
+    jev --> decision["Choice logits"]
 ```
 
-两组分别使用 `infonce` 和 `sigmoid`，EEG 编码路径与初始化相同。只保留 Tower，两分支、所有片段的有效 token 做 masked mean，再经 LN(256)→Linear(256,768)→GELU→Linear(768,768)，最后 L2 归一化。该池化和对比投影仅用于第一阶段；下游继续使用全部 token，不池化。
+对于support集合S：
 
-固定文本库复用历史已审计的 MPNet float32 masked-mean/L2 向量：147 条描述、49 个规范语义概念、每类 3 个模板。锁定 manifest SHA256 `b374ceb9247dc952b4f820987f08e81b4538661c50aa2e41d2c0c078f3ae53c6`，验证向量 SHA、模型来源、当前标签顺序和跨库语义映射。只读取文本向量，不复用历史 EEG/VideoMAE 权重。模板为“任务说明 + EEG category: 类别”等，不包含样本 ID、被试或真实生理特征报告。
-
-- 正例：正确类别的全部 3 条文本；负例：本任务其他互斥类别的全部文本
-- 同类 EEG 不作为负例；不用跨库全局标签号定义正负，不把未知关系的跨任务文本当负例
-- InfoNCE：对全部候选文本做 log-softmax，再对所有正例的负 log 概率取均值；不是正例概率求和后取 log
-- Sigmoid：每 EEG 的正例 softplus 均值与负例 softplus 均值各占 0.5
-- 两组评估统一用每类三个模板的平均 cosine；Sigmoid 值不声称是校准类别概率
-- 这是单向 EEG→固定文本库的监督对齐，不是原版对称 CLIP/SigLIP 复现；固定文本库条件下梯度累积不缩减负例集合
-
-第一阶段沿用此前 VideoMAE 对比实验的设置：2040 步、seed 42、global batch 32、microbatch 8、encoder LR 1e-5、projection LR 1e-4、scale/bias LR 1e-4，AdamW weight decay 0.01（scale/bias 无衰减）、102 步 warmup、cosine 至 2%、梯度裁剪 1。初始温度 0.07，Sigmoid bias 0；logit scale 限制在 1–100。Tower 全参更新但始终 eval 模式，BatchNorm buffers 固定。没有可训练的文本 encoder、CLS 或 Q-Former。
-
-第一阶段九库固定验证子集每 340 步选 best，最后独立完整验证；test 前向为 0。只有已完成、同一数据/QC/缓存身份的 best Tower 参数及 buffers 可进入下游。投影头、温度、bias、优化器和第一阶段任务分类分数均不传入 JEV。下游从原生 JEV 和同一随机种子的 MLP 开始，不继承 smoke 权重。
-
-对比阶段多 65,280 次样本呈现，下游仍 32,640 次；相对无对比基线是额外训练阶段，不是等总计算量消融。若改善，尚需等预算监督预训练控制才能把收益专门归因于对比损失。
-
-## 🔌 模型与初始化
-
-```mermaid
-flowchart LR
-    accTitle: LEAF Tower JEV Training
-    accDescr: EEG enters a text-independent LEAF Tower and an MLP, while task text enters Qwen-JEV directly. No original LEAF Q-Former or MPNet is used.
-    eeg["EEG 200 Hz<br/>65-channel template"] --> tower["LEAF signal Tower<br/>two branches, 256 dim"]
-    tower --> mlp["Trainable MLP<br/>256 to 5120"]
-    mlp --> jev["Qwen-JEV<br/>language backbone"]
-    text["Task, question, options"] --> jev
-    jev --> choice["Decision position<br/>choice logits"]
+```text
+z_i = E(x_i)                                  # [16,256], four-second MI
+r_i = element([mean_tokens(z_i), label_proj(t_yi)])
+u   = context(mean_support(r_i))               # [128], support order invariant
+(gamma,beta) = H(u)                            # [64] each
+A(z,u) = z + W_up GELU((1+gamma)*W_down z + beta)
+logits = JEV(connector(A(E(x_query),u)), task/question/options)
 ```
 
-EEG 侧仅实例化原始 `Tower`，从发布 instruction-tuned checkpoint 的 `tower.*` 严格加载；不实例化 FiLM 或 Q-Former。删去从不进入信号前向的 mask token 与两个重建输出头。Tower 使用共享时空 tokenizer、双向和因果 Transformer，各 12 层，输出拼接为 256 维 token。[^leaf]
+G：标签投影768→64，element MLP320→128→128，均值聚合后MLP128→128。H：MLP128→128→128，后64＋64分别为gamma/beta。adapter下投影256→64，上投影64→256；上投影权重/bias零初始化，step0精确等于父模型。G/H与adapter合计189,440参数。
 
-实际前向参数量（`sum(p.numel())`，不计 buffers）：
+标签向量复用锁定的MPNet类别文本库（每类三个模板取均值），仅用于support真实标签，不给query输入真实类别。不做cosine/最近原型分类，不为数据集新增专用分类矩阵；候选类别数仍受JEV既有choice接口限制，不能承诺无限类或未知任务零样本能力。
 
-| Tower 组件 | 参数量 |
-| --- | ---: |
-| 共享 tokenizer | 269,056 |
-| 两个输入投影 | 328,192 |
-| 双向 Transformer | 9,477,632 |
-| 因果 Transformer | 9,477,632 |
-| 位置参数 | 5,120 |
-| Tower 合计 | 19,557,632 |
+新用户u、gamma、beta会变，但G/H和adapter权重不变。离线训练允许Tower共同学习；部署期两组均冻结全部参数，只计算support上下文再应用到query。这不是逐用户LoRA、TTT或MAML内循环。
 
-19.56M 不包含对比投影头、MLP 连接器或 JEV。下游 MLP 另有 27,535,872 参数；JEV LoRA 217,579,520、choice head 81,936。单元测试锁定 Tower 参数量及全部前向参数的梯度可达性。
+## 两组唯一的干预
 
-- 权重：`/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt`
-- SHA256：`f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa`
-- 连接器沿用两层 MLP 形式：LayerNorm(256) → Linear(256,5120) → GELU → Linear(5120,5120)
-- JEV 从原生语言权重、原生 LoRA 和 choice 行初始化；不加载视觉塔，不继承旧下游 SFT 权重
-- 输入序列沿用 `prefix + EEG tokens + task/question/options + [decision]:`；真实标签仅用于监督
-- 文本位于 EEG 后面，因果主干的决策位置可读取二者；不声称前面的 EEG 位置能反向看到后面的任务文本
-
-4 秒 EEG 输出 16 个 token，10 秒输出 40 个；长窗按既有规则均匀切成不超过 10 秒的片段，各片右侧补到 100 样本整数倍，保留全部片段和两个分支，不做池化或 token 压缩。30 秒 HMC 窗共有 120 个 token。
-
-信号预处理复用历史 LEAF：双极导联最小范数表示（不等于恢复真实单极 EEG）、去无几何的乳突参考、200 Hz、每窗 0.1/99.9 百分位截幅、median/IQR 标准化（IQR 为零时用 std）、65 通道插值，SEED/SEED-VII 保留原额外 ±10 截幅。所有阶段 Tower 保持 eval 模式，禁用 dropout 并固定 BatchNorm buffers，但预热后可计算梯度和更新 affine/Transformer 参数。
-
-## 📥 数据与划分
-
-17 库不变：9 个 benchmark＋8 个 train-only。2b 不训练。额外训练库仍为 BNCI2015001、BNCI2014008、BNCI2014009、CHB_MIT、SleepEDF、AlexMI、Zhou2016、Nakanishi2015。
-
-沿用上一阶段的 SEED 划分：严格调用 pinned 官方 `SeedBuilder._divide_by_uniform_label` 核对每位被试每次 session 的 15 个原始 trial，按顺序 1–9／10–12／13–15 分为训练／验证／测试。不是随机切窗口，允许同一被试出现在三份集合，但禁止同一 trial 跨集合。此规则与论文附录 B.3 一致。[^bench]
-
-下表是本轮实际处理窗口及划分，不是论文作者当次运行名单；窗口不能一概视为独立原始 trial。
-
-| 数据集 | 处理窗口：总计（训／验／测） | 任务种类（分类数） | 划分协议 | 被试：总计（训／验／测） |
+| GPU | 组别 | Tower权重 | G/H＋adapter | JEV base/LoRA/connector/head |
 | --- | --- | --- | --- | --- |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4 类） | 固定跨被试 | 9（5/2/2） |
-| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4 类） | 固定跨被试 | 109（69/19/21） |
-| SEED | 37,890（22,455/7,875/7,560） | 情绪识别（3 类） | 被试内，原始 trial 顺序 9/3/3 | 15（15/15/15；重复参与） |
-| SEED-VII | 19,420（15,536/1,942/1,942） | 情绪识别（7 类） | 随机跨被试 | 20（16/2/2） |
-| TUAB | 272,320（247,728/12,315/12,277） | EEG 异常检测（2 类） | 原训练集＋评估集按被试分层 | 2,328（2,075/101/152） |
-| TUEV | 113,353（87,834/12,473/13,046） | EEG 事件分类（6 类） | 按被试分层 | 370（328/20/22） |
-| HMC | 136,925（92,454/22,421/22,050） | 睡眠分期（5 类） | 完整记录随机跨被试 | 151（103/24/24） |
-| Workload | 2,134（1,534/300/300） | 认知负荷（2 类） | 随机跨被试 | 36（26/5/5） |
-| ADFTD | 7,013（4,743/1,115/1,155） | AD／FTD／正常识别（3 类） | 按被试分层 | 88（64/11/13） |
+| 0、1 | tower_frozen | 冻结 | 更新 | 全冻结 |
+| 2、3 | tower_full | 全参更新 | 更新 | 全冻结 |
 
-SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处理窗口总数不变。其余 16 库 manifest、records 和信号索引逐文件不变，HMC 已补齐 151 份并维持现有 103/24/24 名单。
+两个rank同步平均梯度，不是每卡不同seed。Tower保留19,557,632个前向参数，两组均eval，BN buffers/dropout固定。全参组同时通过support/query分支更新同一个Tower。JEV不进优化器，但训练forward不能包no_grad，否则前端拿不到CE梯度。
 
-- 划分：`artifacts/benchmark/multitask_splits_seedpaper_20261101`；summary SHA256 `9a4d302b25413d5e06f728e6fd9caad7b1b3dbf1590e1e7d03121dd2cc19a222`
-- 缓存：`datasets/multitask_seedpaper_20261101`；只重建 SEED 索引，全部信号只读链接原缓存，不重写 EEG
-- QC：`artifacts/benchmark/multitask_signal_quality_seedpaper_20261101`；summary SHA256 `45e504a715cc5fdbd42b78a28d0edddc735f139063c985af55cd5f0bc236b98c`
-- 新 QC 继承已核验的原信号完整性审计，检查源报告哈希、所有数组大小／mtime、SEED 无无效窗及重新分配后的计数；未声称本次重新扫描全部波形
-- 17 库有效训练 967,281 窗，九库验证 61,327 窗，九库测试 61,375 窗；仍只排除 CHB_MIT 已知 1,144 个无效训练窗
-- 严格校验非 SEED 被试不重叠，以及 SEED 原始 event ID、trial 完整覆盖、窗口身份唯一与 9/3/3 分配；不能全局关闭泄漏检查
+父checkpoint：`artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，验证选中step1360；包含已完成文本对齐＋共享SFT的Tower、连接器、语言LoRA/head。不是从发布Tower重新训练，也不继承个人adapter。连接器为LN256→Linear256,5120→GELU→Linear5120,5120。JEV只加载语言主干，不加载视觉塔。
 
-重划分入口：[prepare_seed_trial_split.py](../scripts/prepare_seed_trial_split.py)。旧目录保留；第一阶段从发布 LEAF 权重初始化，第二阶段从对应 best Tower 初始化，不使用任何历史下游 checkpoint。
+## 数据与support/query
 
+下表为父模型原划分的处理窗口/被试数，不是本轮全部评估人数。原文件和划分均不改写；每个MI event一个四秒输入窗。
 
-## 🔧 下游训练与四卡语义
+| 数据集 | 处理窗口：总计（原训／验／测） | 任务种类（分类数） | 原划分协议 | 被试：总计（原训／验／测） |
+| --- | ---: | --- | --- | ---: |
+| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 固定跨被试 | 9（5/2/2） |
+| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 固定跨被试 | 109（69/19/21） |
 
-| 项目 | 固定设置 |
+- 仅原训练的5＋69名被试参与优化。每两步各抽一次数据集，库内随机打乱被试后轮转，每步一人；两组使用同一落盘episode流。
+- 2a：T session support池，E session query池。身份为session＋run＋event，六个run重置event不能混同。
+- PhysioMI：R04/R06/R08/R10 support池，R12/R14 query池，不在同一个record切两池。
+- 每步support每类5条共20条；query每类4条共16条，无放回。不同step可再次抽到原trial，不算新增数据。
+- 固定验证：原valid的2a被试6与PhysioMI被试70；每类5条support，独立query池全量评估。按数据集等权BAcc选checkpoint，包含step0，同分保留早者。
+- 最后仅原test的2a被试8，support/query ID与旧5-shot/seed42 pilot完全相同：T支持20条、E查询288条。无测试梯度、无测试选模，无多被试/shot/seed扫参。
+- 原数据/QC索引与父checkpoint核对；按窗固定200Hz、分位截幅、median/IQR标准化、65通道表示，不拟合query分布。每输入65×800，输出16×256。
+- 复用 `multitask_splits_seedpaper_20261101`、`datasets/multitask_seedpaper_20261101` 及对应QC。父模型17库共享训练，本轮只做两个MI任务的机制验证。
+
+## 固定预算与审计
+
+| 项目 | 设置 |
 | --- | --- |
-| GPU | 0、1、2、3，四个模型副本，共享一次同步更新 |
-| 全局 batch | 16；每 rank 4，microbatch 4；不是全局 64 |
-| 总预算 | 2040 次优化器更新，seed 42 |
-| 步 1–340 | 仅训练 MLP 连接器 |
-| 步 341–2040 | LEAF Tower 全参、连接器、JEV 已有 LoRA、choice head |
-| 永久冻结 | JEV 基础参数；LEAF BatchNorm buffers |
-| 学习率峰值 | connector 1e-4；JEV LoRA 5e-6；head 1e-5；Tower 1e-6 |
-| 优化器 | AdamW，weight decay 0.01，梯度裁剪 1 |
-| 学习率日程 | 各组开放后 62 步预热，cosine 至峰值的 2% |
-| 下游损失 | 候选类别交叉熵；InfoNCE/Sigmoid 仅用于之前的对齐阶段 |
-| 验证 batch | 每 rank 至多 8；不改变样本集合或统计权重 |
+| 更新 | 每组340步；seed42；不是340个epoch |
+| support | 每类5条，共20条；每个episode一名用户 |
+| query batch | 全局16 = 两rank各8；microbatch4，累积2次 |
+| 损失 | query的JEV四分类CE；无额外对比、重建或support拟合损失 |
+| G/H/adapter LR | 1e-4，沿用前轮小模块LR |
+| Tower LR | 全参组1e-6，沿用共享SFT；不因双卡改变 |
+| 优化器 | AdamW，weight decay0.01；每参数组独立clip1；恒定LR |
+| 验证 | step0、85、170、255、340；固定support，完整query |
+| 断点 | 每20步和末步last，保存optimizer/RNG；best按验证选 |
+| GPU短测 | 各4步源训练episode，仅valid子集前向，不访问test |
 
-四个 rank 从同一确定性全局采样列表切分，不独立重新抽样；训练 loss 按本 rank 样本数归一化后 all-reduce 平均梯度，再裁剪、更新。逐步核对全局 ID 顺序，保存时核对所有 rank 的可训练权重哈希。沿用已有显式 all-reduce 数据并行实现，并由四进程等价性测试验证；不采用 tensor/model parallel。
+340步为预定机制验证预算，不代表收敛；每组5,440次query呈现。每microbatch重算support图，两卡复制相同support；梯度平均等价性有自动测试。记录query loss、梯度范数、耗时、显存、验证。
 
-17 库周期随机轮转，库内类别均衡／被试均匀。每库 120 个 batch、1920 次样本呈现，全部 32,640 次样本呈现，并非完整遍历 967,281 个训练窗。增加 GPU 不放大学习率或训练量。
+门控检查：相同初始Tower/adapter哈希、同一episode流和step0基线；JEV参数版本/buffers不变；Tower冻结组不变/全参组改变；G/H/adapter均更新；双rank权重相同；checkpoint重载实际logits完全一致。短测权重不传入正式实验。
 
-## 📊 验证、恢复与启动
+选中checkpoint后，评估正确用户support、固定源训练用户support、u=0、绕过adapter四种前向条件。错误用户为同库第一名源训练被试，不根据效果挑选。后两者诊断共享残差偏置/共同Tower变化；这是推理消融，不代替从头训练的无条件adapter控制，不能单独证明个性化机理。
 
-step 0 和每 340 步记录每库至多 512 个固定验证窗，以及至多 128 个训练监控窗。九库等权验证 BAcc 选 best，同分保留较早 step。结束后 best 做完整 61,327 窗验证；测试前向固定为 0。训练监控不冒充完整训练集准确率。
+## 启动和解释边界
 
-验证按原始样本索引跨 rank 划分，汇总全部概率后计算 confusion matrix/Acc/BAcc，不平均各卡 BAcc，不重复补齐尾批。完整验证保存逐窗 ID/标签/概率。结束自动绘制 loss、验证及分库曲线。
+入口 `scripts/run_personalization.py --start`，输出 `artifacts/benchmark/leaf_amortized_film_20261123/`。输入准备、两组GPU短测通过后自动并行正式训练。查看 `pipeline.json` 和各组 `progress.json`；最终预测保存到 `test_*_predictions.pt`。源码/配置/输入/父checkpoint受运行期哈希保护，未取消的意外中断才允许 `--resume`。
 
-启动顺序为 CPU 全部计划输入检查 → 两组单卡 17 步对齐 smoke → 两组单卡正式对齐并行 → 各组四卡 17 步下游 smoke → 各组四卡正式 SFT（依次）。CPU 检查 batch 32 的全部行及 microbatch 4 边界；采样器测试证明下游 batch 16 是同一步 batch 32 的前 16 行。smoke 不访问验证/测试，参数不得流入正式 run。对齐每 100 步、SFT 每 20 步保留 last，验证点另存 checkpoint；保存完整 Adam 状态、buffers 和 RNG。源码、配置、上游模型代码与 checkpoint 身份受保护，不允许 live job 期间修改。
+旧个人adapter的64.93%含100步个人更新；本轮多了共享G/H训练、目标用户不更新，不是等预算对照。单个已被观察的test用户仅作探索，不能称盲测、跨被试显著提升或产品有效性。Tower全参可能损害非MI任务，本轮未验证多任务保留能力。LEAF预训练重叠、原TUAB/TUEV候选身份冲突仍未解决。
 
-```bash
-laya/.venv-eeg/bin/python -m pytest tests -q
-laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
-# 仅适用于未被用户取消的意外中断；本轮存在 cancelled.json，不允许恢复：
-laya/.venv-eeg/bin/python scripts/run_contrastive.py --start --resume
-```
+实验设计技能用于配对episode、固定预算与数据边界；Markdown技能用于保持当前协议一致。工具方法来源：Kassis et al. (2026), [Scientific Agent Skills](https://doi.org/10.48550/arXiv.2609.00065)。本轮G/H维度及EEG接入是工程设计，不是引用论文已验证的EEG方法。
 
-输出：`artifacts/benchmark/leaf_tower_contrastive_20261123/`。第一阶段在 `alignment/train/{infonce,sigmoid}`；下游在 `train/{leaf_infonce_mlp,leaf_sigmoid_mlp}`。查看 `pipeline.json` 和各目录 `progress.json`；原 checkpoint/log/cache 不覆盖。验证和训练 loss 均写日志；下游结束自动生成曲线。
-
-## ⚠️ 解释边界
-
-本轮与之前 VideoMAE 不构成“只改一个模块”的严格消融：encoder、输入适配与 token 长度均不同。与历史 LEAF 还存在 HMC/SEED 协议、验证选模等区别。所有学习率/global batch/步数沿用当前既定值，不因换成四卡而放大。
-
-SEED 被试内，其余八个 benchmark 跨被试。TUAB/TUEV 的 19 个候选共享 ID、其中 5 个跨库角色冲突未解决；LEAF 预训练/指令调优数据重叠未排除。HMC 151 份已补齐，但作者精确随机名单未确认。不能声称完全复现 EEG-FM-Bench 或严格无泄漏。
-
-VideoMAE 旧方案已归档到 `6247e46`，无新增对比的 Tower 基线归档到 `ef07d2c`，只在隔离 worktree 原样复现；当前复用它们的损失定义、数据和下游实现，而不保留独立 VideoMAE 训练分支。历史产物位置见 [ARCHIVE](ARCHIVE.md)，历史成绩保留于 [RESULTS](RESULTS.md)。
-
-## 📚 来源
-
-[^leaf]: LEAF 作者原始实现和说明。https://github.com/Jiang-Muyun/LEAF/blob/main/LEAF.py 。本轮以本地来源文件哈希为准，不自动更新上游。
-[^bench]: EEG-FM-Bench 附录 B.3 与固定提交。https://arxiv.org/html/2508.17742v3#A2.SS3 ；https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/seeds/seed.py 。
+[^cnaps]: Requeima et al., Fast and Flexible Multi-Task Classification Using Conditional Neural Adaptive Processes, NeurIPS 2019. [原论文](https://proceedings.neurips.cc/paper_files/paper/2019/file/1138d90ef0a0848a542e57d1595f58ea-Paper.pdf)。
+[^sets]: Zaheer et al., Deep Sets, NeurIPS 2017. [原论文](https://papers.neurips.cc/paper/2017/hash/f22e4747da1aa27e363d86d40ff442fe-Abstract.html)。
+[^film]: Perez et al., FiLM: Visual Reasoning with a General Conditioning Layer, AAAI 2018. [原论文](https://cdn.aaai.org/ojs/11671/11671-13-15199-1-2-20201228.pdf)。

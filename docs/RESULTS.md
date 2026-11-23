@@ -1,10 +1,16 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-23。Tower InfoNCE→JEV 的单被试 B/C × LM 更新验证已完成，后续批次按用户要求停止；设置见 [协议](PROTOCOL.md)。_
+_更新：2026-11-23。当前为G/H＋FiLM前向少样本适配，Tower冻结/全参两组；设置见 [协议](PROTOCOL.md)。个人CE旧结果保留为参考。_
 
 ---
 
-## 🧪 当前：单被试 JEV CE 与 LM LoRA 对照已完成
+## 当前：用户条件化适配，启动检查中
+
+共同起点为InfoNCE→Tower→JEV best step1360。GPU0–1训练G/H＋adapter，GPU2–3额外全参更新Tower；JEV及已有语言LoRA、connector/head全冻结。两组seed42、340步、support每类5条、query全局16。仅原训练74名MI被试优化；固定验证2a被试6、PhysioMI被试70，最后仅2a被试8做一次探索性前向适配评估。
+
+108项单元测试通过，其中18项新增适配测试；尚不填新成绩。正式启动由真实GPU短测门控，真实阶段以 `artifacts/benchmark/leaf_amortized_film_20261123/pipeline.json` 为准。结果包含正确用户/错误源用户/零上下文/绕过adapter四个推理条件，不是四个额外训练实验。旧64.93%含100步个人更新，不是本轮无目标梯度适配的先验结果。
+
+## 🧪 历史：单被试 JEV CE 与 LM LoRA 对照已完成
 
 按用户要求，原192次完整个人评估缩为 BCIC-IV-2a 被试8、每类5条、seed42的四组初步验证；不增加其他被试、trial数量或seed。四组均已训练100步，使用T session的20条support，评估E session的全部288条query。信号LR1e-4、LM LR5e-6、有效batch16及其余超参数没有改变，connector/head均冻结。
 

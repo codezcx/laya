@@ -1,56 +1,42 @@
-# LEAF Tower 文本对齐 → MLP → Qwen-JEV
+# LEAF Tower → 用户条件化 adapter → 冻结 Qwen-JEV
 
-当前保留的方法：先用多正例 InfoNCE 将纯 LEAF Tower 与固定类别文本向量对齐，再只迁移 Tower，保留全部 token 经 MLP 输入 Qwen-JEV。EEG 路径不用 FiLM 或 LEAF Q-Former；对比阶段的 MPNet 只提供冻结文本向量，不接收 EEG，也不进入下游 JEV。Sigmoid 是已完成的对比预训练参考，其后续 JEV 实验已按用户要求取消。
+当前方法是 CNAPS-inspired amortized feature adaptation：少量带标签EEG支持样本经DeepSets上下文提取器G与条件映射H，产生用户特定FiLM调制。离线训练共享参数；新用户只计算上下文，不训练个人模型。最终分类来自JEV，不是类别文本相似度。
 
-## 📋 当前实验：单被试 JEV 分类损失与语言 LoRA 对照已完成
+## 当前实验
 
-上一轮本地 InfoNCE B/C 已完成，代码归档在 Git `e71c334`，结果保留于 `artifacts/benchmark/leaf_personalization_20261123/`。当前在同一父 checkpoint、同一 support/query 上检验语言侧适配是否有益。
+两组配对机制验证，当前处于启动检查阶段；真实阶段以运行目录的 `pipeline.json` 为准。
 
-2026-11-23 按用户要求缩为初步验证：只保留 BCIC-IV-2a 被试8、每类5条、seed42的四组100步结果，独立评估为E session全部288条。14:12:56 UTC 已停止后续批次并释放四张卡；不再运行其他被试、trial数量或seed。原始配置/manifest保留启动审计，`cancelled.json` 阻止重启；[四组结果与审计](artifacts/benchmark/leaf_personalization_jev_ce_20261123/pilot_summary.json)。
+| GPU | 组别 | 离线训练 | 新用户适配 | JEV |
+| --- | --- | --- | --- | --- |
+| 0、1 | tower_frozen | G/H＋条件化残差adapter | 只做前向 | 全冻结 |
+| 2、3 | tower_full | 同上＋LEAF Tower全参 | 只做前向 | 全冻结 |
 
-| GPU | 信号侧 | LM 更新 | 损失 |
-| --- | --- | --- | --- |
-| 0 | B：输出残差 adapter，33,088 参数 | 全冻结 | JEV CE |
-| 1 | 同 B | 已有语言 LoRA-r32，217,579,520 参数 | JEV CE |
-| 2 | C：Tower Q/V LoRA-r8，32,768 参数 | 全冻结 | JEV CE |
-| 3 | 同 C | 已有语言 LoRA-r32，217,579,520 参数 | JEV CE |
+- 相同父模型InfoNCE→Tower→JEV best step1360、seed42、340次更新和episode流。
+- 每步来自一名原训练被试：support每类5条，query全局16条；query CE经冻结JEV反传。每组两卡数据并行，各8条、microbatch4。
+- 原训练的2a五名＋PhysioMI六十九名被试用于共享训练；固定验证为2a被试6、PhysioMI被试70。
+- 最后仅2a被试8探索性评估：T session 20条support，E session全部288条query；不做全测试被试/多shot/多seed扫参。
+- G/H/adapter LR1e-4，Tower全参组LR1e-6；JEV基础权重、已有语言LoRA、connector/head始终冻结。两组Tower BN/dropout保持eval。
+- 新增模块为共享参数；用户缓存128维上下文，不维护个人优化器。旧个人CE实验与取消标记不改动。
 
-- 四组均冻结原 Tower、JEV 基础权重、connector、choice head、文本读出；只切换语言 LoRA 是否更新，不是27B全参微调。
-- 仅2a被试8，每类5条、共20条校准，T→E；这是单被试个人适配，不是完整跨被试评估。
-- 仅seed42，每组1次、总计4次；原192次计划的余下批次已取消，不增加seed43/44。与旧InfoNCE比较须筛同一被试、shot及seed。
-- 信号LR1e-4、100步、有效batch16不变；microbatch4累积4次。新增LM LR5e-6，各参数组分别clip1、AdamW weight decay0.01、恒定LR。
-- loss仅为JEV CE，直接文本仅作诊断；记录support/query指标、support CE、冻结/更新与重载审计。每次从父权重重置，不累积其他用户的更新。
-- 输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`；四组均已完成并通过配对/冻结/重载审计，权重及日志保留。
-- 更新LM需要服务器参与反传，不是纯边缘端方案。本轮没缩小backbone，不能证明“27B太大”。
-
-## 📋 已完成的共享模型
-
-- InfoNCE 下游四卡训练和完整验证已完成，best step 1360，九库等权 BAcc 47.83%、Acc 50.01%。全局 batch 16，每卡 4。
-- 2026-11-23 用户选择保留 InfoNCE：Sigmoid→JEV 短测在 step 7 保存并停止，正式训练未启动，队列已关闭。所有权重/日志保留；个人校准对照结束后四张卡也已释放。
-- 沿用 17 库训练、九库验证与固定划分，2b 不训练；SEED 被试内 trial 9/3/3，其他八库跨被试。
-- 2040 步；前 340 步仅连接器，之后 LEAF Tower 全参＋JEV 已有 LoRA＋choice head；JEV base 冻结。
-- encoder LR 1e-6 不变，其他学习率和训练预算不因四卡放大。
-- 无新增对比学习基线已完成，完整验证 BAcc 43.41%。新运行见 `artifacts/benchmark/leaf_tower_contrastive_20261123/pipeline.json`，不把 smoke 当正式成绩。
-- Tower 实测 19,557,632 参数（19.56M），不含连接器或 JEV；两阶段配置分别记录，新增预训练带来额外计算预算。
-- 结束评估最佳 checkpoint 的完整验证集；测试集不自动运行。
-
-## 🔧 使用
-
-个人校准入口如下，仅作复现接口说明；本轮后续批次已取消，`--start` 和 `--resume` 都会拒绝重新执行。未经新的用户授权，不修改取消标记或重新挂任务：
+## 启动与查看
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
 laya/.venv-eeg/bin/python scripts/run_personalization.py --start
+# 仅用于未取消的意外中断，不能重复启动活跃任务：
+laya/.venv-eeg/bin/python scripts/run_personalization.py --start --resume
 ```
 
-个人校准先检查原划分与独立 trial 身份，只读复用上一轮输入和文本头，不重新拟合；验证被试上做四组三步短测，核对冻结/更新、梯度、重载及配对批次后才正式执行。每个 episode 从父权重重置；恢复跳过已完成 episode，未完成的重跑。旧 `run_contrastive.py` 队列仍被关闭，不重启 Sigmoid。
+输出 `artifacts/benchmark/leaf_amortized_film_20261123/`。流程为输入检查与准备 → 两组各4步真实GPU短测 → 配对/冻结/重载审计 → 两组正式并行。短测权重不进入正式实验。`train/{tower_frozen,tower_full}/progress.json` 显示进度，`history.json` 记录loss，`valid_step*.json` 记录验证，完成后写入 `summary.json`。
 
-## 📚 文档与边界
+## 模型来源与边界
 
-- [模型结构、四卡语义、数据与训练协议](docs/PROTOCOL.md)
-- [当前状态与必要历史结果](docs/RESULTS.md)
-- [历史实现及产物归档](docs/ARCHIVE.md)
+LEAF纯信号Tower有19,557,632个前向参数，四秒EEG产生16×256 tokens。没有原LEAF文本encoder/Q-Former；新增FiLM属于本轮用户条件化模块，不是重新加载原LEAF FiLM。固定MPNet类别向量只编码support标签，不做相似度分类，不给query输入真值。
 
-源码与配置运行期有哈希保护。旧 VideoMAE 方法通过 Git `6247e46` 的隔离 worktree 复现，纯 Tower 无对比基线见 `ef07d2c`。当前仅维护 Tower 文本对齐及其必要无对比控制，数据、权重、日志、环境和第三方目录均保留。
+父模型在17库训练、九库验证，完整验证BAcc47.83%、测试前向0。旧个人CE pilot中2a被试8的冻结LM＋个人输出adapter为64.93%，含100步个人更新，与本轮前向适配不等计算预算。该用户结果已经被观察，本轮不能称盲测或严格zero-shot。
 
-这仍是有监督适配试验，不是严格跨数据集 zero-shot；TUAB/TUEV 候选身份冲突、预训练重叠等风险尚未消除。用户已有 ECG、专利、图件、编辑器文件未作为本轮清理对象。
+- [当前结构、数据与实验协议](docs/PROTOCOL.md)
+- [当前状态与历史参考结果](docs/RESULTS.md)
+- [历史实现和产物归档](docs/ARCHIVE.md)
+
+实验设计技能用于配对与泄漏检查，Markdown技能用于保持协议与实现一致。旧方案归档到Git `05403f7`；数据、权重、日志、环境和第三方目录均保留。用户已有ECG、专利、图件、编辑器改动不在本次提交内。
