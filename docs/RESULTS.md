@@ -10,7 +10,9 @@ _更新：2026-11-23。当前在已完成的 Tower InfoNCE→JEV 上做 B/C 个�
 
 2026-11-23 13:25 UTC 四卡验证被试短测全部通过，正式四 worker 已启动：GPU 0/1 为 B，GPU 2/3 为 C，每 worker 72 次适配。99 项自动测试通过；短测实测 zero-init 输出误差为 0、LoRA 有非零梯度，确认 B/C 的 support/query/batch IDs 与共同基线一致、基础 Tower/文本读出/JEV 未更新、小 checkpoint 重载输出完全一致。[短测审计](../artifacts/benchmark/leaf_personalization_20261123/smoke_verified.json)、[运行状态](../artifacts/benchmark/leaf_personalization_20261123/pipeline.json)。实现提交 `36493bb`。
 
-暂不填写未完成正式成绩。完成后自动写该目录 `summary.md` 和 `summary.json`，分别报告直接文本与冻结 JEV 结果。这些是带标签 support 的个人跨 session/run 分数，不是下方九库原完整测试分数，也不等同于第一阶段 51.39%。
+2026-11-23 13:32:35 UTC，288 次适配全部完成，144 个 B/C 配对审计通过，四卡正常释放。[完整汇总](../artifacts/benchmark/leaf_personalization_20261123/summary.md)。2a 上 B 的直接文本 BAcc 为 60.76/59.61/60.19%，对应每类 5/10/20 trial，冻结 JEV 为 52.26/52.43/51.68%；各自不适配基线为 49.13/50.87%。PhysioMI 上 B 的文本为 42.51/42.20%、JEV 为 38.01/38.18%；C 的文本为 42.07/42.44%、JEV 为 38.54/38.75%，对应每类 5/10 trial，各自基线为 41.81/38.08%。先按种子、再按被试等权平均；2a 仅 2 人，不宣称显著。文本投影头曾用源 MI 训练被试额外拟合 1000 步，JEV 没有等量专项训练，因此这是接口兼容性实验，不是等预算模型能力比较。
+
+这些是带标签 support 的个人跨 session/run 分数，不是下方九库原完整测试分数，也不等同于第一阶段 51.39%。
 
 ## 📋 已完成的共享模型与选择
 
