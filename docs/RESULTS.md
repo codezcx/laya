@@ -4,11 +4,15 @@ _更新：2026-11-23。当前为G/H＋FiLM前向少样本适配，Tower冻结/�
 
 ---
 
-## 当前：用户条件化适配，启动检查中
+## 当前：用户条件化适配，两组正式训练中
 
 共同起点为InfoNCE→Tower→JEV best step1360。GPU0–1训练G/H＋adapter，GPU2–3额外全参更新Tower；JEV及已有语言LoRA、connector/head全冻结。两组seed42、340步、support每类5条、query全局16。仅原训练74名MI被试优化；固定验证2a被试6、PhysioMI被试70，最后仅2a被试8做一次探索性前向适配评估。
 
-108项单元测试通过，其中18项新增适配测试；尚不填新成绩。正式启动由真实GPU短测门控，真实阶段以 `artifacts/benchmark/leaf_amortized_film_20261123/pipeline.json` 为准。结果包含正确用户/错误源用户/零上下文/绕过adapter四个推理条件，不是四个额外训练实验。旧64.93%含100步个人更新，不是本轮无目标梯度适配的先验结果。
+108项单元测试通过，其中18项新增适配测试。两组真实GPU四步短测均通过：正确模块更新、JEV冻结、Tower buffers冻结、双rank权重一致、保存重载logits完全一致；两组初始权重/episode流/基线一致。[短测审计](../artifacts/benchmark/leaf_amortized_film_20261123/smoke_verified.json)。短测成绩不作为验证效果。
+
+2026-11-23 15:34:34 UTC，控制器3800995启动两组正式训练，torchrun PID分别为3902044（GPU0–1）和3902047（GPU2–3）。15:35:53 UTC两组均完成首次正式更新，loss同为0.704912；解冻组Tower梯度范数3.90545，可训练参数19,747,072，冻结组189,440。源码提交 `a331d5c`；后续文档更新不改变运行代码哈希。两组step0验证完全一致：2a被试6的E session 288条BAcc26.74%，PhysioMI被试70后两run 30条BAcc50.00%，两库等权38.37%；这是固定验证pilot，不是九库或完整原验证集成绩。
+
+尚无训练后正式结论。真实阶段见 [pipeline.json](../artifacts/benchmark/leaf_amortized_film_20261123/pipeline.json)，分组进度见 [冻结Tower](../artifacts/benchmark/leaf_amortized_film_20261123/train/tower_frozen/progress.json) 和 [全参Tower](../artifacts/benchmark/leaf_amortized_film_20261123/train/tower_full/progress.json)。结束结果包含正确用户/错误源用户/零上下文/绕过adapter四个推理条件，不是四个额外训练实验。旧64.93%含100步个人更新，不是本轮无目标梯度适配的先验结果。
 
 ## 🧪 历史：单被试 JEV CE 与 LM LoRA 对照已完成
 
