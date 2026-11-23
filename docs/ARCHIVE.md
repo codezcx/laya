@@ -1,11 +1,12 @@
 # Git 与实验产物归档
 
-当前维护LEAF Tower→用户条件化adapter→冻结JEV的amortized适配，Tower冻结/全参为匹配控制，见 [协议](PROTOCOL.md)。个人CE/LM LoRA单被试pilot归档在 `05403f7`；旧192次计划余下批次仍取消，不记为完成、不恢复。当前替换旧个人优化入口和专属测试，历史实现仅从隔离worktree恢复；所有原产物保留。
+当前维护LEAF Tower→个人残差adapter→冻结JEV的23名留出用户监督适配，见[协议](PROTOCOL.md)。amortized G/H＋FiLM实现归档在 `36b33d0`；从隔离worktree检查 `05403f7`，仅复用成功的残差adapter＋冻结LM个人CE路径。旧192次计划余下批次仍取消，不记为完成、不恢复；新run仅23次。历史实现与专属测试由当前方案替换，所有原数据、权重、缓存和日志保留。
 
 `ef07d2c` 保存本轮新增对齐前的纯 Tower 无对比基线：2040 步、完整验证 BAcc 43.41%、Acc 46.32%。`artifacts/benchmark/leaf_tower_jev_20261123/` 中的权重、日志、曲线均保留。历史 VideoMAE 对比实现从 `6247e46` 的隔离 worktree 检查；仅将适用于当前 Tower 的损失/模板/训练协议复用到当前共享模块，不恢复旧 encoder 分支。
 
 | 提交 | 可恢复的历史状态 |
 | --- | --- |
+| `36b33d0` / `a331d5c` | G/H＋FiLM前向适配，Tower冻结/全参两组已完成；23用户个人CE扩展前归档 |
 | `05403f7` | 个人CE/语言LoRA四组完成及取消剩余批次的完整状态；替换为共享G/H＋FiLM前归档 |
 | `f42fc00` / `8a8cba4` | JEV CE × LM LoRA实现及原192次计划启动记录；随后用户收缩为单被试四组，未完成的后续批次取消 |
 | `e71c334` | 本地InfoNCE B/C个人校准完整状态：288次、3个seed、冻结JEV；运行源码 `36493bb` |

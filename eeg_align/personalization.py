@@ -1,4 +1,4 @@
-"""Current approach: support-set amortized FiLM with a frozen JEV server."""
+"""Independent per-user residual adapters, supervised through a fully frozen JEV."""
 from collections import defaultdict
 import hashlib
 import json
@@ -33,21 +33,23 @@ def ids_hash(rows):
 
 
 def trial_key(row):
+    # 2a cache concatenates six 48-trial runs, resetting event/start each run.
     run = int(row['row']) // 48 if re.fullmatch(r'A\d{2}[TE]', row['record_id']) else 0
     return (row['record_id'], run, int(row['event']))
 
 
 def separate_session_rows(rows, name, classes):
+    """MI caches must contain exactly one independent window per event."""
     if len({r['subject'] for r in rows}) != 1 or len({r['split'] for r in rows}) != 1:
-        raise ValueError('Expected one subject and original split')
+        raise ValueError('Expected exactly one subject and original split')
     if len({trial_key(r) for r in rows}) != len(rows):
-        raise ValueError('Multiple windows from a trial')
+        raise ValueError('Multiple windows from a trial: group them before few-shot sampling')
     if name == 'bcic_2a':
         for record in {r['record_id'] for r in rows}:
             part = sorted((r for r in rows if r['record_id'] == record), key=lambda r:int(r['row']))
             if (len(part) != 288 or [int(r['row']) for r in part] != list(range(288))
                     or any(int(r['event']) != i % 48 or int(r['samples']) != 800 for i,r in enumerate(part))):
-                raise ValueError('2a must have six complete 48-trial runs')
+                raise ValueError('2a cache must have six complete 48-trial runs, one four-second window per event')
     support, query = [], []
     for r in rows:
         record = r['record_id']
@@ -57,7 +59,7 @@ def separate_session_rows(rows, name, classes):
             target = support if record.endswith('T') else query
         elif name == 'motor_mv_img':
             match = re.fullmatch(r'S\d{3}R(\d{2})', record)
-            if not match or int(match[1]) not in (4,6,8,10,12,14):
+            if not match or int(match[1]) not in (4, 6, 8, 10, 12, 14):
                 raise ValueError('Unknown PhysioMI imagery run')
             target = support if int(match[1]) <= 10 else query
         else:
@@ -65,13 +67,14 @@ def separate_session_rows(rows, name, classes):
         target.append(r)
     for partition in (support, query):
         if {int(r['label']) for r in partition} != set(range(classes)):
-            raise ValueError('Missing class in support/query')
-    if {r['record_id'] for r in support} & {r['record_id'] for r in query}:
+            raise ValueError('Missing class in calibration or query session')
+    if set(r['record_id'] for r in support) & set(r['record_id'] for r in query):
         raise ValueError('Record leakage')
     return sorted(support, key=trial_key), sorted(query, key=trial_key)
 
 
 def select_support(pool, classes, shots, seed):
+    # The same per-class permutation makes 5-shot a subset of 10/20-shot.
     selected = []
     for label in range(classes):
         choices = sorted([r for r in pool if int(r['label']) == label], key=trial_key)
@@ -82,121 +85,104 @@ def select_support(pool, classes, shots, seed):
     return selected
 
 
-def make_manifest(store, config=CONFIG):
-    cohorts, excluded = [], {}
+def make_manifest(store, smoke=False):
+    split = 'valid' if smoke else 'test'
+    cases, cohorts = [], []
     for tid, task in enumerate(store.tasks):
         name = task['task_id']
-        if name not in config['datasets']:
+        if name not in CONFIG['datasets']:
             continue
         grouped = defaultdict(list)
-        for row in store.rows[tid]:
-            grouped[(row['split'], row['subject'])].append(row)
-        excluded[name] = len(store.excluded[tid])
-        for (split, subject), rows in sorted(grouped.items(), key=lambda kv:(kv[0][0], int(kv[0][1]))):
-            if split != 'train' and subject not in config[{'valid':'validation_subjects','test':'test_subjects'}[split]].get(name, []):
+        for r in store.rows[tid]:
+            if r['split'] == split:
+                grouped[r['subject']].append(r)
+        for subject, rows in sorted(grouped.items(), key=lambda kv: int(kv[0])):
+            if smoke and subject != min(grouped, key=int):
                 continue
-            support, query = separate_session_rows(rows, name, len(task['classes']))
-            if split == 'train':
-                allowed = {r['id'] for i,r in enumerate(store.rows[tid]) if i not in store.excluded[tid]}
-                support = [r for r in support if r['id'] in allowed]
-                query = [r for r in query if r['id'] in allowed]
-            select_support(support, len(task['classes']), config['shots_per_class'], config['seed'])
-            if any(sum(int(r['label']) == c for r in query) < config['global_query_batch']//len(task['classes'])
-                   for c in range(len(task['classes']))):
-                raise ValueError('Insufficient independent query trials')
-            cohorts.append(dict(key=f'{name}_s{subject}',dataset=name,task=tid,subject=subject,split=split,
-                classes=len(task['classes']),support_pool=support,query=query,
-                support=select_support(support,len(task['classes']),config['shots_per_class'],config['seed'])))
-    for split, key in [('valid','validation_subjects'),('test','test_subjects')]:
-        expected = {(n,s) for n,ss in config[key].items() for s in ss}
-        if {(c['dataset'],c['subject']) for c in cohorts if c['split']==split} != expected:
-            raise ValueError('Requested held-out subjects not present in original split')
-    train = {c['key']:c for c in cohorts if c['split']=='train'}
-    episodes = []
-    # Equal dataset sampling, round-robin randomized source subjects, no query replacement.
-    for step in range(config['steps']):
-        cycle, position = divmod(step,len(config['datasets']))
-        order = np.random.default_rng(np.random.SeedSequence([config['seed'],cycle,990])).permutation(config['datasets'])
-        name = str(order[position])
-        choices = sorted([c for c in train.values() if c['dataset']==name],key=lambda c:int(c['subject']))
-        epoch, slot = divmod(cycle,len(choices))
-        perm = np.random.default_rng(np.random.SeedSequence([config['seed'],config['datasets'].index(name),epoch,991])).permutation(len(choices))
-        cohort = choices[int(perm[slot])]
-        seed = config['seed'] + 1009*(step+1)
-        support = select_support(cohort['support_pool'],cohort['classes'],config['shots_per_class'],seed)
-        query = select_support(cohort['query'],cohort['classes'],config['global_query_batch']//cohort['classes'],seed+1)
-        episode = dict(step=step+1,key=cohort['key'],support_ids=[r['id'] for r in support],query_ids=[r['id'] for r in query])
-        assert_episode(cohort, episode, training=True)
-        episodes.append(episode)
-    return dict(config=config,cohorts=cohorts,episodes=episodes,qc_excluded=excluded,
-        cache_indexes={store.tasks[t]['task_id']:m['index_sha256'] for t,m in store.meta.items()},
-        test_used_for_selection=False,original_splits_modified=False)
+            pool, query = separate_session_rows(rows, name, len(task['classes']))
+            cohorts.append(dict(dataset=name, subject=subject, original_split=split,
+                support_pool_ids=[r['id'] for r in pool], query_ids=[r['id'] for r in query],
+                support_records=sorted({r['record_id'] for r in pool}),
+                query_records=sorted({r['record_id'] for r in query}), query_sha256=ids_hash(query)))
+            for seed in ([CONFIG['seed']] if smoke else CONFIG['seeds']):
+                for shots in ([5] if smoke else CONFIG['datasets'][name]):
+                    support = select_support(pool, len(task['classes']), shots, seed)
+                    for arm in CONFIG['arms']:
+                        cases.append(dict(key=f'{name}_s{subject}_{arm}_k{shots}_seed{seed}',
+                            dataset=name, task=tid, subject=subject, arm=arm, shots_per_class=shots,
+                            **CONFIG['arm_settings'][arm],
+                            seed=seed, original_split=split, support_ids=[r['id'] for r in support],
+                            query_ids=[r['id'] for r in query], support_sha256=ids_hash(support),
+                            query_sha256=ids_hash(query)))
+    if not smoke:
+        observed = {name: sorted(int(c['subject']) for c in cohorts if c['dataset'] == name)
+                    for name in CONFIG['datasets']}
+        if observed != CONFIG['held_out_subjects']:
+            raise ValueError(f'Unexpected held-out subject list: {observed}')
+    for index, case in enumerate(cases):
+        case['worker'] = index % len(CONFIG['gpus'])
+    return dict(config=CONFIG, smoke=smoke, original_split=split, cohorts=cohorts, cases=cases,
+                cache_indexes={store.tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
+                query_used_for_selection=False, original_splits_modified=False)
 
 
-def assert_episode(cohort, episode, training=False):
-    if training and cohort['split'] != 'train':
-        raise ValueError('Only original train subjects may receive gradients')
-    support, query = episode['support_ids'],episode['query_ids']
-    if (len(set(support)) != len(support) or len(set(query)) != len(query)
-            or set(support) & set(query)):
-        raise ValueError('Duplicate trials or support/query leakage')
-    if not set(support) <= {r['id'] for r in cohort['support_pool']} or not set(query) <= {r['id'] for r in cohort['query']}:
-        raise ValueError('Episode crossed subject/session boundary')
+def check_support_rows(rows, case):
+    allowed = set(case['support_ids'])
+    if not rows or any(r['id'] not in allowed or r['subject'] != case['subject']
+                       or r['split'] != case['original_split'] for r in rows):
+        raise ValueError('Personal gradients may use only this case\'s authorized support trials')
+    if allowed & set(case['query_ids']):
+        raise ValueError('Support/query leakage')
 
 
-class AmortizedFiLM(nn.Module):
-    """DeepSets G + parameter generator H + tokenwise residual FiLM adapter.
-
-    The fixed semantic vectors encode support labels, never query labels. No
-    cosine classifier, class prototypes, task-specific heads or subject-ID lookup.
-    """
-    def __init__(self, width=256, text_width=768, label_width=64, context_width=128, bottleneck=64):
+class ResidualAdapter(nn.Module):
+    def __init__(self, width=256, bottleneck=64):
         super().__init__()
-        self.label_projection = nn.Linear(text_width,label_width)
-        self.element = nn.Sequential(nn.Linear(width+label_width,context_width),nn.GELU(),
-                                     nn.Linear(context_width,context_width),nn.GELU())
-        self.context = nn.Sequential(nn.Linear(context_width,context_width),nn.GELU())
-        self.condition = nn.Sequential(nn.Linear(context_width,context_width),nn.GELU(),
-                                       nn.Linear(context_width,2*bottleneck))
-        self.down = nn.Linear(width,bottleneck)
-        self.up = nn.Linear(bottleneck,width)
+        self.down = nn.Linear(width, bottleneck)
+        self.up = nn.Linear(bottleneck, width)
         nn.init.zeros_(self.up.weight)
         nn.init.zeros_(self.up.bias)
 
-    def summarize(self, support_tokens, label_vectors):
-        if support_tokens.ndim != 3 or len(support_tokens)==0 or len(label_vectors)!=len(support_tokens):
-            raise ValueError('Nonempty support tokens and matched semantic labels required')
-        z = support_tokens.mean(1)
-        r = self.element(torch.cat([z,self.label_projection(label_vectors)],dim=-1))
-        return self.context(r.mean(0))
-
-    def forward(self, tokens, context):
-        gamma,beta = self.condition(context).chunk(2,dim=-1)
-        h = (1+gamma)*self.down(tokens)+beta
-        return tokens+self.up(F.gelu(h))
+    def forward(self, x):
+        return x + self.up(F.gelu(self.down(x)))
 
 
 def load_parent():
     directory = Path(CONFIG['parent'])
     done = json.loads((directory/'complete.json').read_text())
-    saved = torch.load(directory/'best.pt',map_location='cpu',mmap=True,weights_only=False)
+    saved = torch.load(directory/'best.pt', map_location='cpu', mmap=True, weights_only=False)
     if (done['smoke'] or done['test_evaluations'] or saved['step'] != done['selected_step']
             or saved['identity']['config'] != DATA):
         raise ValueError('Invalid completed parent checkpoint')
     return saved
 
 
-def load_encoder(saved,device='cuda'):
+def load_encoder(saved, device='cuda'):
     encoder = OnlineLEAFTower(DATA)
-    source = {k.removeprefix('eeg_encoder.'):v for group in ('trainable','buffers')
-              for k,v in saved[group].items() if k.startswith('eeg_encoder.')}
-    encoder.load_state_dict(source,strict=True)
-    return encoder.requires_grad_(False).to(device).eval()
+    source = {k.removeprefix('eeg_encoder.'): v for group in ('trainable', 'buffers')
+              for k, v in saved[group].items() if k.startswith('eeg_encoder.')}
+    encoder.load_state_dict(source, strict=True)
+    encoder.requires_grad_(False)
+    return encoder.to(device).eval()
+
+
+def trainable_state(module):
+    return {n: p.detach().cpu().clone() for n, p in module.named_parameters() if p.requires_grad}
+
+
+def frozen_hash(module):
+    return tensor_fingerprint({**{n: p for n, p in module.named_parameters() if not p.requires_grad},
+                               **dict(module.named_buffers())})
+
+
+@torch.no_grad()
+def copy_trainable(module, state):
+    parameters = {n: p for n, p in module.named_parameters() if p.requires_grad}
+    if parameters.keys() != state.keys():
+        raise ValueError('Personal parameter keys changed')
+    for n, p in parameters.items():
+        p.copy_(state[n])
 
 
 def fixed_server_versions(server):
-    return {n:p._version for n,p in server.named_parameters() if not n.startswith('eeg_encoder.')}
-
-
-def module_hash(module):
-    return tensor_fingerprint(module.state_dict())
+    return {n: p._version for n, p in server.named_parameters()}

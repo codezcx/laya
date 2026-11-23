@@ -1,34 +1,79 @@
 {
-  "run_name": "leaf_amortized_film_20261123",
+  "run_name": "leaf_personal_ce_alltest_20261123",
   "parent": "artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp",
-  "prior_pilot": "artifacts/benchmark/leaf_personalization_jev_ce_20261123",
-  "datasets": ["bcic_2a", "motor_mv_img"],
-  "validation_subjects": {"bcic_2a": ["6"], "motor_mv_img": ["70"]},
-  "test_subjects": {"bcic_2a": ["8"]},
-  "arms": ["tower_frozen", "tower_full"],
-  "gpu_groups": [[0, 1], [2, 3]],
+  "reference_run": "artifacts/benchmark/leaf_personalization_20261123",
+  "reference_commit": "05403f7",
+  "datasets": {
+    "bcic_2a": [
+      5
+    ],
+    "motor_mv_img": [
+      5
+    ]
+  },
+  "seeds": [
+    42
+  ],
+  "arms": [
+    "residual_frozen"
+  ],
+  "arm_settings": {
+    "residual_frozen": {
+      "signal_arm": "residual",
+      "train_lm_lora": false
+    }
+  },
+  "gpus": [
+    0,
+    1,
+    2,
+    3
+  ],
   "seed": 42,
-  "steps": 340,
-  "smoke_steps": 4,
-  "shots_per_class": 5,
-  "global_query_batch": 16,
+  "steps": 100,
+  "batch_size": 16,
   "microbatch": 4,
-  "eval_microbatch": 8,
-  "adapter_learning_rate": 0.0001,
-  "tower_learning_rate": 0.000001,
-  "weight_decay": 0.01,
-  "clip_grad_norm": 1.0,
-  "schedule": "constant",
-  "validation_every": 85,
-  "checkpoint_every": 20,
-  "label_width": 64,
-  "context_width": 128,
-  "adapter_width": 64,
-  "minimum_free_gpu_mib": 70000,
+  "learning_rate": 0.0001,
+  "objective": "jev_ce",
   "minimum_free_disk_gib": 20,
-  "objective": "JEV query cross entropy; no contrastive or reconstruction auxiliary loss",
-  "selection": "Equal-dataset validation-subject BAcc; ties keep earlier checkpoint including step 0",
-  "policy": "CNAPS-inspired amortized feature adaptation using DeepSets plus FiLM; not a CNAPS reproduction. Source train subjects only for episodic optimization. No per-user gradient steps. One seed and one final exploratory test subject; no all-subject sweep.",
-  "freeze_policy": "All JEV parameters including existing language LoRA, connector, choice head and original Tower buffers frozen. Tower full arm updates all forward Tower weights, preserving eval-mode BN/dropout in both arms.",
-  "query_policy": {"bcic_2a": "T session support, E session query", "motor_mv_img": "R04/R06/R08/R10 support, R12/R14 query"}
+  "weight_decay": 0.01,
+  "clip_grad_norm": 1,
+  "adapter_width": 64,
+  "encode_batch": 32,
+  "jev_batch": 8,
+  "policy": "All 23 original test users, independently reset to the shared step1360 parent. Only 33088-parameter residual adapter updated by JEV CE. Fixed 5 trials/class, seed42, 100 updates, batch16=micro4x4, LR1e-4 constant. No TTT, LM/Tower update, source retraining, or query selection.",
+  "query_policy": {
+    "bcic_2a": "T session support, entire E session query",
+    "motor_mv_img": "R04/R06/R08/R10 support, entire R12/R14 query"
+  },
+  "validation_policy": "Smoke uses validation subjects only; formal evaluation uses held-out test subjects with separately authorized support labels. No query labels used in updates, preprocessing, stopping, or hyperparameter selection.",
+  "held_out_subjects": {
+    "bcic_2a": [
+      8,
+      9
+    ],
+    "motor_mv_img": [
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109
+    ]
+  }
 }

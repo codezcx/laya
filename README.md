@@ -1,42 +1,45 @@
-# LEAF Tower → 用户条件化 adapter → 冻结 Qwen-JEV
+# LEAF Tower → 个人残差 adapter → 冻结 Qwen-JEV
 
-当前方法是 CNAPS-inspired amortized feature adaptation：少量带标签EEG支持样本经DeepSets上下文提取器G与条件映射H，产生用户特定FiLM调制。离线训练共享参数；新用户只计算上下文，不训练个人模型。最终分类来自JEV，不是类别文本相似度。
+当前扩展已验证的个人监督适配：每位用户独立从同一共享checkpoint开始，只更新个人输出残差adapter，最终预测由JEV输出。不是用户条件化共享训练，也不以文本相似度分类。
 
-## 当前实验
+## 📋 当前实验
 
-两组配对机制验证已于2026-11-23 15:34:34 UTC并行启动，15:35:53 UTC两组均完成首次正式更新；真实进度以运行目录的 `pipeline.json` 和各组 `progress.json` 为准。108项测试及两组四步真实GPU短测通过。
+原测试被试共23人：BCIC-IV-2a被试8、9；PhysioMI被试89–109。每类5条（每人20条）支持样本，seed42，100步；本轮不做多shot、多seed或TTT。每位用户的adapter、优化器均重置，用户之间不累积更新。
 
-| GPU | 组别 | 离线训练 | 新用户适配 | JEV |
-| --- | --- | --- | --- | --- |
-| 0、1 | tower_frozen | G/H＋条件化残差adapter | 只做前向 | 全冻结 |
-| 2、3 | tower_full | 同上＋LEAF Tower全参 | 只做前向 | 全冻结 |
+| 模块 | 参数状态 | 作用 |
+| --- | --- | --- |
+| LEAF Tower，19,557,632参数 | 冻结 | 产生16×256 EEG tokens |
+| 个人残差adapter，33,088参数 | 更新 | 256→64→256，GELU，残差零初始化 |
+| 原MLP connector，27,535,872参数 | 冻结 | 映射到JEV输入空间 |
+| JEV，包括已有语言LoRA和choice head | 全冻结 | 给出分类结果；支持集CE梯度穿过它 |
 
-- 相同父模型InfoNCE→Tower→JEV best step1360、seed42、340次更新和episode流。
-- 每步来自一名原训练被试：support每类5条，query全局16条；query CE经冻结JEV反传。每组两卡数据并行，各8条、microbatch4。
-- 原训练的2a五名＋PhysioMI六十九名被试用于共享训练；固定验证为2a被试6、PhysioMI被试70。
-- 最后仅2a被试8探索性评估：T session 20条support，E session全部288条query；不做全测试被试/多shot/多seed扫参。
-- G/H/adapter LR1e-4，Tower全参组LR1e-6；JEV基础权重、已有语言LoRA、connector/head始终冻结。两组Tower BN/dropout保持eval。
-- 新增模块为共享参数；用户缓存128维上下文，不维护个人优化器。旧个人CE实验与取消标记不改动。
+LR1e-4、AdamW、weight decay0.01、梯度裁剪1、有效batch16=microbatch4×4，全部沿用旧个人CE pilot。父模型仍为InfoNCE→Tower→JEV best step1360，不从后来G/H＋FiLM实验迁移权重。
 
-## 启动与查看
+## ⚙️ 启动与进度
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
 laya/.venv-eeg/bin/python scripts/run_personalization.py --start
-# 仅用于未取消的意外中断，不能重复启动活跃任务：
+# 意外中断后，仅重启未完成用户；完整用户跳过，不恢复用户中途优化器：
 laya/.venv-eeg/bin/python scripts/run_personalization.py --start --resume
 ```
 
-输出 `artifacts/benchmark/leaf_amortized_film_20261123/`。流程为输入检查与准备 → 两组各4步真实GPU短测 → 配对/冻结/重载审计 → 两组正式并行。短测权重不进入正式实验。`train/{tower_frozen,tower_full}/progress.json` 显示进度，`history.json` 记录loss，`valid_step*.json` 记录验证，完成后写入 `summary.json`。
+输出目录：`artifacts/benchmark/leaf_personal_ce_alltest_20261123/`。
+流程：输入/父权重校验 → 两名原验证被试各3步GPU短测 → 冻结/重载/批次一致性审计 → 四卡独立并行23名目标用户（6/6/6/5人）→ 完整配对汇总。短测权重不进入正式实验。
 
-## 模型来源与边界
+`pipeline.json`显示阶段；`worker_0.json`至`worker_3.json`显示进度；
+`episodes/*/support_history.json`记录支持集loss；
+每名用户完成后保存`adapter.pt`、`predictions.pt`、`complete.json`；
+全部完成才生成`summary.json`和`summary.md`。
 
-LEAF纯信号Tower有19,557,632个前向参数，四秒EEG产生16×256 tokens。没有原LEAF文本encoder/Q-Former；新增FiLM属于本轮用户条件化模块，不是重新加载原LEAF FiLM。固定MPNet类别向量只编码support标签，不做相似度分类，不给query输入真值。
+## 🔍 解释边界
 
-父模型在17库训练、九库验证，完整验证BAcc47.83%、测试前向0。旧个人CE pilot中2a被试8的冻结LM＋个人输出adapter为64.93%，含100步个人更新，与本轮前向适配不等计算预算。该用户结果已经被观察，本轮不能称盲测或严格zero-shot。
+2a采用T session支持、E session完整测试；PhysioMI采用R04/R06/R08/R10支持、R12/R14完整测试。原训练/验证用户不混入主结果，未选中的支持池样本不训练、不加入测试。报告每用户适配前后BAcc、每库被试等权均值、两库等权均值及负迁移人数。
 
-- [当前结构、数据与实验协议](docs/PROTOCOL.md)
-- [当前状态与历史参考结果](docs/RESULTS.md)
-- [历史实现和产物归档](docs/ARCHIVE.md)
+旧2a被试8的64.93%只是一名用户；此次重跑该人并扩展其余22人，不预设均值会提升。原共享模型见过的用户不能称新用户；LEAF上游预训练身份重叠尚未完全排除。本轮是带标签个人适配，不是zero-shot或原始完整benchmark测试。
 
-实验设计技能用于配对与泄漏检查，Markdown技能用于保持协议与实现一致。旧方案归档到Git `05403f7`；数据、权重、日志、环境和第三方目录均保留。用户已有ECG、专利、图件、编辑器改动不在本次提交内。
+- [当前协议](docs/PROTOCOL.md)
+- [结果与历史对照](docs/RESULTS.md)
+- [Git归档](docs/ARCHIVE.md)
+
+上一轮G/H＋FiLM实现归档到Git `36b33d0`；本轮从隔离worktree检查旧个人CE实现 `05403f7`，只恢复所需残差分支。忽略的数据、权重、日志、环境、第三方安装和原取消标记均保留。用户现有ECG、专利、图件等改动不在提交范围。

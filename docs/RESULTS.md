@@ -1,18 +1,20 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-23。当前为G/H＋FiLM前向少样本适配，Tower冻结/全参两组；设置见 [协议](PROTOCOL.md)。个人CE旧结果保留为参考。_
+_更新：2026-11-23。当前扩展个人残差adapter＋冻结JEV到全部23名原测试被试，见[协议](PROTOCOL.md)。_
 
 ---
 
-## 当前：用户条件化适配，两组正式训练中
+## 📋 当前：全部留出用户的个人CE适配
 
-共同起点为InfoNCE→Tower→JEV best step1360。GPU0–1训练G/H＋adapter，GPU2–3额外全参更新Tower；JEV及已有语言LoRA、connector/head全冻结。两组seed42、340步、support每类5条、query全局16。仅原训练74名MI被试优化；固定验证2a被试6、PhysioMI被试70，最后仅2a被试8做一次探索性前向适配评估。
+沿用2a被试8获得64.93%的残差adapter方法，扩展至2a 8、9及PhysioMI 89–109；每人每类5条、seed42、100步。只更新33,088参数，Tower、原connector、JEV及其LoRA/head冻结。没有额外源用户训练，没有TTT、多shot或多seed。
 
-108项单元测试通过，其中18项新增适配测试。两组真实GPU四步短测均通过：正确模块更新、JEV冻结、Tower buffers冻结、双rank权重一致、保存重载logits完全一致；两组初始权重/episode流/基线一致。[短测审计](../artifacts/benchmark/leaf_amortized_film_20261123/smoke_verified.json)。短测成绩不作为验证效果。
+本轮根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`；正在进行工程测试与GPU短测准备，尚无本轮正式训练结果。正式启动时间与状态将补充；运行时以 `pipeline.json`、四个 `worker_*.json`及各用户 `complete.json`为准。完成后在同一根目录生成 `summary.md/json`，含逐用户前后BAcc、两库各自与等权均值、负迁移人数。
 
-2026-11-23 15:34:34 UTC，控制器3800995启动两组正式训练，torchrun PID分别为3902044（GPU0–1）和3902047（GPU2–3）。15:35:53 UTC两组均完成首次正式更新，loss同为0.704912；解冻组Tower梯度范数3.90545，可训练参数19,747,072，冻结组189,440。源码提交 `a331d5c`；后续文档更新不改变运行代码哈希。两组step0验证完全一致：2a被试6的E session 288条BAcc26.74%，PhysioMI被试70后两run 30条BAcc50.00%，两库等权38.37%；这是固定验证pilot，不是九库或完整原验证集成绩。
+## 📦 已归档：G/H＋FiLM前向适配
 
-尚无训练后正式结论。真实阶段见 [pipeline.json](../artifacts/benchmark/leaf_amortized_film_20261123/pipeline.json)，分组进度见 [冻结Tower](../artifacts/benchmark/leaf_amortized_film_20261123/train/tower_frozen/progress.json) 和 [全参Tower](../artifacts/benchmark/leaf_amortized_film_20261123/train/tower_full/progress.json)。结束结果包含正确用户/错误源用户/零上下文/绕过adapter四个推理条件，不是四个额外训练实验。旧64.93%含100步个人更新，不是本轮无目标梯度适配的先验结果。
+该轮已于2026-11-23 16:00:33 UTC完成，不再运行。冻结Tower与全参Tower两组分别离线训练共享G/H/FiLM，两组均340步、验证选中170步；不是个人100步微调。2a被试8前向适配BAcc分别53.125%、52.0833%，未超过同用户不适配53.8194%。[完整结果](../artifacts/benchmark/leaf_amortized_film_20261123/summary.json)、[完成记录](../artifacts/benchmark/leaf_amortized_film_20261123/complete.json)。
+
+实现归档到Git `36b33d0`，输出全部保留。当前不继续74名源被试共享训练；恢复个人CE方案所需部分，历史LM LoRA/Tower LoRA分支不在当前入口保留。
 
 ## 🧪 历史：单被试 JEV CE 与 LM LoRA 对照已完成
 

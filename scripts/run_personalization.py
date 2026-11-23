@@ -1,4 +1,4 @@
-"""Launch two matched two-GPU amortized adaptation controls, with smoke gates."""
+"""Four independent GPU workers for personal residual adapters; no shared retraining."""
 import argparse
 import fcntl
 import json
@@ -11,170 +11,178 @@ import sys
 import time
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(REPO))
-from eeg_align.multitask_data import write_json
-from eeg_align.personalization import CONFIG, ROOT, source_identity
+sys.path.insert(0, str(REPO))
+from eeg_align.multitask_data import TrialStore, write_json
+from eeg_align.personalization import CONFIG, ROOT, make_manifest, source_identity
 
 
 def require_capacity():
-    output = subprocess.check_output(['nvidia-smi','--query-gpu=index,memory.free',
-                                      '--format=csv,noheader,nounits'],text=True)
-    free = {int(i):int(m) for i,m in (line.split(',') for line in output.strip().splitlines())}
-    gpus = [g for group in CONFIG['gpu_groups'] for g in group]
-    if len(set(gpus))!=4 or any(free.get(g,0)<CONFIG['minimum_free_gpu_mib'] for g in gpus):
-        raise RuntimeError(f'Four distinct GPUs need sufficient free memory; observed {free}')
-    if shutil.disk_usage(ROOT).free < CONFIG['minimum_free_disk_gib']*1024**3:
-        raise RuntimeError('Insufficient free disk reserve')
+    output = subprocess.check_output(['nvidia-smi', '--query-gpu=index,memory.free',
+                                      '--format=csv,noheader,nounits'], text=True)
+    free = {int(i): int(m) for i,m in (row.split(',') for row in output.strip().splitlines())}
+    if any(free.get(i, 0) < 60000 for i in CONFIG['gpus']):
+        raise RuntimeError(f'Need 60000 MiB free on each of the four GPUs; found {free}')
     return free
 
 
-def verify_paired(root,smoke=False):
-    results = {}
-    for arm in CONFIG['arms']:
-        result = json.loads((root/('smoke' if smoke else 'train')/arm/'complete.json').read_text())
-        if (result['code_sha256']!=source_identity() or result['arm']!=arm or result['smoke']!=smoke
-                or result['updates']!=(CONFIG['smoke_steps'] if smoke else CONFIG['steps'])):
-            raise ValueError('Mismatched run identity or budget')
-        if result['encoder_updated']!=(arm=='tower_full') or not all(result['modules_updated'].values()):
-            raise ValueError('Wrong modules updated')
-        if not all(result[k] for k in ('frozen_server_verified','frozen_tower_buffers_verified',
-                                       'rank_weights_identical','checkpoint_reload_verified')):
-            raise ValueError('Freeze/distributed/checkpoint audit failed')
-        if result['test_gradient_steps'] or result['test_used_for_selection']:
-            raise ValueError('Target contamination')
-        if not smoke and not result['target_forward_only_verified']:
-            raise ValueError('Target evaluation must be forward-only')
-        results[arm] = result
-    reference = results[CONFIG['arms'][0]]
-    for result in results.values():
-        for key in ('initial_encoder_sha256','initial_adapter_sha256','episode_stream_sha256','baseline'):
-            if result[key]!=reference[key]:
-                raise ValueError(f'Unmatched arms: {key}')
-    return dict(arms=CONFIG['arms'],smoke=smoke,paired_verified=True,
-                same_initial_weights_episodes_and_baseline=True,results=results)
+def verify_paired(root, smoke=False):
+    manifest = json.loads((root/('smoke_manifest.json' if smoke else 'manifest.json')).read_text())
+    pairs = {}
+    for case in manifest['cases']:
+        path = root/('smoke' if smoke else 'episodes')/case['key']/'complete.json'
+        result = json.loads(path.read_text())
+        if result['smoke'] != smoke or result['case'] != case or result['code_sha256'] != source_identity():
+            raise ValueError('Mismatched episode identity')
+        if not all(result[k] for k in ('parent_encoder_frozen_verified',
+                                       'jev_base_connector_head_frozen_verified', 'checkpoint_reload_verified',
+                                       'reference_batch_ids_verified', 'reference_baseline_verified')):
+            raise ValueError('Freeze/reload checks failed')
+        if result['lm_lora_updated'] != case['train_lm_lora'] or result['objective'] != 'jev_ce':
+            raise ValueError('Incorrect language update/objective')
+        if result['query_used_for_selection'] or result['steps'] != (3 if smoke else CONFIG['steps']):
+            raise ValueError('Invalid query use or training budget')
+        key = (case['dataset'], case['subject'], case['shots_per_class'], case['seed'])
+        pairs.setdefault(key, {})[case['arm']] = result
+    for pair in pairs.values():
+        if set(pair) != set(CONFIG['arms']):
+            raise ValueError('Unpaired methods')
+        first = pair[CONFIG['arms'][0]]
+        for result in pair.values():
+            for field in ('support_sha256', 'query_sha256'):
+                if result['case'][field] != first['case'][field]:
+                    raise ValueError('Arms used different trials')
+            if (result['training_batch_ids_sha256'] != first['training_batch_ids_sha256']
+                    or result['baseline'] != first['baseline']):
+                raise ValueError('Arm batch stream or common baseline differs')
+    return dict(episodes=len(manifest['cases']), paired_comparisons=len(pairs),
+                frozen_and_reload_verified=True, same_support_query_batches_and_baseline=True)
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    modes=parser.add_mutually_exclusive_group(required=True)
-    modes.add_argument('--start',action='store_true')
-    modes.add_argument('--execute',action='store_true')
-    parser.add_argument('--resume',action='store_true')
-    args=parser.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--start', action='store_true')
+    mode.add_argument('--execute', action='store_true')
+    parser.add_argument('--resume', action='store_true')
+    args = parser.parse_args()
     os.chdir(REPO)
-    root=ROOT
-    if (root/'cancelled.json').exists() or (root/'complete.json').exists():
-        raise RuntimeError('Cancelled/completed run will not restart')
+    root = ROOT
+    if (root/'cancelled.json').exists():
+        raise RuntimeError('Personalization run was cancelled; no automatic restart')
+    if (root/'complete.json').exists():
+        raise RuntimeError('Run already complete; no automatic retraining')
     if args.start:
         if args.resume:
             if not root.is_dir():
                 raise ValueError('No run to resume')
-            with (root/'controller.lock').open('a') as lock:
-                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            lock = (root/'controller.lock').open('a')
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock.close()
         else:
-            root.mkdir(parents=True,exist_ok=False)
-        stamp=time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())
-        log_path=root/f'controller_{stamp}.log'
-        env=os.environ.copy()
-        env.update(OMP_NUM_THREADS='3',MKL_NUM_THREADS='3',OPENBLAS_NUM_THREADS='3',
-                   TOKENIZERS_PARALLELISM='false',HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',
+            root.mkdir(parents=True, exist_ok=False)
+        stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+        log_path = root/f'controller_{stamp}.log'
+        env = os.environ.copy()
+        env.update(OMP_NUM_THREADS='3', MKL_NUM_THREADS='3', OPENBLAS_NUM_THREADS='3',
+                   TOKENIZERS_PARALLELISM='false', HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
                    PYTHONUNBUFFERED='1')
-        command=[sys.executable,'-u',__file__,'--execute']+(['--resume'] if args.resume else [])
+        command = [sys.executable, '-u', __file__, '--execute']
+        if args.resume:
+            command.append('--resume')
         with log_path.open('x') as log:
-            child=subprocess.Popen(command,cwd=REPO,env=env,stdin=subprocess.DEVNULL,
-                                   stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-        print(json.dumps(dict(controller_pid=child.pid,root=str(root),log=str(log_path))))
+            child = subprocess.Popen(command, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        print(json.dumps(dict(controller_pid=child.pid, root=str(root), log=str(log_path))))
         return
-    lock=(root/'controller.lock').open('a')
-    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    source=source_identity()
-    state=dict(controller_pid=os.getpid(),config=CONFIG,code_sha256=source)
-    children=[]
-    stopping=False
-    def request_stop(signum,frame):
+    lock = (root/'controller.lock').open('a')
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    source = source_identity()
+    state = dict(controller_pid=os.getpid(), gpus=CONFIG['gpus'], config=CONFIG, code_sha256=source)
+    children = []
+    stopping = False
+    def request_stop(signum, frame):
         nonlocal stopping
-        stopping=True
-    signal.signal(signal.SIGTERM,request_stop)
-    signal.signal(signal.SIGINT,request_stop)
+        stopping = True
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
     def guard():
-        if stopping or (root/'cancelled.json').exists() or source_identity()!=source:
-            raise RuntimeError('Controller stopped/cancelled or live code changed')
+        if stopping or (root/'cancelled.json').exists():
+            raise RuntimeError('Controller stopped; no further jobs will launch')
+        if source != source_identity():
+            raise RuntimeError('Source identity changed during execution')
     def report(**values):
-        state.update(values,updated_utc=time.strftime('%Y-%m-%d %H:%M:%S UTC',time.gmtime()))
-        write_json(root/'pipeline.json',state)
-        print(json.dumps(dict(status=state.get('status'),jobs=state.get('jobs'),error=state.get('error'))),flush=True)
-    def launch(arm=None,smoke=False):
+        state.update(values, updated_utc=time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()))
+        write_json(root/'pipeline.json', state)
+        print(json.dumps(state), flush=True)
+    def launch(mode, worker=None, smoke=False):
         guard()
-        env=os.environ.copy()
-        if arm is None:
-            command=[sys.executable,'-u','-m','eeg_align.run_personalization','prepare']
-            label='prepare'
-            env['CUDA_VISIBLE_DEVICES']=''
-            gpus=[]
-        else:
-            gpus=CONFIG['gpu_groups'][CONFIG['arms'].index(arm)]
-            env['CUDA_VISIBLE_DEVICES']=','.join(map(str,gpus))
-            command=[sys.executable,'-u','-m','torch.distributed.run','--standalone','--nnodes=1',
-                     '--nproc_per_node=2','--module','eeg_align.run_personalization','train','--arm',arm]
-            if smoke:
-                command.append('--smoke')
-            if args.resume:
-                command.append('--resume')
-            label=('smoke_' if smoke else 'train_')+arm
-        log_path=root/f'{label}.log'
+        command = [sys.executable, '-u', '-m', 'eeg_align.run_personalization', mode]
+        label = mode
+        gpu = CONFIG['gpus'][0]
+        if worker is not None:
+            command += ['--worker', str(worker)]
+            label += f'_{worker}'
+            gpu = CONFIG['gpus'][worker]
+        if smoke:
+            command.append('--smoke')
+            label = 'smoke_' + label
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = str(gpu)
+        log_path = root/f'{label}.log'
         with log_path.open('a') as log:
-            child=subprocess.Popen(command,cwd=REPO,env=env,stdin=subprocess.DEVNULL,
-                                   stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            child = subprocess.Popen(command, cwd=REPO, env=env, stdin=subprocess.DEVNULL,
+                                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         children.append(child)
-        return dict(pid=child.pid,gpus=gpus,log=str(log_path),arm=arm,smoke=smoke)
+        return dict(pid=child.pid, gpu=gpu, log=str(log_path), mode=mode, worker=worker, smoke=smoke)
     def wait_children():
         while any(p.poll() is None for p in children):
             guard()
-            if any(p.poll() not in (None,0) for p in children):
-                raise RuntimeError(f'Worker failed: {[(p.pid,p.returncode) for p in children]}')
+            failed = [p for p in children if p.poll() not in (None,0)]
+            if failed:
+                raise RuntimeError(f'Worker failed: {[(p.pid,p.returncode) for p in failed]}')
             time.sleep(2)
-        if any(p.returncode!=0 for p in children):
-            raise RuntimeError(f'Worker failed: {[(p.pid,p.returncode) for p in children]}')
+        failed = [p for p in children if p.returncode != 0]
+        if failed:
+            raise RuntimeError(f'Worker failed: {[(p.pid,p.returncode) for p in failed]}')
         children.clear()
-    def run_pair(smoke):
-        completed=[]
-        for arm in CONFIG['arms']:
-            path=root/('smoke' if smoke else 'train')/arm/'complete.json'
-            if args.resume and path.exists():
-                completed.append(arm)
-        report(status='smoke' if smoke else 'formal',already_completed=completed,
-               jobs=[launch(arm,smoke) for arm in CONFIG['arms'] if arm not in completed])
-        wait_children()
-        proof=verify_paired(root,smoke)
-        write_json(root/('smoke_verified.json' if smoke else 'summary.json'),proof)
-        return proof
     try:
-        report(status='preflight',free_mib=require_capacity())
-        report(status='preparing',jobs=[launch()])
+        report(status='preflight')
+        free = require_capacity()
+        if shutil.disk_usage(root).free < CONFIG['minimum_free_disk_gib']*1024**3:
+            raise RuntimeError('Insufficient free space for personal adapter outputs and reserve')
+        manifest = make_manifest(TrialStore())
+        report(status='preparing', episodes=len(manifest['cases']), subjects=len(manifest['cohorts']), free_mib=free)
+        report(jobs=[launch('prepare')])
         wait_children()
-        run_pair(True)
+        report(status='smoke', jobs=[launch('worker', i, True) for i in range(2)])
+        wait_children()
+        smoke_proof = verify_paired(root, True)
+        write_json(root/'smoke_verified.json', smoke_proof)
         guard()
         require_capacity()
-        run_pair(False)
-        report(status='complete',jobs=[])
-        write_json(root/'complete.json',state)
+        report(status='formal', smoke_verified=smoke_proof, jobs=[launch('worker', i) for i in range(4)])
+        wait_children()
+        formal_proof = verify_paired(root)
+        report(status='summarizing', paired_verified=formal_proof, jobs=[launch('summary')])
+        wait_children()
+        report(status='complete', jobs=[])
+        write_json(root/'complete.json', state)
     except BaseException as error:
-        # Terminate only process groups spawned by this controller, including torchrun children.
+        # Only processes launched by this controller, never unrelated GPU work.
         for child in children:
             if child.poll() is None:
-                os.killpg(child.pid,signal.SIGTERM)
-        deadline=time.monotonic()+25
+                child.terminate()
+        deadline = time.monotonic()+30
         while any(p.poll() is None for p in children) and time.monotonic()<deadline:
             time.sleep(1)
         for child in children:
-            try:
-                os.killpg(child.pid,signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            if child.poll() is None:
+                child.kill()
+        for child in children:
             child.wait()
-        report(status='failed_or_stopped',error=repr(error),jobs=[])
+        report(status='failed_or_stopped', error=repr(error), jobs=[])
         raise
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
