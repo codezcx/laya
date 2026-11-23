@@ -1,5 +1,7 @@
 # Git 与实验产物归档
 
+活跃的夜间匹配方法控制位于隔离分支 `experiment/personal-method-controls`、提交 `460d31e`，worktree `/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev-worktrees/personal-method-controls`。这不是归档结果：AdaBN/SSF/MEMO队列已启动，但等待主worktree的23用户CE基线结束。原主代码/config保持不变，避免触发活跃任务哈希保护；后续结果在 `artifacts/benchmark/leaf_personal_methods_20261123/`。
+
 当前维护LEAF Tower→个人残差adapter→冻结JEV的23名留出用户监督适配，见[协议](PROTOCOL.md)。amortized G/H＋FiLM实现归档在 `36b33d0`；从隔离worktree检查 `05403f7`，仅复用成功的残差adapter＋冻结LM个人CE路径。旧192次计划余下批次仍取消，不记为完成、不恢复；新run仅23次。历史实现与专属测试由当前方案替换，所有原数据、权重、缓存和日志保留。
 
 `ef07d2c` 保存本轮新增对齐前的纯 Tower 无对比基线：2040 步、完整验证 BAcc 43.41%、Acc 46.32%。`artifacts/benchmark/leaf_tower_jev_20261123/` 中的权重、日志、曲线均保留。历史 VideoMAE 对比实现从 `6247e46` 的隔离 worktree 检查；仅将适用于当前 Tower 的损失/模板/训练协议复用到当前共享模块，不恢复旧 encoder 分支。

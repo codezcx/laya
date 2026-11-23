@@ -4,6 +4,8 @@
 
 ## 📋 当前实验
 
+夜间另已排队三个同方案方法对照：AdaBN＋个人CE、Tower内部SSF、个人CE＋MEMO式测试时适配；不执行shot/学习率扫描。代码在隔离worktree `../eegjev-worktrees/personal-method-controls`（分支 `experiment/personal-method-controls`，实现 `460d31e`），不修改本目录运行中的代码/config。119项自动测试通过；待下述23人基线完成、GPU释放后，逐方法先GPU短测，再四卡跑同一23人。截止北京时间2026-11-24 06:50:52（UTC前日22:50:52）。[夜间队列状态](artifacts/benchmark/leaf_personal_methods_20261123/pipeline.json)；结果将在同目录 `summary.md/json` 自动汇总。MEMO/AdaBN是TTA，不称原始联合自监督TTT复现。
+
 原测试被试共23人：BCIC-IV-2a被试8、9；PhysioMI被试89–109。每类5条（每人20条）支持样本，seed42，100步；本轮不做多shot、多seed或TTT。每位用户的adapter、优化器均重置，用户之间不累积更新。
 
 2026-11-23 16:41:33 UTC四卡正式任务已启动；105项自动测试和两名验证用户GPU短测通过。当前状态与进度见[结果记录](docs/RESULTS.md)及运行目录，不将未完成用户记为结果。

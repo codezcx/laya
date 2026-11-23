@@ -6,6 +6,10 @@ _更新：2026-11-23。当前扩展个人残差adapter＋冻结JEV到全部23名
 
 ## 📋 当前：全部留出用户的个人CE适配
 
+2026-11-23 17:06:06 UTC另已启动方法对照夜间队列，控制器2854547；先做输入校验，随后等待本基线完成再运行MEMO、SSF、AdaBN。不是shot/step/seed扫描。三组同一23人、每类5条；监督组均100步、LR1e-4，JEV全部冻结。SSF新增63,488参数，不与33,088参数残差adapter冒称等容量；MEMO从各用户完成的CE adapter起步，逐query无标签更新并重置，另保留只做增强平均控制；AdaBN只用support统计，另保留AdaBN-only控制。
+
+隔离实现 `460d31e`，119项自动测试已通过；实际GPU短测尚待基线释放资源，不报告新方法准确率。[夜间状态](../artifacts/benchmark/leaf_personal_methods_20261123/pipeline.json)。代码/完整协议在 `../eegjev-worktrees/personal-method-controls` 分支worktree；新输出根 `artifacts/benchmark/leaf_personal_methods_20261123/`。截止2026-11-23 22:50:52 UTC，部分结果明确标注覆盖，不混作完整23人均值。
+
 沿用2a被试8获得64.93%的残差adapter方法，扩展至2a 8、9及PhysioMI 89–109；每人每类5条、seed42、100步。只更新33,088参数，Tower、原connector、JEV及其LoRA/head冻结。没有额外源用户训练，没有TTT、多shot或多seed。
 
 本轮根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`。105项自动测试、两名原验证用户各3步真实GPU短测通过：初始恒等、共同基线/批次ID一致、仅33,088个adapter参数更新、父模型及buffers冻结、保存重载一致。[短测审计](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/smoke_verified.json)。短测只检查工程正确性，不作为任务效果。

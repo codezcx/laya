@@ -66,6 +66,8 @@ adapter为 `z + Linear(64,256)(GELU(Linear(256,64)(z)))`，含bias共33,088参�
 
 ## 🔗 实现与过程来源
 
+后续夜间匹配方法对照已在隔离分支 `experiment/personal-method-controls` 实现（`460d31e`）：AdaBN＋CE、内部SSF、CE＋MEMO。原基线所有规则不变；新方法逐一比较同一20条support与同一query，不扫描shot或LR。SSF参数量63,488，MEMO额外使用当前query无标签更新，需分别报告容量与transductive差异。完整方法协议位于 `/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev-worktrees/personal-method-controls/docs/PROTOCOL.md`；主工作树不热改源文件。夜间截止2026-11-23 22:50:52 UTC。
+
 当前入口与全部设置见[配置](../configs/personalization.json)、[个人适配模块](../eeg_align/personalization.py)、[训练入口](../eeg_align/run_personalization.py)、[控制器](../scripts/run_personalization.py)。旧成功pilot见[原结果](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pilot_summary.json)，历史代码 `05403f7` 在隔离worktree检查复用。
 
 实验设计/资源检查技能用于锁定逐用户配对、泄漏边界和运行容量；Transformers技能用于检查冻结模型仍传递输入梯度；Markdown技能用于同步当前协议。未更换现有模型或依赖。科学资源目录无法访问，不作为模型选择证据；采用现有本地权重。技能过程参考[^skills]，不是本方法的新颖性来源。
