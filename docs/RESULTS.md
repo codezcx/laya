@@ -8,7 +8,9 @@ _更新：2026-11-23。当前在已完成的 Tower InfoNCE→JEV 上做 B/C 个�
 
 已固定 B（输出残差 adapter，33,088 参数）与 C（Tower 最后两层双分支 Q/V LoRA-r8，32,768 参数），均只更新个人信号侧小模块，冻结 JEV/connector/文本读出。2a 每类 5/10/20 trial，PhysioMI 每类 5/10；3 个采样种子。23 名留出目标被试，共 288 次独立适配，包含共同的 0-shot 控制。协议和源代码预检完成后由四卡真实短测门控正式运行。
 
-本段是计划/运行记录，不填写未完成成绩；状态见 `artifacts/benchmark/leaf_personalization_20261123/pipeline.json`。完成后自动写该目录 `summary.md` 和 `summary.json`，分别报告直接文本与冻结 JEV 结果。这些是带标签 support 的个人跨 session/run 分数，不是下方九库原完整测试分数，也不等同于第一阶段 51.39%。
+2026-11-23 13:25 UTC 四卡验证被试短测全部通过，正式四 worker 已启动：GPU 0/1 为 B，GPU 2/3 为 C，每 worker 72 次适配。99 项自动测试通过；短测实测 zero-init 输出误差为 0、LoRA 有非零梯度，确认 B/C 的 support/query/batch IDs 与共同基线一致、基础 Tower/文本读出/JEV 未更新、小 checkpoint 重载输出完全一致。[短测审计](../artifacts/benchmark/leaf_personalization_20261123/smoke_verified.json)、[运行状态](../artifacts/benchmark/leaf_personalization_20261123/pipeline.json)。实现提交 `36493bb`。
+
+暂不填写未完成正式成绩。完成后自动写该目录 `summary.md` 和 `summary.json`，分别报告直接文本与冻结 JEV 结果。这些是带标签 support 的个人跨 session/run 分数，不是下方九库原完整测试分数，也不等同于第一阶段 51.39%。
 
 ## 📋 已完成的共享模型与选择
 
