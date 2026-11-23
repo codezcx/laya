@@ -8,9 +8,9 @@ _更新：2026-11-23。当前只维护纯信号 Tower→MLP→Qwen-JEV，四卡�
 
 运行名 `leaf_tower_jev_20261123`，arm `leaf_tower_mlp`。代码与 73 项单元测试已通过，含四进程梯度等价性、原始 Tower 输出一致性、无文本模块、分块/有效 token 掩码、冻结划分及测试集禁用检查。
 
-2026-11-23 07:38:57 UTC：32,640 次计划训练输入 CPU 检查通过（123.6 秒）；四卡真实 17 步 smoke 完成（模型载入后 130.9 秒，含重载和训练子集评估）。LEAF Tower 确实更新、四 rank 权重一致、全局 batch 划分一致、磁盘重载 logits 精确一致，测试前向为 0。正式四卡进程已由控制器启动，重新载入发布权重；此时尚无正式训练后准确率。
+2026-11-23 09:29:26 UTC 已完成：2040 次更新，best step 2040；完整九库验证 61,327 窗，等权 Acc 46.32%、BAcc 43.41%。LEAF Tower 确实更新、四 rank 权重一致、全局 batch 划分一致、磁盘重载 logits 精确一致，测试前向为 0。[完整结果](../artifacts/benchmark/leaf_tower_jev_20261123/train/leaf_tower_mlp/valid_step002040_full.json)、[完成审计](../artifacts/benchmark/leaf_tower_jev_20261123/train/leaf_tower_mlp/complete.json)、[曲线](../artifacts/benchmark/leaf_tower_jev_20261123/figures/leaf_tower_mlp/training_validation_curves.png)。
 
-控制器 PID 575553，正式 torchrun PID 768989；运行源码提交 `d23b5e8`。初始参数量：Tower 前向 19,557,632；connector 27,535,872；JEV LoRA 217,579,520；choice head 81,936。短测峰值分配显存约 54.6 GiB/rank，后半段约 4.8–5.5 秒/step；训练加验证暂估 3–4 小时，不承诺四卡带来四倍加速。实际进展以 [pipeline.json](../artifacts/benchmark/leaf_tower_jev_20261123/pipeline.json) 和 `train/leaf_tower_mlp/progress.json` 为准，不能把旧 LEAF/VideoMAE 成绩当作本轮结果。
+运行源码提交 `d23b5e8`。初始参数量：Tower 前向 19,557,632；connector 27,535,872；JEV LoRA 217,579,520；choice head 81,936。峰值分配显存约 54.6 GiB/rank；正式训练与完整验证在模型载入后用时 6,561.8 秒（约 1 小时 49 分）。无对比学习组作为后续文本对齐的基线保留，不覆盖其权重和结果。
 
 - 四张 H100 80GB；global batch 16 = 每 rank 4。
 - 2040 步；前 340 步仅连接器，之后 LEAF Tower 全参＋JEV 已有 LoRA/head；JEV base 不更新。
