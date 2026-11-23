@@ -35,7 +35,7 @@ class AlignmentModel(nn.Module):
                                         nn.GELU(), nn.Linear(width, width))
         self.log_scale = nn.Parameter(torch.tensor(math.log(1/CONFIG['initial_temperature'])))
         if arm == 'sigmoid':
-            self.bias = nn.Parameter(torch.tensor(CONFIG['initial_sigmoid_bias']))
+            self.bias = nn.Parameter(torch.tensor(float(CONFIG['initial_sigmoid_bias']), dtype=torch.float32))
         else:
             self.register_buffer('bias', torch.tensor(0.))
         self.register_buffer('text_vectors', torch.as_tensor(text_vectors, dtype=torch.float32))

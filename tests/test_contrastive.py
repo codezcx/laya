@@ -106,6 +106,15 @@ def test_pinned_text_bank_is_current_and_has_no_eeg_annotations():
     assert 'trial' not in bank and 'subject' not in bank
 
 
+def test_sigmoid_zero_bias_is_float_even_when_json_contains_integer(monkeypatch):
+    from eeg_align import train_contrastive as training
+    monkeypatch.setattr(training, 'OnlineLEAFTower', lambda _: torch.nn.Linear(256,256))
+    monkeypatch.setitem(training.CONFIG, 'initial_sigmoid_bias', 0)
+    model = training.AlignmentModel('sigmoid', torch.ones(3,768))
+    assert model.bias.requires_grad and model.bias.dtype == torch.float32
+    assert model.bias.item() == 0
+
+
 def test_downstream_recipe_is_unchanged():
     from scripts.run_contrastive import verify_baseline_recipe
     proof = verify_baseline_recipe()
