@@ -7,7 +7,7 @@ import torch
 from eeg_align.split_policy import SEED_PROTOCOL, seed_split, validate_split_frame
 from eeg_align.runtime import CONFIG, arm_settings, digest
 from eeg_align.lr_schedule import rates_at
-from eeg_align.online_bsr import OnlineBSR
+from eeg_align.online_leaf import OnlineLEAFTower
 from scripts.prepare_multitask_splits import extract_methods
 
 
@@ -48,34 +48,28 @@ def test_current_seed_reindex_did_not_change_signals_or_other_datasets():
 
 
 def test_adaptation_configuration_and_schedule():
-    assert CONFIG['arms'] == ['infonce_qformer_lora64']
+    assert CONFIG['arms'] == ['leaf_tower_mlp']
     setting = arm_settings(CONFIG['arms'][0])
-    assert setting['encoder_trainable'] is True and setting['readout'] == 'qformer'
-    assert setting['videomae_lora']['rank'] == setting['videomae_lora']['alpha'] == 64
-    assert setting['videomae_lora']['dropout'] == 0
+    assert setting == dict(encoder='leaf_tower', encoder_trainable=True, readout='identity')
+    assert CONFIG['world_size'] == 4 and CONFIG['global_batch'] == 16
+    assert CONFIG['microbatch'] == 4
     peaks = CONFIG['learning_rates']
-    assert peaks['eeg_encoder'] == 1e-6
+    assert peaks == dict(connector=1e-4, jev_lora=5e-6, decision_head=1e-5, eeg_encoder=1e-6)
     assert rates_at(340,2040,340,peaks)['eeg_encoder'] == 0
     assert rates_at(341,2040,340,peaks)['eeg_encoder'] > 0
 
 
-def test_bsr_phase_controls_parameters_training_and_grad_mode():
-    model = OnlineBSR.__new__(OnlineBSR)
+def test_tower_phase_controls_gradients_not_batchnorm_statistics():
+    model = OnlineLEAFTower.__new__(OnlineLEAFTower)
     torch.nn.Module.__init__(model)
-    model.finetune = model.adaptation_enabled = True
-    model.renderer = torch.nn.Module()
-    model.renderer.eeg2pix = torch.nn.Linear(2,2)
-    model.renderer.pix2eeg = torch.nn.Linear(2,2).requires_grad_(False)
-    model.adapter, model.encoder = torch.nn.Linear(2,2), torch.nn.Linear(2,2)
-    model._encode = lambda x,ch: model.encoder(model.adapter(model.renderer.eeg2pix(x)))
-    model.set_adaptation_enabled(False); model.train()
-    assert not model.training
-    assert not model(torch.ones(1,2), []).requires_grad
-    model.set_adaptation_enabled(True); model.train()
-    assert model.training
-    model(torch.ones(1,2), []).sum().backward()
-    assert model.encoder.weight.grad is not None
-    assert model.renderer.eeg2pix.weight.grad is not None
-    assert model.renderer.pix2eeg.weight.grad is None
-    model.eval()
-    assert not model.training and model.encoder.weight.requires_grad
+    model.tower = torch.nn.Sequential(torch.nn.BatchNorm1d(2), torch.nn.Linear(2,2))
+    model.set_adaptation_enabled(False)
+    model.train()
+    assert not model.tower.training
+    assert not model(torch.ones(3,2)).requires_grad
+    model.set_adaptation_enabled(True)
+    model.train()
+    model(torch.ones(3,2)).sum().backward()
+    assert model.tower[1].weight.grad is not None
+    assert model.tower[0].weight.grad is not None
+    assert model.tower[0].num_batches_tracked.item() == 0

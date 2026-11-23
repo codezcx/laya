@@ -4,6 +4,14 @@ from pathlib import Path
 import torch
 import torch.distributed as dist
 
+
+def rank_rows(rows, rank, world):
+    """Partition the already sampled global batch, never resample per rank."""
+    if world < 1 or not 0 <= rank < world or not rows or len(rows) % world:
+        raise ValueError('Global batch must be nonempty and divisible by rank count')
+    size = len(rows) // world
+    return rows[rank * size:(rank + 1) * size]
+
 @torch.no_grad()
 def average_gradients(parameters,world_size):
     parameters=list(parameters)

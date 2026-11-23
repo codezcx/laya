@@ -1,6 +1,6 @@
 {
-  "run_name": "aligned_videomae_jev_lora64_20261102",
-  "protocol": "encoder_only_aligned_transfer_readout_controls_seed_within_subject_other_benchmarks_subject_holdout",
+  "run_name": "leaf_tower_jev_20261123",
+  "protocol": "leaf_signal_tower_only_mlp_jev_four_rank_data_parallel",
   "split_root": "artifacts/benchmark/multitask_splits_seedpaper_20261101",
   "split_summary_sha256": "9a4d302b25413d5e06f728e6fd9caad7b1b3dbf1590e1e7d03121dd2cc19a222",
   "cache_root": "datasets/multitask_seedpaper_20261101",
@@ -8,59 +8,45 @@
   "quality_summary_sha256": "45e504a715cc5fdbd42b78a28d0edddc735f139063c985af55cd5f0bc236b98c",
   "benchmark_root": "third_party/EEG-FM-Bench-xw1216",
   "upstream_commit": "325398d7d057ecc1216fb3510d70c16eb60337cc",
-  "bsr_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3",
-  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/eegckpt/BSR-VideoMAE-AS-Final-v3/ckpts/B1_regen_21e31e56baf2.pt",
-  "checkpoint_sha256": "21e31e56baf23c0d5446e750ac4eb54a5032d4fe34d2845788e6d22c373bba36",
-  "text_root": "artifacts/benchmark/multitask_text_20261029",
-  "arms": ["infonce_qformer_lora64"],
+  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
+  "checkpoint_sha256": "f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa",
+  "arms": [
+    "leaf_tower_mlp"
+  ],
   "arm_settings": {
-    "infonce_qformer_lora64": {
-      "encoder": "bsr", "encoder_trainable": true, "readout": "qformer", "aligned_source": "infonce",
-      "videomae_lora": {
-        "rank": 64, "alpha": 64, "dropout": 0.0,
-        "targets": ["attention.attention.query", "attention.attention.key", "attention.attention.value", "attention.output.dense", "intermediate.dense", "output.dense"]
-      }
+    "leaf_tower_mlp": {
+      "encoder": "leaf_tower",
+      "encoder_trainable": true,
+      "readout": "identity"
     }
   },
-  "matched_control": {
-    "directory": "artifacts/benchmark/aligned_videomae_jev_20261102/train/infonce_qformer_unfrozen",
-    "arm": "infonce_qformer_unfrozen",
-    "sha256": {
-      "config.json": "f9ec9a2d7ba88b9ed8230cdbaf805a0c94fd5a5ccf1c4e261df0203e9590315e",
-      "initial_state.json": "ac8c9cae9fad016c77d3c898911c993325059eaa88b415549b10c5fbd0316df2",
-      "complete.json": "b4a609c3618a5c7fade3546413a693aeac281399d8af2af5df922a8654b4d7e5"
-    }
-  },
-  "aligned_sources": {
-    "infonce": {
-      "checkpoint": "artifacts/benchmark/contrastive_videomae_20261101/train/infonce/best.pt",
-      "checkpoint_sha256": "74b6d0b2c6996aea75de9b95c824ce519c1141900778ffb69d40fb117a97f41b",
-      "selected_step": 1700,
-      "encoder_sha256": "cfd63650464b628d6a911752f55f0253d046e025fb0a144b5c4ad284a64716b2"
-    },
-    "sigmoid": {
-      "checkpoint": "artifacts/benchmark/contrastive_videomae_20261101/train/sigmoid/best.pt",
-      "checkpoint_sha256": "eb3664908e664a10dc59aeca7595d062225f8fe91d2135a03fe4437f18395387",
-      "selected_step": 1700,
-      "encoder_sha256": "521d7506eaca03c707ba16f6ddf6e8a1dd0fecc4c1050b01da4364d0178ef11b"
-    }
-  },
-  "transfer_policy": "Encoder-only: learned forward renderer + SharedScale + VideoMAE and all encoder buffers; new matched-seed CLS/Q-Former and connector; native JEV; no alignment readout/projection/optimizer transfer",
   "input_units": {
-    "bcic_2a": "V", "motor_mv_img": "V", "seed": "V", "seed_vii": "V",
-    "tuab": "V", "tuev": "V", "hmc": "V", "workload": "V", "adftd": "V",
-    "BNCI2015001": "uV", "BNCI2014008": "uV", "BNCI2014009": "uV",
-    "CHB_MIT": "uV", "SleepEDF": "V", "AlexMI": "uV", "Zhou2016": "uV", "Nakanishi2015": "uV"
+    "bcic_2a": "V",
+    "motor_mv_img": "V",
+    "seed": "V",
+    "seed_vii": "V",
+    "tuab": "V",
+    "tuev": "V",
+    "hmc": "V",
+    "workload": "V",
+    "adftd": "V",
+    "BNCI2015001": "uV",
+    "BNCI2014008": "uV",
+    "BNCI2014009": "uV",
+    "CHB_MIT": "uV",
+    "SleepEDF": "V",
+    "AlexMI": "uV",
+    "Zhou2016": "uV",
+    "Nakanishi2015": "uV"
   },
   "steps": 2040,
   "seed": 42,
   "global_batch": 16,
-  "microbatch": 8,
+  "microbatch": 4,
   "eval_microbatch": 8,
   "bridge_only_steps": 340,
   "learning_rates": {
     "connector": 0.0001,
-    "readout": 0.0001,
     "jev_lora": 0.000005,
     "decision_head": 0.00001,
     "eeg_encoder": 0.000001
@@ -73,7 +59,10 @@
   "train_monitor_per_dataset": 128,
   "checkpoint_every": 20,
   "gpus": [
-    0
+    0,
+    1,
+    2,
+    3
   ],
   "minimum_free_gpu_mib": 72000,
   "cpu_workers": 4,
@@ -81,11 +70,11 @@
   "selection": "highest fixed 512 validation subset nine-dataset macro BAcc; ties keep earlier; final full validation for each arm",
   "test_policy": "No test forwards in this comparison; select arm on validation before a separate test evaluation",
   "known_risks_accepted": {
-    "authorization": "User 2026-11-02: transfer both text-aligned VideoMAE encoders to JEV with CLS and Q-Former, plus InfoNCE/Q-Former encoder-unfrozen control; coexist with evaluation jobs when memory permits",
+    "authorization": "User 2026-11-23: LEAF signal encoder only -> MLP -> Qwen-JEV; four GPUs for synchronous data-parallel training; retain current splits, global batch, peak LRs and update budget",
     "seed": "Within-subject ordered trial 9/3/3; aligned parent and JEV training must use identical split/QC/cache identities",
     "hmc": "151/151 official 1.1 records and annotations SHA256 verified; unchanged 103/24/24 split from the alignment parents. Authors' exact random subject list remains unverified",
     "tuh": "19 candidate shared IDs, five cross-library train/test role conflicts unresolved",
-    "pretraining": "Released encoder pretraining overlap unresolved; not a clean zero-shot score",
+    "pretraining": "Released LEAF pretraining/instruction-tuning overlap unresolved; not a clean zero-shot score",
     "extras": "Existing cached epochs; raw recording provenance not fully audited"
   },
   "datasets": [
@@ -106,5 +95,8 @@
     "AlexMI",
     "Zhou2016",
     "Nakanishi2015"
-  ]
+  ],
+  "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
+  "world_size": 4,
+  "transfer_policy": "Released instruction-tuned LEAF Tower only; no MPNet, FiLM, Q-Former, text projection or reconstruction heads. Native JEV, new 256->5120->5120 connector."
 }

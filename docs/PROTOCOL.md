@@ -1,50 +1,44 @@
-# EEG→JEV：固定学习率的 VideoMAE LoRA-r64 对照
+# LEAF 信号 Tower → MLP → Qwen-JEV
 
-_更新：2026-11-02。当前运行 `aligned_videomae_jev_lora64_20261102`，配置见 [benchmark_train.json](../configs/benchmark_train.json)。_
+_2026-11-23；一个共享模型，四卡同步数据并行。配置：[benchmark_train.json](../configs/benchmark_train.json)。_
 
 ---
 
 ## 🎯 要回答的问题
 
-1. What is the problem? InfoNCE＋Q-Former→JEV 全参组完整验证 BAcc 为 44.15%，需要检验限制 VideoMAE 的可更新参数是否有帮助。
-2. Why is it important? 在相同训练预算和学习率下区分参数更新方式的影响，避免同时调参导致无法归因。
-3. Why is it hard? LoRA 与全参的有效权重更新并不相同，固定学习率只能回答本设定下的差异，不能证明某种方法的最优性能。
-4. Prior limitations? 父 InfoNCE 的 47.49% 没有 JEV；不同协议的 LEAF 或旧 VideoMAE 数字不是本轮匹配控制。
-5. Proposed components? 复用同一 InfoNCE encoder、新初始化且种子匹配的 Q-Former／连接器／原生 JEV，只将 VideoMAE 更新替换为 rank=64 LoRA。
+1. What is the problem? 检验不经过 LEAF 文本条件化 Q-Former 的信号 token 能否直接适配 JEV。
+2. Why is it important? 把信号提取与任务语义处理分开，避免 MPNet 与 Qwen 两套文本接口混用。
+3. Why is it hard? Tower 的信号特征空间并不天然等于 Qwen 的输入空间，且跨库通道、时间长度和标签存在差异。
+4. Prior limitations? 历史 LEAF→JEV 保留了 FiLM/Q-Former；VideoMAE 控制改变了信号表示路径。旧成绩不能直接归因为本轮结构的优劣。
+5. Proposed components? 发布 LEAF Tower、可训练 MLP、原生 Qwen-JEV 语言主干与决策接口；任务文本只进入 JEV。
 
-第二阶段仅使用任务分类交叉熵，不继续叠加 InfoNCE 损失。名字中的 InfoNCE 表示第一阶段权重来源。仍是有监督多任务试验，不是 zero-shot，不把通用连接器或 LoRA 本身当作 novelty。
+本轮是有监督多任务适配验证，不是严格 zero-shot，不将通用连接器本身宣称为 novelty。不额外增加对比学习阶段。
 
-## 🔌 LoRA 结构与匹配控制
+## 🔌 模型与初始化
 
-| 配置项 | 全参控制 | 本轮 LoRA-r64 |
-| --- | --- | --- |
-| 实验标识 | infonce_qformer_unfrozen | infonce_qformer_lora64 |
-| VideoMAE | 全参更新 | base 冻结，仅训练 LoRA A/B |
-| renderer／SharedScale | 预热后训练 | 相同，不额外冻结 |
-| encoder 组学习率 | 1e-6 | 1e-6 |
-| Q-Former／连接器 | 新初始化，参与训练 | 相同初值与训练方式 |
-| JEV | 原生 LoRA＋choice head 按阶段训练 | 相同 |
-| 训练预算 | 2040 步 | 2040 步 |
-| 完整验证 BAcc | 44.15% | 待完成 |
+```mermaid
+flowchart LR
+    accTitle: LEAF Tower JEV Training
+    accDescr: EEG enters a text-independent LEAF Tower and an MLP, while task text enters Qwen-JEV directly. No original LEAF Q-Former or MPNet is used.
+    eeg["EEG 200 Hz<br/>65-channel template"] --> tower["LEAF signal Tower<br/>two branches, 256 dim"]
+    tower --> mlp["Trainable MLP<br/>256 to 5120"]
+    mlp --> jev["Qwen-JEV<br/>language backbone"]
+    text["Task, question, options"] --> jev
+    jev --> choice["Decision position<br/>choice logits"]
+```
 
-本轮只新增一个实验，使用 GPU 0，启动前要求至少 72,000 MiB 空闲。LoRA 的 rank=64、alpha=64，缩放系数 alpha/r=1，dropout=0；A 为 Kaiming-uniform，B 为零，初始增量为零。12 层每层注入 query/key/value、attention.output.dense、intermediate.dense、output.dense，共 72 个线性层；bias、LayerNorm 和 patch embedding 等原 VideoMAE 参数全部冻结，不合并低秩增量到 base。LoRA 共 10,616,832 个参数；另保留原 renderer／SharedScale 的 26,862 个可训练参数。
+仅实例化原始 `Tower`，从发布 instruction-tuned checkpoint 的 `tower.*` 严格加载；不实例化 MPNet、FiLM 或 Q-Former。删去从不进入信号前向的 mask token 与两个重建输出头。Tower 使用共享时空 tokenizer、双向和因果 Transformer，各 12 层，输出拼接为 256 维 token。[^leaf]
 
-控制为 `aligned_videomae_jev_20261102/train/infonce_qformer_unfrozen`，不是从其选中的下游 checkpoint 继续训练。配置中的 `matched_control` 固定控制组配置／初值／完成记录 SHA-256；只允许运行标识、GPU 调度和 VideoMAE LoRA 设置差异。训练数据、全部学习率、优化器配置、预算、评估规则等任一其他变化均拒绝启动。逐步训练样本 ID 哈希也与原组核对。
+- 权重：`/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt`
+- SHA256：`f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa`
+- 连接器沿用两层 MLP 形式：LayerNorm(256) → Linear(256,5120) → GELU → Linear(5120,5120)
+- JEV 从原生语言权重、原生 LoRA 和 choice 行初始化；不加载视觉塔，不继承旧下游 SFT 权重
+- 输入序列沿用 `prefix + EEG tokens + task/question/options + [decision]:`；真实标签仅用于监督
+- 文本位于 EEG 后面，因果主干的决策位置可读取二者；不声称前面的 EEG 位置能反向看到后面的任务文本
 
-权重来自 `artifacts/benchmark/contrastive_videomae_20261101/train/{infonce,sigmoid}/best.pt`，两组均按第一阶段固定验证子集选中 step 1700，不重新挑选更有利于第二阶段的父 checkpoint：
+4 秒 EEG 输出 16 个 token，10 秒输出 40 个；长窗按既有规则均匀切成不超过 10 秒的片段，各片右侧补到 100 样本整数倍，保留全部片段和两个分支，不做池化或 token 压缩。30 秒 HMC 窗共有 120 个 token。
 
-| 来源 | best.pt SHA-256 | 完整验证 BAcc（第一阶段，无 JEV） |
-| --- | --- | ---: |
-| InfoNCE | `74b6d0b2c6996aea75de9b95c824ce519c1141900778ffb69d40fb117a97f41b` | 47.49% |
-| Sigmoid | `eb3664908e664a10dc59aeca7595d062225f8fe91d2135a03fe4437f18395387` | 46.55% |
-
-证据：[InfoNCE 完成记录](../artifacts/benchmark/contrastive_videomae_20261101/train/infonce/complete.json)、[Sigmoid 完成记录](../artifacts/benchmark/contrastive_videomae_20261101/train/sigmoid/complete.json)。
-
-仅迁移训练后的 `renderer.eeg2pix`、SharedScale、VideoMAE 及全部 encoder buffers，包括未进入普通 state_dict 的 STFT／电极索引 buffers。重建专用 `pix2eeg` 保持原发布权重，不参与前向和训练。源 checkpoint 的 CLS、投影层、scale/bias、文本向量、优化器与 RNG 都不迁移。
-
-本轮只使用 InfoNCE 父权重。Q-Former、连接器和原生 JEV 从与全参组相同种子重新初始化，逐项核对参数哈希，不迁移父 CLS／投影或全参组下游权重。上表两个父成绩保留为来源参考，不能当作新模型 step 0 应达到的成绩。
-
-CLS 是新学习的全局 query＋一层 self-attention/FFN，不是 VideoMAE 的第一个 patch，也不是逐帧 CLS。Q-Former 为 4 层 query self-attention＋cross-attention＋FFN，32 个 learnable queries、768 维、12 heads；不是预训练 BLIP-2 权重。连接器均为 LN→Linear(768,5120)→GELU→Linear(5120,5120)。任务说明、问题和候选选项只进入 JEV，真实类别只用于监督。
+信号预处理复用历史 LEAF：双极导联最小范数表示（不等于恢复真实单极 EEG）、去无几何的乳突参考、200 Hz、每窗 0.1/99.9 百分位截幅、median/IQR 标准化（IQR 为零时用 std）、65 通道插值，SEED/SEED-VII 保留原额外 ±10 截幅。所有阶段 Tower 保持 eval 模式，禁用 dropout 并固定 BatchNorm buffers，但预热后可计算梯度和更新 affine/Transformer 参数。
 
 ## 📥 数据与划分
 
@@ -75,46 +69,55 @@ SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处�
 - 17 库有效训练 967,281 窗，九库验证 61,327 窗，九库测试 61,375 窗；仍只排除 CHB_MIT 已知 1,144 个无效训练窗
 - 严格校验非 SEED 被试不重叠，以及 SEED 原始 event ID、trial 完整覆盖、窗口身份唯一与 9/3/3 分配；不能全局关闭泄漏检查
 
-重划分入口：[prepare_seed_trial_split.py](../scripts/prepare_seed_trial_split.py)。旧目录保留；只允许迁移与当前划分、QC、缓存索引完全一致的对齐权重；不能使用旧 HMC109／SEED 跨被试下游权重。
+重划分入口：[prepare_seed_trial_split.py](../scripts/prepare_seed_trial_split.py)。旧目录保留；本轮从发布 LEAF 权重初始化，不使用任何历史下游 checkpoint。
 
-## 🔧 共同训练设置
 
-- 保留第一阶段输入适配：微伏、69 通道网格、200 Hz、200 点 STFT 幅值谱、16 帧、SharedScale、ImageNet 归一化；长窗分段后全部拼接，不裁尾部
-- 单 seed=42；2040 步，global batch=16，microbatch=8，eval microbatch=8
-- 17 库周期随机轮转，库内类别均衡／被试均匀；每库 120 个 batch、1920 次样本呈现，不是 120 个完整 epoch
-- 1–340 步仅训练新读出和连接器；341–2040 步开放 JEV 原生 LoRA、choice head、VideoMAE LoRA、renderer 和 SharedScale
-- VideoMAE 基础参数全程冻结；JEV 基础权重始终冻结；重建专用 pix2eeg 始终冻结
-- AdamW：读出／连接器 LR 1e-4，JEV LoRA 5e-6，choice head 1e-5，encoder 组 1e-6；weight decay .01，clip norm 1
-- 每个参数组自开放日起 warmup 62 步，随后 cosine 衰减至峰值 2%；沿用现有日程，不为某组单独调参
-- 正式训练重新加载相同父 best 权重，不继承 smoke 更新；不从 44.15% 下游 checkpoint 续训
-- 保存每步每库 loss、batch Acc、LR、梯度、样本哈希与显存，供后续训练曲线和表征分析
-- 本轮只新增一个 2040 步实验；与全参控制使用相同父对齐权重，不另外增加对齐训练
+## 🔧 训练与四卡语义
 
-## 📊 验证与启动门控
+| 项目 | 固定设置 |
+| --- | --- |
+| GPU | 0、1、2、3，四个模型副本，共享一次同步更新 |
+| 全局 batch | 16；每 rank 4，microbatch 4；不是全局 64 |
+| 总预算 | 2040 次优化器更新，seed 42 |
+| 步 1–340 | 仅训练 MLP 连接器 |
+| 步 341–2040 | LEAF Tower 全参、连接器、JEV 已有 LoRA、choice head |
+| 永久冻结 | JEV 基础参数；LEAF BatchNorm buffers |
+| 学习率峰值 | connector 1e-4；JEV LoRA 5e-6；head 1e-5；Tower 1e-6 |
+| 优化器 | AdamW，weight decay 0.01，梯度裁剪 1 |
+| 学习率日程 | 各组开放后 62 步预热，cosine 至峰值的 2% |
+| 损失 | 候选类别交叉熵，无新增 InfoNCE/Sigmoid |
+| 验证 batch | 每 rank 至多 8；不改变样本集合或统计权重 |
 
-从 step 0 记录固定每库 ≤512 验证窗和 ≤128 训练监控窗；每 340 步重复。按九库等权验证 BAcc 选择 best，同分保留较早 step。结束后仅对 best 跑完整 61,327 窗验证，保存逐窗预测，自动绘制 loss 与验证曲线。测试集保持关闭，训练子集监控不能称为完整训练集准确率。
+四个 rank 从同一确定性全局采样列表切分，不独立重新抽样；训练 loss 按本 rank 样本数归一化后 all-reduce 平均梯度，再裁剪、更新。逐步核对全局 ID 顺序，保存时核对所有 rank 的可训练权重哈希。沿用已有显式 all-reduce 数据并行实现，并由四进程等价性测试验证；不采用 tensor/model parallel。
 
-启动顺序：全部计划训练输入 CPU 检查；17 步真实 GPU smoke；核对源权重、匹配控制初值、逐步样本、VideoMAE base 不变、LoRA／renderer／SharedScale 梯度及更新、磁盘重载；全部通过后正式训练。只读加载需通过源 checkpoint 文件哈希、选中步数、未访问测试集、相同 split/QC/cache/类别语义检查，并逐项核对所有 encoder 前向参数与 buffers。
+17 库周期随机轮转，库内类别均衡／被试均匀。每库 120 个 batch、1920 次样本呈现，全部 32,640 次样本呈现，并非完整遍历 967,281 个训练窗。增加 GPU 不放大学习率或训练量。
 
-`transfer_audit.json` 记录父 checkpoint、encoder 哈希和迁移范围；`initial_state.json` 记录新读出、连接器、JEV 初值。源码／配置在运行期有 hash guard；源 checkpoint 文件大小与时间戳也受监控。已有任务运行期间不得改其导入模块，恢复只用相同身份的未完成 `last.pt`。
+## 📊 验证、恢复与启动
 
-节点更换仅通过启动器 `--start --resume --gpus 0 1 2 3` 覆盖调度槽位，不改已保存配置中的 GPU 列表或训练身份。跳过已完成组，保留中断的审计和预测快照，并使用原训练器恢复；若已到 2040 步，则不新增优化器更新，只重新执行完整验证。完整验证不跨中断拼接部分统计，测试集仍不访问。
+step 0 和每 340 步记录每库至多 512 个固定验证窗，以及至多 128 个训练监控窗。九库等权验证 BAcc 选 best，同分保留较早 step。结束后 best 做完整 61,327 窗验证；测试前向固定为 0。训练监控不冒充完整训练集准确率。
+
+验证按原始样本索引跨 rank 划分，汇总全部概率后计算 confusion matrix/Acc/BAcc，不平均各卡 BAcc，不重复补齐尾批。完整验证保存逐窗 ID/标签/概率。结束自动绘制 loss、验证及分库曲线。
+
+启动顺序为 CPU 全部计划输入检查 → 四卡 17 步 smoke（含预热后梯度、权重同步、重载、训练子集分布式评估）→ 重新从发布权重初始化正式训练。smoke 不访问验证/测试，参数不得流入正式 run。每 20 步保留 last，验证点另存 checkpoint；保存完整 Adam 状态、buffers 和四 rank RNG。源码、配置、上游模型代码与 checkpoint 身份受保护，不允许 live job 期间修改。
 
 ```bash
-laya/.venv-eeg/bin/python -m pytest -q tests
+laya/.venv-eeg/bin/python -m pytest tests -q
 laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
+# 中断后仅恢复同一配置、源码、四 rank 的未完成 checkpoint：
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --resume --gpus 0 1 2 3
 ```
 
-输出 `artifacts/benchmark/aligned_videomae_jev_lora64_20261102/`。控制器状态 `pipeline.json`，分组进度 `train/infonce_qformer_lora64/progress.json`。同目录不可重复启动；控制器脱离终端运行。失败时保留全部产物，不杀其他用户任务。
+输出：`artifacts/benchmark/leaf_tower_jev_20261123/`。查看 `pipeline.json` 与 `train/leaf_tower_mlp/progress.json`；失败信息为 `failure_rank*.json`。原 checkpoint/log/cache 不覆盖。使用四卡验证并行，不另启动四组不同实验。
 
-## ⚠️ 解释边界与历史复现
+## ⚠️ 解释边界
 
-旧 LEAF 适配入口与配置已在 Git `704ad26` 归档，五组迁移及四卡恢复入口在 `828a17d`。当前工作树维护同一方法的 LoRA 适配控制及其共享组件。父对齐代码仍作为第一阶段保留，历史运行必须从对应提交的隔离 worktree 复现，不能覆盖当前源码。
+本轮与之前 VideoMAE 不构成“只改一个模块”的严格消融：encoder、输入适配与 token 长度均不同。与历史 LEAF 还存在 HMC/SEED 协议、验证选模等区别。所有学习率/global batch/步数沿用当前既定值，不因换成四卡而放大。
 
-SEED 被试内，其余八个 benchmark 跨被试；TUAB/TUEV 19 个候选共享 ID、其中 5 个跨库角色冲突仍未解决，基模预训练重叠及额外缓存来源风险也未排除。HMC 151 份已补齐，但作者随机名单未确认。不声称完全复现 EEG-FM-Bench 或严格无泄漏。
+SEED 被试内，其余八个 benchmark 跨被试。TUAB/TUEV 的 19 个候选共享 ID、其中 5 个跨库角色冲突未解决；LEAF 预训练/指令调优数据重叠未排除。HMC 151 份已补齐，但作者精确随机名单未确认。不能声称完全复现 EEG-FM-Bench 或严格无泄漏。
 
-第一阶段已用于选择两组编码器，第二阶段再用同一验证集选择 JEV checkpoint，因此这些是探索性验证成绩；最终测试不能用于继续选模。当前还没有“相同总预算、无对齐初始化”的匹配新控制，不能仅凭与旧结果的差值证明语言对齐的因果收益。历史结果见 [RESULTS](RESULTS.md)，恢复方式见 [ARCHIVE](ARCHIVE.md)。
+旧方案已归档到 `6247e46`，只在隔离 worktree 复现；当前工作树不保留独立的 VideoMAE/对比学习训练分支。历史产物位置见 [ARCHIVE](ARCHIVE.md)，历史成绩保留于 [RESULTS](RESULTS.md)。
 
 ## 📚 来源
 
-[^bench]: Xiong et al. EEG-FM-Bench，附录 B.3。https://arxiv.org/html/2508.17742v3#A2.SS3 。实现固定于 xw1216/EEG-FM-Bench commit `325398d7d057ecc1216fb3510d70c16eb60337cc`：https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/seeds/seed.py 。
+[^leaf]: LEAF 作者原始实现和说明。https://github.com/Jiang-Muyun/LEAF/blob/main/LEAF.py 。本轮以本地来源文件哈希为准，不自动更新上游。
+[^bench]: EEG-FM-Bench 附录 B.3 与固定提交。https://arxiv.org/html/2508.17742v3#A2.SS3 ；https://github.com/xw1216/EEG-FM-Bench/blob/325398d7d057ecc1216fb3510d70c16eb60337cc/data/dataset/seeds/seed.py 。

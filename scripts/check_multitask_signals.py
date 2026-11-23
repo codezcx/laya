@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from eeg_align.runtime import CONFIG, digest
 from eeg_align.multitask_data import TrialStore, write_json
-from eeg_align.bsr_data import BSRSignalAdapter
+from eeg_align.leaf_data import LEAFSignalAdapter
 
 STORE = None
 ADAPTER = None
@@ -20,7 +20,7 @@ ADAPTER = None
 
 def initialize():
     global ADAPTER
-    ADAPTER = BSRSignalAdapter()
+    ADAPTER = LEAFSignalAdapter()
 
 
 def check_step(step):
@@ -29,7 +29,7 @@ def check_step(step):
         for start in range(0, len(rows), CONFIG['microbatch']):
             for _, _, pieces in ADAPTER.batch(rows[start:start + CONFIG['microbatch']]):
                 if not all(np.isfinite(x).all() for x in pieces):
-                    raise ValueError('Nonfinite BSR input after adaptation')
+                    raise ValueError('Nonfinite LEAF input after adaptation')
     except Exception as exc:
         raise ValueError(f'Step {step}, {STORE.tasks[tid]["task_id"]}, IDs={[r["id"] for r in rows]}: {exc}') from exc
     return tid, len(rows)

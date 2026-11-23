@@ -1,5 +1,7 @@
-"""One GPU per EEG/JEV adaptation control; shared splits, sampling and budget."""
+"""Synchronous data-parallel LEAF Tower -> MLP -> native Qwen-JEV."""
 import argparse
+from datetime import timedelta
+import os
 import hashlib
 import json
 from pathlib import Path
@@ -8,28 +10,26 @@ import subprocess
 import time
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from .runtime import CONFIG, digest, arm_settings
 from .multitask_data import TrialStore, write_json
 from .benchmark_data import classification_metrics
-from .bsr_data import BSRSignalAdapter, encode_batch
-from .online_bsr import OnlineBSR, upstream_files
-from .token_resampler import TokenReadout
+from .leaf_data import LEAFSignalAdapter
+from .online_leaf import OnlineLEAFTower, encode_batch, upstream_files
 from .jev import JEVBridge, load_jev
 from .task_options import make_variant
 from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
-from .distributed import atomic_save
+from .distributed import atomic_save, average_gradients, rank_rows
 from .lr_schedule import rates_at
 from .evaluation import require_split, fixed_training_rows, validation_rows
-from .aligned_checkpoint import load_aligned_encoder, source_spec
-from .encoder_lora import (base_fingerprint, lora_fingerprint, is_lora,
-                           verify_matched_recipe, verify_control_initialization)
 
 
 def code_identity():
     paths = sorted(Path('eeg_align').glob('*.py')) + [Path(p) for p in (
         'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
-        'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py')]
+        'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py',
+        'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py')]
     paths += upstream_files(CONFIG)
     return {str(p): digest(p) for p in paths}
 
@@ -42,12 +42,31 @@ def main():
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     torch.set_num_threads(3)
-    torch.cuda.set_device(0)
-    if args.resume:
-        if not (args.out / 'last.pt').exists() or (args.out / 'complete.json').exists():
-            raise ValueError('Resume requires an unfinished checkpointed run')
-    else:
-        args.out.mkdir(parents=True, exist_ok=False)
+    world = int(os.environ.get('WORLD_SIZE', 1))
+    rank = int(os.environ.get('RANK', 0))
+    device = int(os.environ.get('LOCAL_RANK', 0))
+    if world != CONFIG['world_size'] or CONFIG['global_batch'] % world:
+        raise ValueError('Launch with the configured world size and divisible global batch')
+    torch.cuda.set_device(device)
+    if world > 1:
+        dist.init_process_group('nccl', timeout=timedelta(minutes=30),
+                                device_id=torch.device('cuda', device))
+    def barrier():
+        if world > 1:
+            dist.barrier()
+    def collect(value):
+        if world == 1:
+            return [value]
+        result = [None] * world
+        dist.all_gather_object(result, value)
+        return result
+    if rank == 0:
+        if args.resume:
+            if not (args.out / 'last.pt').exists() or (args.out / 'complete.json').exists():
+                raise ValueError('Resume requires an unfinished checkpointed run')
+        else:
+            args.out.mkdir(parents=True, exist_ok=False)
+    barrier()
     stopping = False
     def stop(signum, frame):
         nonlocal stopping
@@ -55,27 +74,17 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     setting = arm_settings(args.arm)
-    control = verify_matched_recipe(CONFIG)
-    control_batches = None
-    if control is not None:
-        records = [json.loads(line) for line in
-                   (Path(control['directory']) / 'metrics.jsonl').read_text().splitlines()]
-        control_batches = {r['step']: r['batch_ids_sha256'] for r in records if r['status'] == 'training'}
-        if set(control_batches) != set(range(1, CONFIG['steps'] + 1)):
-            raise ValueError('Incomplete control sampling sequence')
     train_encoder = setting['encoder_trainable']
-    if setting['encoder'] != 'bsr':
-        raise ValueError('Current transfer controls require BSR/VideoMAE')
-    adapter = BSRSignalAdapter()
+    if setting['encoder'] != 'leaf_tower' or setting['readout'] != 'identity':
+        raise ValueError('Only the text-independent LEAF Tower is supported')
+    adapter = LEAFSignalAdapter()
     store = TrialStore()
     tasks = store.tasks
     total = len(tasks) if args.smoke else CONFIG['steps']
     bridge_only = 1 if args.smoke else CONFIG['bridge_only_steps']
     batch_size = CONFIG['global_batch']
     hashes = code_identity()
-    spec = source_spec(setting, CONFIG)
-    source_paths = ([] if spec is None else [Path(spec['checkpoint']),
-                    Path(spec['checkpoint']).parent / 'complete.json'])
+    source_paths = [Path(CONFIG['checkpoint'])]
     def source_stats():
         return {str(p): (p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ctime_ns)
                 for p in source_paths}
@@ -85,7 +94,7 @@ def main():
             raise RuntimeError('Live training code/config changed')
     import transformers
     root = Path('laya/JEV-27B-VL')
-    identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, code_sha256=hashes,
+    identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, world_size=world, code_sha256=hashes,
         checkpoint_sha256=digest(CONFIG['checkpoint']),
         adaptation=setting,
         cache_indexes={tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
@@ -93,40 +102,27 @@ def main():
         jev_config_sha256={p: digest(root / p) for p in ('config.json', 'model.safetensors.index.json',
             'adapter_vllm/adapter_config.json', 'adapter_vllm/decision_head.json', 'adapter_vllm/adapter_model.safetensors')},
         jev_shard_stats={p.name: [p.stat().st_size, p.stat().st_mtime_ns] for p in sorted(root.glob('model-*.safetensors'))})
-    if control is not None and identity['runtime'] != control['control_runtime']:
-        raise ValueError('Matched control framework versions changed')
     if args.resume:
         if identity != json.loads((args.out / 'config.json').read_text()):
             raise ValueError('Resume identity mismatch')
-    else:
+    elif rank == 0:
         write_json(args.out / 'config.json', identity)
     print('LOADING_RELEASE_MODELS', args.arm, flush=True)
     seed_rng(CONFIG['seed'])
-    text, weight, bias, tokenizer = load_jev('cuda:0')
+    text, weight, bias, tokenizer = load_jev(f'cuda:{device}')
     # Reset after release loading; the bridge must match across aligned sources.
     seed_rng(CONFIG['seed'])
-    encoder = OnlineBSR(CONFIG, trainable=train_encoder)
-    transfer = load_aligned_encoder(encoder, setting, CONFIG, identity['cache_indexes'])
+    encoder = OnlineLEAFTower(CONFIG)
     initial_encoder_sha256 = tensor_fingerprint(encoder.state_dict())
-    lora_audit = None
-    if setting.get('videomae_lora'):
-        with torch.random.fork_rng(devices=[]):
-            torch.manual_seed(CONFIG['seed'] + 200)
-            lora_audit = encoder.enable_videomae_lora(setting['videomae_lora'])
     encoder = encoder.cuda()
-    if transfer is not None:
-        write_json(args.out / 'transfer_audit.json', transfer)
-        print('ALIGNED_ENCODER_VERIFIED', json.dumps(transfer), flush=True)
+    if rank == 0:
+        write_json(args.out / 'transfer_audit.json', encoder.release_audit)
     # Encoder initialization consumes RNG; reset before the newly trained bridge.
     seed_rng(CONFIG['seed'])
     model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16,
-                      input_dim=768)
-    with torch.random.fork_rng(devices=[0]):
-        torch.manual_seed(CONFIG['seed'] + 100)
-        model.add_module('readout', TokenReadout(setting['readout']).cuda())
+                      input_dim=256)
     model.add_module('eeg_encoder', encoder)
     groups = [dict(name='connector', params=list(model.connector.parameters())),
-        dict(name='readout', params=list(model.readout.parameters())),
         dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad]),
         dict(name='decision_head', params=[model.head_weight, model.head_bias])]
     if train_encoder:
@@ -138,37 +134,34 @@ def main():
     active = [p for g in groups for p in g['params']]
     jev_params = [p for g in groups if g['name'] in {'jev_lora', 'decision_head'} for p in g['params']]
     frozen_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
-    initial_lora_sha256 = lora_fingerprint(encoder.encoder) if lora_audit else None
+    buffer_proof = tensor_fingerprint(dict(encoder.named_buffers()))
     if not args.resume:
         initial = dict(
             common_connector_sha256=tensor_fingerprint(model.connector.state_dict()),
             jev_adapter_head_sha256=tensor_fingerprint({n:p for n,p in model.named_parameters()
                 if p.requires_grad and not n.startswith(('readout.', 'connector.', 'eeg_encoder.'))}),
             encoder_frozen=not train_encoder,
-            initial_encoder_sha256=initial_encoder_sha256, aligned_transfer=transfer,
-            initial_adapted_encoder_sha256=frozen_proof, videomae_lora=lora_audit,
-            readout_sha256=tensor_fingerprint(model.readout.state_dict()),
+            initial_encoder_sha256=initial_encoder_sha256,
+            buffer_sha256=buffer_proof, world_size=world, readout='identity',
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
-            output_tokens=model.readout.output_tokens,
-            initialization=('aligned encoder + native JEV + new readout/connector; encoder-only transfer'
-                            if transfer else 'released encoder + native JEV + new connector; no old downstream weights'),
+            output_tokens='2 * sum(ceil(segment_samples / 100)); all branches and chunks',
+            initialization='released LEAF Tower only + native JEV + new MLP; no MPNet/FiLM/Q-Former',
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
-        verify_control_initialization(initial, control)
-        write_json(args.out / 'initial_state.json', initial)
-        if control is not None:
-            write_json(args.out / 'matched_control_audit.json', dict(**control,
-                       initialization_matched=True, learning_rates_matched=True))
-        if lora_audit:
-            print('VIDEOMAE_LORA_VERIFIED', json.dumps(lora_audit), flush=True)
+        proofs = collect(initial)
+        if any(p != proofs[0] for p in proofs[1:]):
+            raise RuntimeError('Rank initializations differ')
+        initial['rank_initialization_verified'] = True
+        if rank == 0:
+            write_json(args.out / 'initial_state.json', initial)
     step, best_score, best_step = 0, -1., None
-    seed_rng(CONFIG['seed'])
+    seed_rng(CONFIG['seed'] + rank)
     if args.resume:
         saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
         if saved['identity'] != identity:
             raise ValueError('Checkpoint identity mismatch')
         restore_model(model, saved)
         optimizer.load_state_dict(saved['optimizer'])
-        restore_rng(saved['rng'])
+        restore_rng(saved['rng_by_rank'][rank])
         step, best_score, best_step = saved['step'], saved['best_score'], saved['best_step']
         del saved
     prompts = {}
@@ -189,15 +182,15 @@ def main():
                 prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
         adapted = adapter.batch(rows)
         tokens, valid = encode_batch(model.eeg_encoder, adapted, len(rows))
-        with torch.autocast('cuda', dtype=torch.bfloat16):
-            tokens, valid = model.readout(tokens, valid)
         logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],
                        num_choices=len(tasks[tid]['classes']))['logits']
         labels = torch.tensor([q['label'] for q in questions], device='cuda')
         return logits, labels
-    log = (args.out / 'metrics.jsonl').open('a' if args.resume else 'x', buffering=1)
+    log = (args.out / 'metrics.jsonl').open('a' if args.resume else 'x', buffering=1) if rank == 0 else None
     started = time.monotonic()
     def report(item):
+        if rank != 0:
+            return
         item.update(arm=args.arm, test_evaluations=0, elapsed_seconds=time.monotonic()-started)
         log.write(json.dumps(item, allow_nan=False) + '\n')
         write_json(args.out / 'progress.json', item)
@@ -205,17 +198,23 @@ def main():
 
     def save(filename, optimizer_state=True):
         guard()
-        if lora_audit and base_fingerprint(encoder.encoder) != lora_audit['base_sha256']:
-            raise RuntimeError('Frozen VideoMAE base weights/buffers changed')
+        if tensor_fingerprint(dict(encoder.named_buffers())) != buffer_proof:
+            raise RuntimeError('Frozen LEAF buffers changed')
         if (not train_encoder or step <= bridge_only) and frozen_proof != tensor_fingerprint(model.eeg_encoder.state_dict()):
             raise RuntimeError('Frozen encoder weights/buffers changed')
         if not all(p.requires_grad for p in active):
             raise RuntimeError('Snapshot must include both training phases')
-        value = dict(**capture_model(model), identity=identity, step=step, best_score=best_score,
-                     best_step=best_step, rng=capture_rng())
-        if optimizer_state:
-            value['optimizer'] = optimizer.state_dict()
-        atomic_save(value, args.out / filename)
+        rngs = collect(capture_rng())
+        fingerprints = collect(tensor_fingerprint({n:p for n,p in model.named_parameters() if p.requires_grad}))
+        if len(set(fingerprints)) != 1:
+            raise RuntimeError('Synchronized ranks have diverged')
+        if rank == 0:
+            value = dict(**capture_model(model), identity=identity, step=step, best_score=best_score,
+                         best_step=best_step, rng_by_rank=rngs, rank_weights_verified=True)
+            if optimizer_state:
+                value['optimizer'] = optimizer.state_dict()
+            atomic_save(value, args.out / filename)
+        barrier()
 
     @torch.no_grad()
     def evaluate(split, cap):
@@ -228,12 +227,19 @@ def main():
             if task['role'] != 'benchmark':
                 continue
             rows = fixed_training_rows(store, tid, cap) if split == 'train' else validation_rows(store, tid, cap)
-            probabilities, losses = [], []
-            for offset in range(0, len(rows), CONFIG['eval_microbatch']):
-                logits, labels = forward(rows[offset:offset+CONFIG['eval_microbatch']])
-                probabilities.extend(logits.softmax(-1).float().cpu().numpy())
-                losses.extend(F.cross_entropy(logits, labels, reduction='none').float().cpu().tolist())
-            probabilities, losses = np.array(probabilities), np.array(losses)
+            indices = list(range(rank, len(rows), world))
+            local = []
+            for offset in range(0, len(indices), CONFIG['eval_microbatch']):
+                ix = indices[offset:offset+CONFIG['eval_microbatch']]
+                logits, labels = forward([rows[i] for i in ix])
+                probs = logits.softmax(-1).float().cpu().tolist()
+                losses = F.cross_entropy(logits, labels, reduction='none').float().cpu().tolist()
+                local.extend(zip(ix, probs, losses))
+            records = sorted(item for part in collect(local) for item in part)
+            if [r[0] for r in records] != list(range(len(rows))):
+                raise RuntimeError('Evaluation sharding duplicated or lost samples')
+            probabilities = np.array([r[1] for r in records])
+            losses = np.array([r[2] for r in records])
             if not np.isfinite(probabilities).all() or not np.isfinite(losses).all():
                 raise FloatingPointError('Invalid evaluation')
             labels = np.array([r['label'] for r in rows])
@@ -248,7 +254,7 @@ def main():
                 ids = {r['id'] for r in store.evaluation(tid, 'valid', 128)}
                 mask = np.array([r['id'] in ids for r in rows])
                 legacy[task['task_id']] = classification_metrics(labels[mask], probabilities[mask], len(task['classes']))
-            if cap is None:
+            if cap is None and rank == 0:
                 np.savez_compressed(args.out / f'valid_{task["task_id"]}_predictions.npz',
                     ids=np.array([r['id'] for r in rows]), subjects=subjects, labels=labels, probabilities=probabilities)
             report(dict(status='evaluating', step=step, split=split, dataset=task['task_id'],
@@ -258,7 +264,8 @@ def main():
             macro_accuracy=float(np.mean([m['accuracy'] for m in summary.values()])),
             macro_loss=float(np.mean([m['loss'] for m in summary.values()])), legacy128=legacy,
             legacy128_macro_balanced_accuracy=float(np.mean([m['balanced_accuracy'] for m in legacy.values()])) if legacy else None)
-        write_json(args.out / f'{split}_step{step:06d}_{"subset" if cap else "full"}.json', result)
+        if rank == 0:
+            write_json(args.out / f'{split}_step{step:06d}_{"subset" if cap else "full"}.json', result)
         return result
 
     completed_step = step
@@ -274,8 +281,10 @@ def main():
             guard()
             tid, rows = store.sample(step, batch_size, CONFIG['seed'])
             batch_sha256 = hashlib.sha256(json.dumps([r['id'] for r in rows]).encode()).hexdigest()
-            if control_batches is not None and batch_sha256 != control_batches[step]:
-                raise RuntimeError('Sampling differs from full-tuning control')
+            global_ids = [r['id'] for r in rows]
+            rows = rank_rows(rows, rank, world)
+            if [i for part in collect([r['id'] for r in rows]) for i in part] != global_ids:
+                raise RuntimeError('Distributed batch differs from planned global batch')
             if train_encoder:
                 model.eeg_encoder.set_adaptation_enabled(step > bridge_only)
             model.train()
@@ -299,21 +308,13 @@ def main():
                 raise RuntimeError('Encoder phase gradient contract failed')
             if any(p.grad is not None for p in jev_params) != (step > bridge_only):
                 raise RuntimeError('JEV phase gradient contract failed')
+            average_gradients([p for p in active if p.requires_grad], world)
+            stats = torch.tensor([loss_sum, correct], dtype=torch.float64, device='cuda')
+            if world > 1:
+                dist.all_reduce(stats)
+            loss_sum, correct = stats.tolist()
             norms = {g['name']: float(torch.stack([p.grad.float().square().sum() for p in g['params']
                      if p.grad is not None]).sum().sqrt()) if any(p.grad is not None for p in g['params']) else 0. for g in groups}
-            lora_norms = {}
-            if lora_audit:
-                if any(p.requires_grad or p.grad is not None for n,p in encoder.encoder.named_parameters()
-                       if not is_lora(n)):
-                    raise RuntimeError('Frozen VideoMAE base entered optimization')
-                monitored = dict(videomae_lora=[p for n,p in encoder.encoder.named_parameters() if is_lora(n)],
-                                 renderer=list(encoder.renderer.eeg2pix.parameters()),
-                                 sharedscale=list(encoder.adapter.parameters()))
-                lora_norms = {name: float(torch.stack([p.grad.float().square().sum() for p in params
-                             if p.grad is not None]).sum().sqrt()) if any(p.grad is not None for p in params) else 0.
-                             for name, params in monitored.items()}
-                if any((value > 0) != (step > bridge_only) for value in lora_norms.values()):
-                    raise RuntimeError(f'LoRA/renderer/SharedScale gradient contract failed: {lora_norms}')
             if norms['connector'] <= 0 or ('readout' in norms and norms['readout'] <= 0):
                 raise RuntimeError('Missing bridge/readout learning signal')
             if train_encoder and step > bridge_only and norms['eeg_encoder'] <= 0:
@@ -328,10 +329,13 @@ def main():
             report(dict(status='training', step=step, total_steps=total, dataset=tasks[tid]['task_id'],
                 loss=loss_sum / batch_size, accuracy=correct / batch_size, gradient_norm=float(grad),
                 group_gradient_norms=norms, learning_rates=rates,
-                encoder_component_gradient_norms=lora_norms,
+                world_size=world, local_batch=len(rows), distributed_sampling_verified=True,
                 batch_ids_sha256=batch_sha256,
                 peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30))
-            if stopping:
+            stop_flag = torch.tensor(int(stopping), device='cuda')
+            if world > 1:
+                dist.all_reduce(stop_flag, op=dist.ReduceOp.MAX)
+            if stop_flag.item():
                 save('last.pt')
                 report(dict(status='stopped', step=step))
                 return
@@ -348,7 +352,7 @@ def main():
                             best_score=best_score, best_step=best_step))
             if step % CONFIG['checkpoint_every'] == 0 or step in {bridge_only, bridge_only+1, total}:
                 save('last.pt')
-        write_json(args.out / 'input_audit.json', adapter.audit)
+        write_json(args.out / f'input_audit_rank{rank}.json', adapter.audit)
         # Real train-only serialization test; not a meta-device shape check.
         model.eval()
         with torch.no_grad():
@@ -360,8 +364,12 @@ def main():
             after, _ = forward(rows)
             torch.testing.assert_close(before, after, rtol=0, atol=0)
             del saved
-        write_json(args.out / 'reload_check.json', dict(logits_exact_match=True, split='train'))
+        barrier()
+        if rank == 0:
+            write_json(args.out / 'reload_check.json', dict(logits_exact_match=True, split='train', verified_ranks=world))
         full = None
+        if args.smoke:
+            evaluate('train', 16)
         if not args.smoke:
             saved = torch.load(args.out / 'best.pt', map_location='cpu', mmap=True, weights_only=False)
             restore_model(model, saved)
@@ -370,29 +378,27 @@ def main():
         final_encoder_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
         if (final_encoder_proof != frozen_proof) != (train_encoder and (args.smoke or best_step > bridge_only)):
             raise RuntimeError('Final encoder update/freeze proof failed')
-        lora_proof = None
-        if lora_audit:
-            base_unchanged = base_fingerprint(encoder.encoder) == lora_audit['base_sha256']
-            lora_changed = lora_fingerprint(encoder.encoder) != initial_lora_sha256
-            if not base_unchanged or lora_changed != (args.smoke or best_step > bridge_only):
-                raise RuntimeError('VideoMAE LoRA base/update proof failed')
-            lora_proof = dict(base_unchanged=base_unchanged, lora_changed=lora_changed,
-                              rank=lora_audit['rank'], alpha=lora_audit['alpha'])
-        write_json(args.out / 'complete.json', dict(smoke=args.smoke, updates=step,
-            selected_step=best_step, selection_score=best_score, validation=full,
-            test_evaluations=0, checkpoint_reload_verified=True, encoder_update_contract_verified=True,
-            encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
-            videomae_lora=lora_proof, matched_control_sampling_verified=control_batches is not None,
-            selected_encoder_sha256=final_encoder_proof))
+        if len(set(collect(final_encoder_proof))) != 1:
+            raise RuntimeError('Final encoder differs across ranks')
+        if rank == 0:
+            write_json(args.out / 'complete.json', dict(smoke=args.smoke, updates=step,
+                selected_step=best_step, selection_score=best_score, validation=full,
+                test_evaluations=0, checkpoint_reload_verified=True, encoder_update_contract_verified=True,
+                encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
+                world_size=world, rank_weights_verified=True, distributed_sampling_verified=True,
+                selected_encoder_sha256=final_encoder_proof))
         report(dict(status='complete', step=step, selected_step=best_step))
     except BaseException as exc:
         failure = dict(status='failed', attempted_step=step, completed_training_step=completed_step,
                        error=f'{type(exc).__name__}: {exc}')
-        write_json(args.out / 'failure.json', failure)
+        write_json(args.out / f'failure_rank{rank}.json', failure)
         report(failure)
         raise
     finally:
-        log.close()
+        if log is not None:
+            log.close()
+        if world > 1:
+            dist.destroy_process_group()
 
 
 if __name__ == '__main__':
