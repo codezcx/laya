@@ -8,7 +8,11 @@ _更新：2026-11-23。当前扩展个人残差adapter＋冻结JEV到全部23名
 
 沿用2a被试8获得64.93%的残差adapter方法，扩展至2a 8、9及PhysioMI 89–109；每人每类5条、seed42、100步。只更新33,088参数，Tower、原connector、JEV及其LoRA/head冻结。没有额外源用户训练，没有TTT、多shot或多seed。
 
-本轮根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`；正在进行工程测试与GPU短测准备，尚无本轮正式训练结果。正式启动时间与状态将补充；运行时以 `pipeline.json`、四个 `worker_*.json`及各用户 `complete.json`为准。完成后在同一根目录生成 `summary.md/json`，含逐用户前后BAcc、两库各自与等权均值、负迁移人数。
+本轮根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`。105项自动测试、两名原验证用户各3步真实GPU短测通过：初始恒等、共同基线/批次ID一致、仅33,088个adapter参数更新、父模型及buffers冻结、保存重载一致。[短测审计](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/smoke_verified.json)。短测只检查工程正确性，不作为任务效果。
+
+2026-11-23 16:41:33 UTC已启动四卡正式适配，16:42:33 UTC四个worker均加载完成。控制器1927932，worker PID为1986578/1986579/1986580/1986581，分别承担6/6/6/5人。源码提交 `513427d`，文档更新不改变训练哈希；460条support、1,208条query清单已核验。尚无正式完成用户，不报告本轮准确率。
+
+真实进度见[pipeline.json](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/pipeline.json)、四个 `worker_*.json`及各用户 `complete.json`。完整23人结束后生成 `summary.md/json`，含逐用户前后BAcc、两库各自与等权均值、负迁移人数。每人100步的旧pilot约12–13分钟，本轮短测约8.2秒/步；四卡整轮预计约80–100分钟，正式速度稳定后再更新。
 
 ## 📦 已归档：G/H＋FiLM前向适配
 
