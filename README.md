@@ -1,10 +1,11 @@
 # LEAF Tower 文本对齐 → MLP → Qwen-JEV
 
-当前方法：先用多正例 InfoNCE 或平衡 Sigmoid 将纯 LEAF Tower 与固定类别文本向量对齐，再只迁移 Tower，保留全部 token 经 MLP 输入 Qwen-JEV。EEG 路径不用 FiLM 或 LEAF Q-Former；对比阶段的 MPNet 只提供冻结文本向量，不接收 EEG，也不进入下游 JEV。
+当前保留的方法：先用多正例 InfoNCE 将纯 LEAF Tower 与固定类别文本向量对齐，再只迁移 Tower，保留全部 token 经 MLP 输入 Qwen-JEV。EEG 路径不用 FiLM 或 LEAF Q-Former；对比阶段的 MPNet 只提供冻结文本向量，不接收 EEG，也不进入下游 JEV。Sigmoid 是已完成的对比预训练参考，其后续 JEV 实验已按用户要求取消。
 
 ## 📋 当前实验
 
-- 对比阶段两组分别用 GPU 0、1 并行；随后两组下游依次用 GPU 0–3 四卡同步训练。每个下游全局 batch 16，每卡 4。
+- InfoNCE 下游四卡训练和完整验证已完成，best step 1360，九库等权 BAcc 47.83%、Acc 50.01%。全局 batch 16，每卡 4。
+- 2026-11-23 用户选择保留 InfoNCE：Sigmoid→JEV 短测在 step 7 保存并停止，正式训练未启动，队列已关闭。所有权重/日志保留，四张卡已释放。
 - 沿用 17 库训练、九库验证与固定划分，2b 不训练；SEED 被试内 trial 9/3/3，其他八库跨被试。
 - 2040 步；前 340 步仅连接器，之后 LEAF Tower 全参＋JEV 已有 LoRA＋choice head；JEV base 冻结。
 - encoder LR 1e-6 不变，其他学习率和训练预算不因四卡放大。
@@ -14,12 +15,14 @@
 
 ## 🔧 使用
 
+本轮已结束并存在 `cancelled.json`。以下为历史队列入口，当前 `--start` 和 `--resume` 都会明确拒绝重启被取消的实验；新增训练需要新的用户授权和运行计划。
+
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
 laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
 ```
 
-CPU 输入检查和真实短测通过后自动进入正式训练。对比阶段从发布 Tower 初始化；下游仅加载已完成对比训练的 best Tower，MLP/JEV 重新初始化。不会继承 smoke、旧 SFT 或对比投影头。中断恢复使用同一命令加 `--resume`，不自动覆盖产物。
+运行时先做 CPU 输入检查和真实短测。对比阶段从发布 Tower 初始化；下游仅加载已完成对比训练的 best Tower，MLP/JEV 重新初始化。不会继承 smoke、旧 SFT 或对比投影头。未取消任务的恢复需同一代码/配置，不覆盖产物；用户取消不同于意外中断。
 
 ## 📚 文档与边界
 

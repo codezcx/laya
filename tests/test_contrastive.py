@@ -121,6 +121,14 @@ def test_downstream_recipe_is_unchanged():
     assert proof['parameter_counts']['eeg_encoder'] == 19_557_632
 
 
+def test_user_cancellation_blocks_fresh_launch_and_resume(tmp_path):
+    from scripts.run_contrastive import require_not_cancelled
+    require_not_cancelled(tmp_path)
+    (tmp_path/'cancelled.json').write_text('{"status":"cancelled_by_user"}')
+    with pytest.raises(ValueError, match='cancelled by the user'):
+        require_not_cancelled(tmp_path)
+
+
 def test_smaller_global_batch_is_exact_prefix():
     # Exercise the production sampler on a lightweight, train-only fixture.
     from eeg_align.multitask_data import TrialStore

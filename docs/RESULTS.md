@@ -4,13 +4,31 @@ _更新：2026-11-23。当前维护纯信号 Tower 的两阶段文本对齐及�
 
 ---
 
-## 📋 当前运行
+## 📋 当前选择与完成结果
 
-新增 `leaf_tower_contrastive_20261123`：多正例 InfoNCE、平衡多正例 Sigmoid 两组，第一阶段只用 LEAF Tower 和固定类别文本向量，第二阶段仅迁移 Tower 到同一 MLP/JEV。2026-11-23 09:56:19 UTC 两组正式对比训练已启动（GPU 0/1，PID 910815/910986，控制器 818578），先进行 step 0 验证；尚无训练后成绩。状态见 [pipeline.json](../artifacts/benchmark/leaf_tower_contrastive_20261123/pipeline.json)。对齐阶段 encoder LR 1e-5/global batch 32 沿用此前对比实验；下游仍 encoder LR 1e-6/global batch 16、2040 步，与下列无对比基线一致。
+2026-11-23 用户选择保留 InfoNCE，不再执行另一组后续实验。InfoNCE→JEV 已完成 2040 步，验证选中 step 1360；完整九库验证 61,327 窗，等权 Acc 50.01%、BAcc 47.83%。[完整验证](../artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/valid_step002040_full.json)、[完成审计](../artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/complete.json)、[训练/验证曲线](../artifacts/benchmark/leaf_tower_contrastive_20261123/figures/leaf_infonce_mlp/training_validation_curves.png)。
+
+逐库验证样本 ID 哈希与两个对照完全一致：
+
+| 方法 | 完整验证 Acc（%） | 完整验证 BAcc（%） |
+| --- | ---: | ---: |
+| 原完整 LEAF 编码路径冻结→JEV | 49.61 | 46.52 |
+| 纯 Tower→MLP/JEV，无新增对比 | 46.32 | 43.41 |
+| InfoNCE 对齐的纯 Tower→MLP/JEV | 50.01 | 47.83 |
+
+相对原完整 LEAF 组 BAcc +1.31 个百分点，相对纯 Tower 无对比组 +4.42 个百分点；单 seed 且有额外预训练预算，不能宣称统计显著或完全归因于对比损失。测试集未运行。
+
+两组独立对比学习阶段也已完成：InfoNCE 直接文本匹配完整验证 BAcc 51.39%、Acc 52.65%（best 1700）；Sigmoid 48.52%/49.92%（best 1360）。这些不是 JEV 成绩；当前 InfoNCE 接 JEV 后的 BAcc 仍比直接文本匹配低 3.57 个百分点。
+
+取消操作：先关闭控制器 818578，后向四个已核验的 Sigmoid smoke worker 发送 SIGTERM；该组在 step 7 保存 `last.pt` 并退出，正式 `train/leaf_sigmoid_mlp` 目录未创建。无其他实验被中断，四张 GPU 释放；没有删除任何权重、日志或数据。[取消记录](../artifacts/benchmark/leaf_tower_contrastive_20261123/cancelled.json) 保存用户决定，入口阻止误用 `--resume` 重新启动。原启动配置/日志仍作为历史运行证据保留。
+
+## 🔍 启动与检查记录
+
+运行 `leaf_tower_contrastive_20261123` 原计划多正例 InfoNCE、平衡多正例 Sigmoid 两组，第一阶段只用 LEAF Tower 和固定类别文本向量，第二阶段仅迁移 Tower 到同一 MLP/JEV。2026-11-23 09:56:19 UTC 两组正式对比训练启动（GPU 0/1，PID 910815/910986，控制器 818578）；当前状态以上方完成与取消记录及 [pipeline.json](../artifacts/benchmark/leaf_tower_contrastive_20261123/pipeline.json) 为准。对齐阶段 encoder LR 1e-5/global batch 32 沿用此前对比实验；下游仍 encoder LR 1e-6/global batch 16、2040 步，与下列无对比基线一致。
 
 89 项测试通过；CPU 预检覆盖 65,280 次训练样本呈现。两组真实 GPU 17 步 smoke 均通过，验证 Tower 更新、冻结文本、保存重载；每组约 36.6 秒（不含加载）。正式初始化与 smoke 的初始化哈希一致，两种损失的初始 Tower/投影/文本/buffers 哈希也一致。每组 Tower 19,557,632 参数、对比投影 788,480 参数，InfoNCE scale 1 参数、Sigmoid scale/bias 2 参数。第一轮短测发现整数 JSON 0 导致 Sigmoid bias dtype 错误，修复后重跑全部检查，数值和超参数未改；失败产物保留在 `artifacts/benchmark/leaf_tower_contrastive_20261123_failed_smoke/`，未进入正式训练。运行代码提交 `d1b5e74`。
 
-两组对比训练及完整验证结束后，自动依次启动各自四卡下游 smoke 和 2040 步正式 JEV SFT。下游尚未开始，不把对比空间分类分数当作 JEV 结果。测试集全程不自动运行。
+原自动计划是在两组对比训练及完整验证结束后，依次启动各自四卡下游 smoke 和 2040 步正式 JEV SFT。InfoNCE 已完成，Sigmoid 后续按上述用户决定停止。测试集全程未运行。
 
 ## 📊 无新增对比学习的 Tower 基线
 

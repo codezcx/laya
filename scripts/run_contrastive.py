@@ -40,6 +40,11 @@ def verify_alignment_initializations(left, right):
             raise ValueError(f'Alignment initialization mismatch: {key}')
 
 
+def require_not_cancelled(output):
+    if (Path(output) / 'cancelled.json').exists():
+        raise ValueError('Remaining experiments were cancelled by the user; new authorization is required to resume')
+
+
 def validate_finished(directory, phase, smoke):
     identity = json.loads((directory / 'config.json').read_text())
     if identity['smoke'] != smoke or identity['config'] != (CONFIG if phase == 'alignment' else DATA):
@@ -65,9 +70,10 @@ def main():
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     os.chdir(ROOT)
+    output = Path('artifacts/benchmark') / CONFIG['run_name']
+    require_not_cancelled(output)
     baseline = verify_baseline_recipe()
     load_text_bank()
-    output = Path('artifacts/benchmark') / CONFIG['run_name']
     if args.start:
         if args.resume:
             if not output.is_dir():
@@ -97,6 +103,7 @@ def main():
         write_json(output / 'pipeline.json', state)
         print(json.dumps(state), flush=True)
     def guard():
+        require_not_cancelled(output)
         if code_identity() != hashes:
             raise RuntimeError('Live pipeline code/config changed')
     def launch(directory, command, gpus, phase, smoke):

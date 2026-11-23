@@ -2,6 +2,8 @@
 
 _2026-11-23；两组文本对齐及匹配下游。配置：[contrastive_train.json](../configs/contrastive_train.json)、[benchmark_train.json](../configs/benchmark_train.json)。_
 
+当前选择：按用户要求保留 InfoNCE→Tower→MLP/JEV。InfoNCE 全流程已完成；Sigmoid 对比预训练已完成，但其 JEV 短测在 step 7 保存并停止，正式 SFT 未开始。队列关闭且用 `cancelled.json` 拦截恢复。以下保留实际执行和原计划的可复现参数，不表示 Sigmoid 仍在排队；完成结果见 [RESULTS](RESULTS.md)。
+
 ---
 
 ## 🎯 要回答的问题
@@ -147,7 +149,7 @@ step 0 和每 340 步记录每库至多 512 个固定验证窗，以及至多 12
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
 laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
-# 中断后只恢复同一源码、配置和已有 checkpoint，已完成阶段仅核验并跳过：
+# 仅适用于未被用户取消的意外中断；本轮存在 cancelled.json，不允许恢复：
 laya/.venv-eeg/bin/python scripts/run_contrastive.py --start --resume
 ```
 
