@@ -2,9 +2,11 @@
 
 当前保留的方法：先用多正例 InfoNCE 将纯 LEAF Tower 与固定类别文本向量对齐，再只迁移 Tower，保留全部 token 经 MLP 输入 Qwen-JEV。EEG 路径不用 FiLM 或 LEAF Q-Former；对比阶段的 MPNet 只提供冻结文本向量，不接收 EEG，也不进入下游 JEV。Sigmoid 是已完成的对比预训练参考，其后续 JEV 实验已按用户要求取消。
 
-## 📋 当前实验：JEV 分类损失与语言 LoRA 对照
+## 📋 当前实验：单被试 JEV 分类损失与语言 LoRA 对照已完成
 
 上一轮本地 InfoNCE B/C 已完成，代码归档在 Git `e71c334`，结果保留于 `artifacts/benchmark/leaf_personalization_20261123/`。当前在同一父 checkpoint、同一 support/query 上检验语言侧适配是否有益。
+
+2026-11-23 按用户要求缩为初步验证：只保留 BCIC-IV-2a 被试8、每类5条、seed42的四组100步结果，独立评估为E session全部288条。14:12:56 UTC 已停止后续批次并释放四张卡；不再运行其他被试、trial数量或seed。原始配置/manifest保留启动审计，`cancelled.json` 阻止重启；[四组结果与审计](artifacts/benchmark/leaf_personalization_jev_ce_20261123/pilot_summary.json)。
 
 | GPU | 信号侧 | LM 更新 | 损失 |
 | --- | --- | --- | --- |
@@ -14,17 +16,17 @@
 | 3 | 同 C | 已有语言 LoRA-r32，217,579,520 参数 | JEV CE |
 
 - 四组均冻结原 Tower、JEV 基础权重、connector、choice head、文本读出；只切换语言 LoRA 是否更新，不是27B全参微调。
-- 沿用2a每类5/10/20 trial、T→E；PhysioMI每类5/10、前四→后两想象run，23名目标被试。
-- 第一轮seed42，每组48次、总计192次；与旧InfoNCE比较须筛同seed42，不能混用三seed均值。
+- 仅2a被试8，每类5条、共20条校准，T→E；这是单被试个人适配，不是完整跨被试评估。
+- 仅seed42，每组1次、总计4次；原192次计划的余下批次已取消，不增加seed43/44。与旧InfoNCE比较须筛同一被试、shot及seed。
 - 信号LR1e-4、100步、有效batch16不变；microbatch4累积4次。新增LM LR5e-6，各参数组分别clip1、AdamW weight decay0.01、恒定LR。
 - loss仅为JEV CE，直接文本仅作诊断；记录support/query指标、support CE、冻结/更新与重载审计。每次从父权重重置，不累积其他用户的更新。
-- 输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`；只读复用旧输入→四卡验证被试短测→正式四组→审计和汇总。
+- 输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`；四组均已完成并通过配对/冻结/重载审计，权重及日志保留。
 - 更新LM需要服务器参与反传，不是纯边缘端方案。本轮没缩小backbone，不能证明“27B太大”。
 
 ## 📋 已完成的共享模型
 
 - InfoNCE 下游四卡训练和完整验证已完成，best step 1360，九库等权 BAcc 47.83%、Acc 50.01%。全局 batch 16，每卡 4。
-- 2026-11-23 用户选择保留 InfoNCE：Sigmoid→JEV 短测在 step 7 保存并停止，正式训练未启动，队列已关闭。所有权重/日志保留；释放的四张卡现用于上方个人校准对照。
+- 2026-11-23 用户选择保留 InfoNCE：Sigmoid→JEV 短测在 step 7 保存并停止，正式训练未启动，队列已关闭。所有权重/日志保留；个人校准对照结束后四张卡也已释放。
 - 沿用 17 库训练、九库验证与固定划分，2b 不训练；SEED 被试内 trial 9/3/3，其他八库跨被试。
 - 2040 步；前 340 步仅连接器，之后 LEAF Tower 全参＋JEV 已有 LoRA＋choice head；JEV base 冻结。
 - encoder LR 1e-6 不变，其他学习率和训练预算不因四卡放大。
@@ -34,7 +36,7 @@
 
 ## 🔧 使用
 
-当前个人校准入口（只启动一次；意外中断可显式加 `--resume`，已完成或取消会拒绝重启）：
+个人校准入口如下，仅作复现接口说明；本轮后续批次已取消，`--start` 和 `--resume` 都会拒绝重新执行。未经新的用户授权，不修改取消标记或重新挂任务：
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q

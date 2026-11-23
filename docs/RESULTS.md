@@ -1,16 +1,27 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-23。当前在已完成的 Tower InfoNCE→JEV 上做 B/C 个人少样本校准；完整设置见 [协议](PROTOCOL.md)。_
+_更新：2026-11-23。Tower InfoNCE→JEV 的单被试 B/C × LM 更新验证已完成，后续批次按用户要求停止；设置见 [协议](PROTOCOL.md)。_
 
 ---
 
-## 🧪 当前：JEV CE 与 LM LoRA 对照
+## 🧪 当前：单被试 JEV CE 与 LM LoRA 对照已完成
 
-配置已锁定：GPU0 B＋冻结LM、GPU1 B＋既有LM LoRA、GPU2 C＋冻结LM、GPU3 C＋既有LM LoRA；connector/head均冻结。保持100步、有效batch16、信号LR1e-4，新增LM LR5e-6，第一轮seed42，总计192次。输入和support/query逐项复用上一轮，旧InfoNCE须筛同seed42。102项自动测试通过。输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`，尚未得到正式成绩，不能据此判断27B规模。
+按用户要求，原192次完整个人评估缩为 BCIC-IV-2a 被试8、每类5条、seed42的四组初步验证；不增加其他被试、trial数量或seed。四组均已训练100步，使用T session的20条support，评估E session的全部288条query。信号LR1e-4、LM LR5e-6、有效batch16及其余超参数没有改变，connector/head均冻结。
 
-2026-11-23 13:57:26 UTC，验证被试上的8次真实GPU短测全部通过，正式四组已启动（控制器767389，worker 849831/849835/849838/849843）。已核验四组共同初始预测、support/query与训练batch IDs完全一致，也与上一轮同seed对齐；原Tower、JEV base、connector/head、文本读出未变，指定语言LoRA确实更新，个人模块与LM adapter保存重载的预测完全一致。[短测审计](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/smoke_verified.json)、[运行状态](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pipeline.json)。短测仅验证执行正确性，不作为准确率提升证据。每组三步适配约22–28秒，正式100步及完整query评估耗时仍需实测。
+共同不适配基线为JEV BAcc 53.82%。下表都是同一被试、同一批support/query；query四类各72条，所以本例query Acc与BAcc相同，不是全数据集成绩。
 
-运行实现提交 `f42fc00`。13:58:50 UTC，正式四组均已进入被试8、每类5条的100步更新，step1 CE均为1.112882；不是只加载权重或等待排队。当前显存约51–55GB/卡，语言LoRA组仅新增217,579,520个可训练语言参数，不更新25,842,179,584参数的整个语言模型。
+| 信号侧 | LM更新 | support Acc（%，20条） | query BAcc（%，288条） |
+| --- | --- | ---: | ---: |
+| B：输出残差adapter | 冻结 | 70.00 | 64.93 |
+| B：输出残差adapter | 既有语言LoRA-r32 | 100.00 | 59.38 |
+| C：Tower Q/V LoRA-r8 | 冻结 | 60.00 | 59.03 |
+| C：Tower Q/V LoRA-r8 | 既有语言LoRA-r32 | 100.00 | 59.03 |
+
+本例更新LM提高了support拟合，但相对同CE的冻结LM组，B的query BAcc低5.56个百分点、C持平。仅一个被试和一个seed，不能推断跨被试效果、统计显著性或“27B太大”的原因。旧InfoNCE对照必须筛被试8、每类5条、seed42，不能直接对比上一轮三seed/多被试均值。
+
+运行实现 `f42fc00`，102项自动测试和8次验证被试短测已通过。四组100步训练实测733–772秒，均通过共同初始预测、support/query/batch IDs、冻结/更新、保存重载审计。[四组结果及审计](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pilot_summary.json)、[短测审计](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/smoke_verified.json)。
+
+2026-11-23 14:12:56 UTC，原控制器767389及四个worker 849831/849835/849838/849843已退出，四张GPU释放。停止时后续10-shot已进入训练但未完成，不计入结果；原始manifest/config、完成权重、预测及日志全部保留，没有删除产物。`cancelled.json` 阻止 `--start`/`--resume` 再执行；原pipeline的 `failed_or_stopped` 表示用户主动取消剩余任务，不是这四组训练失败。全192次未完成，不生成虚假的完整汇总。[取消记录](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/cancelled.json)、[运行状态](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pipeline.json)。
 
 ## 📊 已完成：本地 InfoNCE 个人校准
 

@@ -2,9 +2,9 @@
 
 _2026-11-23；两组文本对齐及匹配下游。配置：[contrastive_train.json](../configs/contrastive_train.json)、[benchmark_train.json](../configs/benchmark_train.json)。_
 
-当前选择：在已完成的 InfoNCE→Tower→MLP/JEV 上进行下面的个人少样本校准。共享模型 InfoNCE 全流程已完成；Sigmoid 对比预训练已完成，但其 JEV 短测在 step 7 保存并停止，正式 SFT 未开始。旧队列关闭且用 `cancelled.json` 拦截恢复。下方后续章节保留共享模型的可复现参数，不表示 Sigmoid 仍在排队；完成结果见 [RESULTS](RESULTS.md)。
+当前选择：在已完成的 InfoNCE→Tower→MLP/JEV 上做个人少样本校准。用户已将本轮收缩为单被试、单shot、单seed的四组验证，四组均完成，剩余队列于2026-11-23 14:12:56 UTC停止。共享模型 InfoNCE 全流程已完成；Sigmoid 对比预训练已完成，但其 JEV 短测在 step 7 保存并停止，正式 SFT 未开始。两个旧队列分别由 `cancelled.json` 拦截恢复。下方后续章节保留共享模型的可复现参数，不表示还有任务排队；完成结果见 [RESULTS](RESULTS.md)。
 
-## 🧪 当前：JEV CE × 语言 LoRA 配对个人校准
+## 🧪 当前：JEV CE × 语言 LoRA 单被试验证
 
 检验：JEV CE 是否比本地InfoNCE更适合冻结服务器，以及相同CE下开放LM LoRA是否增加收益。上一轮实现/配置/协议归档到Git `e71c334`，旧数据/权重/日志均保留。当前复用小模块和数据，替换个人InfoNCE入口，不积累独立vN代码。
 
@@ -21,22 +21,21 @@ B仍为256→64→256残差网络，上投影零初始化；C仍是Tower双分�
 
 | 数据集 | 处理后窗口总计（原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（原训／验／测） | 个人校准 | 独立query |
 | --- | ---: | --- | --- | ---: | --- | --- |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 父模型跨被试；个人T→E | 9（5/2/2） | 被试8/9，每类5/10/20，共20/40/80条 | 每人288，共576 |
-| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 父模型跨被试；个人R04/06/08/10→R12/14 | 109（69/19/21） | 被试89–109，每类5/10，共20/40条 | 后两run全部，共632 |
+| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 父模型跨被试；个人T→E | 9（5/2/2） | 仅被试8，每类5条，共20条 | E session全部288条 |
 
-每个event一个四秒窗；2a使用已核验的session＋run＋event身份，六个run重置的event不能混同。PhysioMI校准池不足每类20个，不伪造独立trial；该库仅同日跨run，2a仅2名目标被试。原benchmark文件不修改，但这是使用目标用户support标签的个人评估，不是原完整跨被试测试。
+每个event一个四秒窗；2a使用已核验的session＋run＋event身份，六个run重置的event不能混同。上表窗口和被试数是父模型原划分，本轮只评估其中被试8的个人适配，不是9名被试的完整评估。原benchmark文件不修改，但这是使用目标用户support标签的个人评估，不是原完整跨被试测试。原本计划的被试9、PhysioMI、更多shot均不再执行；已进入但未完成的10-shot不计入结果。
 
 ### 固定条件与审计
 
-- 第一轮seed42，总计192次、每组48次；只减少重复种子数，不改单次预算。5-shot嵌套于10/20-shot，四组support/query和训练batch IDs完全一致，并与上一轮同seed逐项核对。
+- 仅seed42，总计4次、每组1次，不再追加任何seed。原192次启动配置/manifest不回写，作为审计记录保留，取消标记阻止恢复。四组support/query和训练batch IDs完全一致，并与上一轮同一被试/shot/seed逐项核对。
 - 四组均100次更新、有效batch16=microbatch4×4，loss按microbatch样本比例累积。signal LR1e-4；新开放LM LR5e-6沿用共享SFT的LM峰值，但本轮恒定LR，无warmup/cosine。AdamW weight decay0.01；signal/LM各自clip1，避免LM梯度范数额外改变signal裁剪规则。
 - loss仅JEV四分类CE。冻结LM组仍允许梯度经LM回到信号侧，不能用no_grad包住训练forward。启用非重入gradient checkpointing，检查LM dropout为0；Tower始终eval、BN buffers冻结。
 - connector/head/文本投影不更新。直接文本只作诊断。本轮只读复用上一轮的输入及冻结文本头，不重做其1000步源MI投影拟合；这一历史额外训练仍是读出比较的限制。
 - 记录每个episode的support JEV CE/Acc/BAcc、query文本/JEV Acc/BAcc、负迁移、耗时、参数计数及逐trial预测。query不用于选checkpoint、调LR或停止步，仅报告固定step100。
 - 用哈希/参数版本号证明原Tower、JEV base、connector/head、文本头不变；开放LM LoRA必须实测更新，冻结组不能更新。保存/重载个人模块和LM LoRA后，同batch探针的logits必须完全一致。
 - 原验证被试6/70各做3步短测，共8个episode，不调参、不带入正式权重；通过后四卡各跑一组，不是DDP，不自动增加seed43/44或恢复已取消Sigmoid。
-- 每用户/配置存独立LM adapter，两组共96份约84GB FP32语言LoRA权重；启动检查至少120GiB可用磁盘，不删除旧产物。中断后跳过已完成episode，未完成的从公共起点重跑。
-- 汇总以被试为单位，单seed初探不宣称显著，也不将多个shot视为独立被试。旧InfoNCE须筛seed42再比较。
+- 两个LM更新组各保留一份独立语言adapter，连同四个个人模块、逐trial预测和日志保留；不删除旧产物。不运行原192次总汇总，不把原计划记为完成；单被试审计单列于 `pilot_summary.json`，不自动重跑未完成episode。
+- 只有一个被试和一个seed，不宣称跨被试有效或统计显著。旧InfoNCE须筛同一被试、shot、seed再比较。缩小范围是用户的计算预算决定，不按各组准确率选择被试或训练步数。
 
 ### 模型规模与部署边界
 
@@ -44,7 +43,7 @@ B仍为256→64→256残差网络，上投影零初始化；C仍是Tower双分�
 
 已核实同系列公开9B模型[^jev9]，可作为后续候选，但本轮未下载/训练。不同宽度不能直接复用27B的连接器，需匹配EEG共享训练、数据/划分、目标和预算；原生决策预训练及可训练LoRA量也不同，仍须说明这些混杂因素。
 
-配置：[personalization.json](../configs/personalization.json)。入口 `scripts/run_personalization.py --start`，输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`。旧结果仍在 `leaf_personalization_20261123/summary.md`。源码/config和输入身份受运行期哈希保护。
+原启动配置：[personalization.json](../configs/personalization.json)，未修改以保留运行身份。输出 `artifacts/benchmark/leaf_personalization_jev_ce_20261123/`，其中 `cancelled.json` 禁止入口 `scripts/run_personalization.py --start` 或 `--resume` 重新执行；`pilot_summary.json` 记录四组已完成结果，`pipeline.json` 的 `failed_or_stopped` 是主动取消剩余任务，不是四组训练失败。旧结果仍在 `leaf_personalization_20261123/summary.md`。源码/config和输入身份受运行期哈希保护。
 
 实验设计技能用于配对、被试级汇总和区分损失/LM更新/模型规模三个因素，Markdown技能用于更新当前文档而非另建版本；工具方法来源：Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). [Scientific Agent Skills](https://doi.org/10.48550/arXiv.2609.00065)，已核对当前版本。
 
