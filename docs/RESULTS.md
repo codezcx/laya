@@ -6,7 +6,11 @@ _更新：2026-11-23。当前维护纯信号 Tower 的两阶段文本对齐及�
 
 ## 📋 当前运行
 
-新增 `leaf_tower_contrastive_20261123`：多正例 InfoNCE、平衡多正例 Sigmoid 两组，第一阶段只用 LEAF Tower 和固定类别文本向量，第二阶段仅迁移 Tower 到同一 MLP/JEV。当前代码检查/短测阶段，未填写未完成成绩；启动后以该目录 `pipeline.json` 为准。对齐阶段 encoder LR 1e-5/global batch 32 沿用此前对比实验；下游仍 encoder LR 1e-6/global batch 16、2040 步，与下列无对比基线一致。
+新增 `leaf_tower_contrastive_20261123`：多正例 InfoNCE、平衡多正例 Sigmoid 两组，第一阶段只用 LEAF Tower 和固定类别文本向量，第二阶段仅迁移 Tower 到同一 MLP/JEV。2026-11-23 09:56:19 UTC 两组正式对比训练已启动（GPU 0/1，PID 910815/910986，控制器 818578），先进行 step 0 验证；尚无训练后成绩。状态见 [pipeline.json](../artifacts/benchmark/leaf_tower_contrastive_20261123/pipeline.json)。对齐阶段 encoder LR 1e-5/global batch 32 沿用此前对比实验；下游仍 encoder LR 1e-6/global batch 16、2040 步，与下列无对比基线一致。
+
+89 项测试通过；CPU 预检覆盖 65,280 次训练样本呈现。两组真实 GPU 17 步 smoke 均通过，验证 Tower 更新、冻结文本、保存重载；每组约 36.6 秒（不含加载）。正式初始化与 smoke 的初始化哈希一致，两种损失的初始 Tower/投影/文本/buffers 哈希也一致。每组 Tower 19,557,632 参数、对比投影 788,480 参数，InfoNCE scale 1 参数、Sigmoid scale/bias 2 参数。第一轮短测发现整数 JSON 0 导致 Sigmoid bias dtype 错误，修复后重跑全部检查，数值和超参数未改；失败产物保留在 `artifacts/benchmark/leaf_tower_contrastive_20261123_failed_smoke/`，未进入正式训练。运行代码提交 `d1b5e74`。
+
+两组对比训练及完整验证结束后，自动依次启动各自四卡下游 smoke 和 2040 步正式 JEV SFT。下游尚未开始，不把对比空间分类分数当作 JEV 结果。测试集全程不自动运行。
 
 ## 📊 无新增对比学习的 Tower 基线
 
