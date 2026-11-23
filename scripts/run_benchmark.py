@@ -67,9 +67,8 @@ def main():
     parser.add_argument('--recovery-dir', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     os.chdir(ROOT)
-    if len(CONFIG['arms']) != 1:
-        raise ValueError('This approach trains one shared model')
-    arm = CONFIG['arms'][0]
+    # Baseline remains reproducible; aligned arms are orchestrated by run_contrastive.py.
+    arm = 'leaf_tower_mlp'
     gpus = CONFIG['gpus'] if args.gpus is None else args.gpus
     if (len(gpus) != CONFIG['world_size'] or len(set(gpus)) != len(gpus)
             or any(g < 0 for g in gpus)):

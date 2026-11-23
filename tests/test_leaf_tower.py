@@ -11,6 +11,7 @@ from eeg_align.checkpoint import tensor_fingerprint
 def test_release_tower_shapes_and_independence_from_text():
     torch.set_num_threads(2)
     model = OnlineLEAFTower().eval()
+    assert sum(p.numel() for p in model.parameters()) == 19_557_632
     assert all(p.exists() for p in upstream_files())
     assert not any('qformer' in n or 'film' in n or 'outProj' in n for n,_ in model.named_parameters())
     from LEAF import Tower

@@ -11,13 +11,27 @@
   "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
   "checkpoint_sha256": "f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa",
   "arms": [
-    "leaf_tower_mlp"
+    "leaf_tower_mlp",
+    "leaf_infonce_mlp",
+    "leaf_sigmoid_mlp"
   ],
   "arm_settings": {
     "leaf_tower_mlp": {
       "encoder": "leaf_tower",
       "encoder_trainable": true,
       "readout": "identity"
+    },
+    "leaf_infonce_mlp": {
+      "encoder": "leaf_tower",
+      "encoder_trainable": true,
+      "readout": "identity",
+      "alignment": "infonce"
+    },
+    "leaf_sigmoid_mlp": {
+      "encoder": "leaf_tower",
+      "encoder_trainable": true,
+      "readout": "identity",
+      "alignment": "sigmoid"
     }
   },
   "input_units": {

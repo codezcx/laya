@@ -1,18 +1,49 @@
-# LEAF 信号 Tower → MLP → Qwen-JEV
+# LEAF Tower 文本对齐 → MLP → Qwen-JEV
 
-_2026-11-23；一个共享模型，四卡同步数据并行。配置：[benchmark_train.json](../configs/benchmark_train.json)。_
+_2026-11-23；两组文本对齐及匹配下游。配置：[contrastive_train.json](../configs/contrastive_train.json)、[benchmark_train.json](../configs/benchmark_train.json)。_
 
 ---
 
 ## 🎯 要回答的问题
 
-1. What is the problem? 检验不经过 LEAF 文本条件化 Q-Former 的信号 token 能否直接适配 JEV。
+1. What is the problem? 检验纯信号 Tower 在接 JEV 前是否需要显式语义对齐，而非仅靠下游分类损失完成接口适配。
 2. Why is it important? 把信号提取与任务语义处理分开，避免 MPNet 与 Qwen 两套文本接口混用。
 3. Why is it hard? Tower 的信号特征空间并不天然等于 Qwen 的输入空间，且跨库通道、时间长度和标签存在差异。
 4. Prior limitations? 历史 LEAF→JEV 保留了 FiLM/Q-Former；VideoMAE 控制改变了信号表示路径。旧成绩不能直接归因为本轮结构的优劣。
-5. Proposed components? 发布 LEAF Tower、可训练 MLP、原生 Qwen-JEV 语言主干与决策接口；任务文本只进入 JEV。
+5. Proposed components? 发布 LEAF Tower、任务内多正例文本对齐、只迁移 Tower 的 MLP/JEV 分类；无对比学习组是必要基线。
 
-本轮是有监督多任务适配验证，不是严格 zero-shot，不将通用连接器本身宣称为 novelty。不额外增加对比学习阶段。
+本轮是有监督多任务适配验证，不是严格 zero-shot，不将通用连接器本身宣称为 novelty。类别文本来自训练任务的标签语义，不是新采集的逐 trial 文本注释；模板同义改写不增加独立数据量。
+
+## 🔗 新增文本对齐阶段
+
+```mermaid
+flowchart LR
+    accTitle: LEAF Semantic Alignment Transfer
+    accDescr: Pure EEG Tower tokens are mean pooled and projected toward fixed class texts. Only the trained Tower transfers to a fresh MLP and JEV classification stage.
+    eeg["EEG"] --> tower["Pure LEAF Tower"]
+    tower --> pool["Masked mean + projection"]
+    texts["Fixed MPNet class texts"] --> loss["Multi-positive loss"]
+    pool --> loss
+    tower -->|"Tower weights only"| aligned["Aligned Tower tokens"]
+    aligned --> bridge["Fresh MLP"] --> jev["Native JEV + task text"]
+```
+
+两组分别使用 `infonce` 和 `sigmoid`，EEG 编码路径与初始化相同。只保留 Tower，两分支、所有片段的有效 token 做 masked mean，再经 LN(256)→Linear(256,768)→GELU→Linear(768,768)，最后 L2 归一化。该池化和对比投影仅用于第一阶段；下游继续使用全部 token，不池化。
+
+固定文本库复用历史已审计的 MPNet float32 masked-mean/L2 向量：147 条描述、49 个规范语义概念、每类 3 个模板。锁定 manifest SHA256 `b374ceb9247dc952b4f820987f08e81b4538661c50aa2e41d2c0c078f3ae53c6`，验证向量 SHA、模型来源、当前标签顺序和跨库语义映射。只读取文本向量，不复用历史 EEG/VideoMAE 权重。模板为“任务说明 + EEG category: 类别”等，不包含样本 ID、被试或真实生理特征报告。
+
+- 正例：正确类别的全部 3 条文本；负例：本任务其他互斥类别的全部文本
+- 同类 EEG 不作为负例；不用跨库全局标签号定义正负，不把未知关系的跨任务文本当负例
+- InfoNCE：对全部候选文本做 log-softmax，再对所有正例的负 log 概率取均值；不是正例概率求和后取 log
+- Sigmoid：每 EEG 的正例 softplus 均值与负例 softplus 均值各占 0.5
+- 两组评估统一用每类三个模板的平均 cosine；Sigmoid 值不声称是校准类别概率
+- 这是单向 EEG→固定文本库的监督对齐，不是原版对称 CLIP/SigLIP 复现；固定文本库条件下梯度累积不缩减负例集合
+
+第一阶段沿用此前 VideoMAE 对比实验的设置：2040 步、seed 42、global batch 32、microbatch 8、encoder LR 1e-5、projection LR 1e-4、scale/bias LR 1e-4，AdamW weight decay 0.01（scale/bias 无衰减）、102 步 warmup、cosine 至 2%、梯度裁剪 1。初始温度 0.07，Sigmoid bias 0；logit scale 限制在 1–100。Tower 全参更新但始终 eval 模式，BatchNorm buffers 固定。没有可训练的文本 encoder、CLS 或 Q-Former。
+
+第一阶段九库固定验证子集每 340 步选 best，最后独立完整验证；test 前向为 0。只有已完成、同一数据/QC/缓存身份的 best Tower 参数及 buffers 可进入下游。投影头、温度、bias、优化器和第一阶段任务分类分数均不传入 JEV。下游从原生 JEV 和同一随机种子的 MLP 开始，不继承 smoke 权重。
+
+对比阶段多 65,280 次样本呈现，下游仍 32,640 次；相对无对比基线是额外训练阶段，不是等总计算量消融。若改善，尚需等预算监督预训练控制才能把收益专门归因于对比损失。
 
 ## 🔌 模型与初始化
 
@@ -27,7 +58,20 @@ flowchart LR
     jev --> choice["Decision position<br/>choice logits"]
 ```
 
-仅实例化原始 `Tower`，从发布 instruction-tuned checkpoint 的 `tower.*` 严格加载；不实例化 MPNet、FiLM 或 Q-Former。删去从不进入信号前向的 mask token 与两个重建输出头。Tower 使用共享时空 tokenizer、双向和因果 Transformer，各 12 层，输出拼接为 256 维 token。[^leaf]
+EEG 侧仅实例化原始 `Tower`，从发布 instruction-tuned checkpoint 的 `tower.*` 严格加载；不实例化 FiLM 或 Q-Former。删去从不进入信号前向的 mask token 与两个重建输出头。Tower 使用共享时空 tokenizer、双向和因果 Transformer，各 12 层，输出拼接为 256 维 token。[^leaf]
+
+实际前向参数量（`sum(p.numel())`，不计 buffers）：
+
+| Tower 组件 | 参数量 |
+| --- | ---: |
+| 共享 tokenizer | 269,056 |
+| 两个输入投影 | 328,192 |
+| 双向 Transformer | 9,477,632 |
+| 因果 Transformer | 9,477,632 |
+| 位置参数 | 5,120 |
+| Tower 合计 | 19,557,632 |
+
+19.56M 不包含对比投影头、MLP 连接器或 JEV。下游 MLP 另有 27,535,872 参数；JEV LoRA 217,579,520、choice head 81,936。单元测试锁定 Tower 参数量及全部前向参数的梯度可达性。
 
 - 权重：`/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt`
 - SHA256：`f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa`
@@ -69,10 +113,10 @@ SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处�
 - 17 库有效训练 967,281 窗，九库验证 61,327 窗，九库测试 61,375 窗；仍只排除 CHB_MIT 已知 1,144 个无效训练窗
 - 严格校验非 SEED 被试不重叠，以及 SEED 原始 event ID、trial 完整覆盖、窗口身份唯一与 9/3/3 分配；不能全局关闭泄漏检查
 
-重划分入口：[prepare_seed_trial_split.py](../scripts/prepare_seed_trial_split.py)。旧目录保留；本轮从发布 LEAF 权重初始化，不使用任何历史下游 checkpoint。
+重划分入口：[prepare_seed_trial_split.py](../scripts/prepare_seed_trial_split.py)。旧目录保留；第一阶段从发布 LEAF 权重初始化，第二阶段从对应 best Tower 初始化，不使用任何历史下游 checkpoint。
 
 
-## 🔧 训练与四卡语义
+## 🔧 下游训练与四卡语义
 
 | 项目 | 固定设置 |
 | --- | --- |
@@ -85,7 +129,7 @@ SEED 原始 trial 为 675（405/135/135），来自 45 份 session 记录。处�
 | 学习率峰值 | connector 1e-4；JEV LoRA 5e-6；head 1e-5；Tower 1e-6 |
 | 优化器 | AdamW，weight decay 0.01，梯度裁剪 1 |
 | 学习率日程 | 各组开放后 62 步预热，cosine 至峰值的 2% |
-| 损失 | 候选类别交叉熵，无新增 InfoNCE/Sigmoid |
+| 下游损失 | 候选类别交叉熵；InfoNCE/Sigmoid 仅用于之前的对齐阶段 |
 | 验证 batch | 每 rank 至多 8；不改变样本集合或统计权重 |
 
 四个 rank 从同一确定性全局采样列表切分，不独立重新抽样；训练 loss 按本 rank 样本数归一化后 all-reduce 平均梯度，再裁剪、更新。逐步核对全局 ID 顺序，保存时核对所有 rank 的可训练权重哈希。沿用已有显式 all-reduce 数据并行实现，并由四进程等价性测试验证；不采用 tensor/model parallel。
@@ -98,16 +142,16 @@ step 0 和每 340 步记录每库至多 512 个固定验证窗，以及至多 12
 
 验证按原始样本索引跨 rank 划分，汇总全部概率后计算 confusion matrix/Acc/BAcc，不平均各卡 BAcc，不重复补齐尾批。完整验证保存逐窗 ID/标签/概率。结束自动绘制 loss、验证及分库曲线。
 
-启动顺序为 CPU 全部计划输入检查 → 四卡 17 步 smoke（含预热后梯度、权重同步、重载、训练子集分布式评估）→ 重新从发布权重初始化正式训练。smoke 不访问验证/测试，参数不得流入正式 run。每 20 步保留 last，验证点另存 checkpoint；保存完整 Adam 状态、buffers 和四 rank RNG。源码、配置、上游模型代码与 checkpoint 身份受保护，不允许 live job 期间修改。
+启动顺序为 CPU 全部计划输入检查 → 两组单卡 17 步对齐 smoke → 两组单卡正式对齐并行 → 各组四卡 17 步下游 smoke → 各组四卡正式 SFT（依次）。CPU 检查 batch 32 的全部行及 microbatch 4 边界；采样器测试证明下游 batch 16 是同一步 batch 32 的前 16 行。smoke 不访问验证/测试，参数不得流入正式 run。对齐每 100 步、SFT 每 20 步保留 last，验证点另存 checkpoint；保存完整 Adam 状态、buffers 和 RNG。源码、配置、上游模型代码与 checkpoint 身份受保护，不允许 live job 期间修改。
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
-laya/.venv-eeg/bin/python scripts/run_benchmark.py --start
-# 中断后仅恢复同一配置、源码、四 rank 的未完成 checkpoint：
-laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --resume --gpus 0 1 2 3
+laya/.venv-eeg/bin/python scripts/run_contrastive.py --start
+# 中断后只恢复同一源码、配置和已有 checkpoint，已完成阶段仅核验并跳过：
+laya/.venv-eeg/bin/python scripts/run_contrastive.py --start --resume
 ```
 
-输出：`artifacts/benchmark/leaf_tower_jev_20261123/`。查看 `pipeline.json` 与 `train/leaf_tower_mlp/progress.json`；失败信息为 `failure_rank*.json`。原 checkpoint/log/cache 不覆盖。使用四卡验证并行，不另启动四组不同实验。
+输出：`artifacts/benchmark/leaf_tower_contrastive_20261123/`。第一阶段在 `alignment/train/{infonce,sigmoid}`；下游在 `train/{leaf_infonce_mlp,leaf_sigmoid_mlp}`。查看 `pipeline.json` 和各目录 `progress.json`；原 checkpoint/log/cache 不覆盖。验证和训练 loss 均写日志；下游结束自动生成曲线。
 
 ## ⚠️ 解释边界
 
@@ -115,7 +159,7 @@ laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --resume --gpus 0 1 2
 
 SEED 被试内，其余八个 benchmark 跨被试。TUAB/TUEV 的 19 个候选共享 ID、其中 5 个跨库角色冲突未解决；LEAF 预训练/指令调优数据重叠未排除。HMC 151 份已补齐，但作者精确随机名单未确认。不能声称完全复现 EEG-FM-Bench 或严格无泄漏。
 
-旧方案已归档到 `6247e46`，只在隔离 worktree 复现；当前工作树不保留独立的 VideoMAE/对比学习训练分支。历史产物位置见 [ARCHIVE](ARCHIVE.md)，历史成绩保留于 [RESULTS](RESULTS.md)。
+VideoMAE 旧方案已归档到 `6247e46`，无新增对比的 Tower 基线归档到 `ef07d2c`，只在隔离 worktree 原样复现；当前复用它们的损失定义、数据和下游实现，而不保留独立 VideoMAE 训练分支。历史产物位置见 [ARCHIVE](ARCHIVE.md)，历史成绩保留于 [RESULTS](RESULTS.md)。
 
 ## 📚 来源
 

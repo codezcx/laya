@@ -28,6 +28,7 @@ from .evaluation import require_split, fixed_training_rows, validation_rows
 def code_identity():
     paths = sorted(Path('eeg_align').glob('*.py')) + [Path(p) for p in (
         'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
+        'configs/contrastive_train.json', 'scripts/run_contrastive.py',
         'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py',
         'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py')]
     paths += upstream_files(CONFIG)
@@ -85,6 +86,10 @@ def main():
     batch_size = CONFIG['global_batch']
     hashes = code_identity()
     source_paths = [Path(CONFIG['checkpoint'])]
+    if setting.get('alignment'):
+        from .contrastive_protocol import parent_directory, load_aligned_tower
+        parent = parent_directory(setting['alignment'])
+        source_paths += [parent / p for p in ('best.pt', 'complete.json', 'config.json')]
     def source_stats():
         return {str(p): (p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ctime_ns)
                 for p in source_paths}
@@ -113,10 +118,13 @@ def main():
     # Reset after release loading; the bridge must match across aligned sources.
     seed_rng(CONFIG['seed'])
     encoder = OnlineLEAFTower(CONFIG)
+    transfer = None
+    if setting.get('alignment'):
+        transfer = load_aligned_tower(encoder, parent, setting['alignment'], identity['cache_indexes'])
     initial_encoder_sha256 = tensor_fingerprint(encoder.state_dict())
     encoder = encoder.cuda()
     if rank == 0:
-        write_json(args.out / 'transfer_audit.json', encoder.release_audit)
+        write_json(args.out / 'transfer_audit.json', dict(release=encoder.release_audit, alignment=transfer))
     # Encoder initialization consumes RNG; reset before the newly trained bridge.
     seed_rng(CONFIG['seed'])
     model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16,
@@ -143,9 +151,10 @@ def main():
             encoder_frozen=not train_encoder,
             initial_encoder_sha256=initial_encoder_sha256,
             buffer_sha256=buffer_proof, world_size=world, readout='identity',
+            aligned_transfer=transfer,
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens='2 * sum(ceil(segment_samples / 100)); all branches and chunks',
-            initialization='released LEAF Tower only + native JEV + new MLP; no MPNet/FiLM/Q-Former',
+            initialization='LEAF Tower only (optional aligned parent) + native JEV + new MLP; no MPNet/FiLM/Q-Former',
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
         proofs = collect(initial)
         if any(p != proofs[0] for p in proofs[1:]):

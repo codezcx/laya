@@ -1,10 +1,14 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-23。当前只维护纯信号 Tower→MLP→Qwen-JEV，四卡共同训练一个模型；完整设置见 [协议](PROTOCOL.md)。_
+_更新：2026-11-23。当前维护纯信号 Tower 的两阶段文本对齐及无对比控制；完整设置见 [协议](PROTOCOL.md)。_
 
 ---
 
 ## 📋 当前运行
+
+新增 `leaf_tower_contrastive_20261123`：多正例 InfoNCE、平衡多正例 Sigmoid 两组，第一阶段只用 LEAF Tower 和固定类别文本向量，第二阶段仅迁移 Tower 到同一 MLP/JEV。当前代码检查/短测阶段，未填写未完成成绩；启动后以该目录 `pipeline.json` 为准。对齐阶段 encoder LR 1e-5/global batch 32 沿用此前对比实验；下游仍 encoder LR 1e-6/global batch 16、2040 步，与下列无对比基线一致。
+
+## 📊 无新增对比学习的 Tower 基线
 
 运行名 `leaf_tower_jev_20261123`，arm `leaf_tower_mlp`。代码与 73 项单元测试已通过，含四进程梯度等价性、原始 Tower 输出一致性、无文本模块、分块/有效 token 掩码、冻结划分及测试集禁用检查。
 
@@ -17,6 +21,8 @@ _更新：2026-11-23。当前只维护纯信号 Tower→MLP→Qwen-JEV，四卡�
 - 学习率维持 connector 1e-4、JEV LoRA 5e-6、head 1e-5、encoder 1e-6。
 - 同一现有 17 库训练/九库验证划分；SEED 被试内，HMC 完整 151 份。测试前向为 0。
 - 新模型不包含原 LEAF 文本条件化 Q-Former，不能直接继承其下游分类表现。
+
+同一完整验证窗口 ID 对照：完整 LEAF 编码路径冻结为 BAcc 46.52%，VideoMAE InfoNCE/Q-Former 全参为 44.15%、LoRA-r64 为 44.28%，本基线为 43.41%。这些结构不是单因素消融。历史 50.59% 是另一协议的完整测试，不能混为同口径验证。
 
 ## 📊 已完成 VideoMAE 控制
 

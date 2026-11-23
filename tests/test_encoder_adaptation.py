@@ -48,7 +48,7 @@ def test_current_seed_reindex_did_not_change_signals_or_other_datasets():
 
 
 def test_adaptation_configuration_and_schedule():
-    assert CONFIG['arms'] == ['leaf_tower_mlp']
+    assert CONFIG['arms'] == ['leaf_tower_mlp', 'leaf_infonce_mlp', 'leaf_sigmoid_mlp']
     setting = arm_settings(CONFIG['arms'][0])
     assert setting == dict(encoder='leaf_tower', encoder_trainable=True, readout='identity')
     assert CONFIG['world_size'] == 4 and CONFIG['global_batch'] == 16

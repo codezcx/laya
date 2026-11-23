@@ -1,6 +1,8 @@
 # Git 与实验产物归档
 
-当前维护纯信号 LEAF Tower→MLP→Qwen-JEV 四卡同步训练，见 [协议](PROTOCOL.md)。VideoMAE、InfoNCE／Sigmoid 与旧文本条件化 LEAF 实现由 Git 归档恢复，运行产物仍在原位置。
+当前维护纯信号 LEAF Tower 的多正例 InfoNCE／Sigmoid 对齐及匹配 MLP/JEV 下游，见 [协议](PROTOCOL.md)。VideoMAE 与旧文本条件化 LEAF 实现由 Git 归档恢复，运行产物仍在原位置。
+
+`ef07d2c` 保存本轮新增对齐前的纯 Tower 无对比基线：2040 步、完整验证 BAcc 43.41%、Acc 46.32%。`artifacts/benchmark/leaf_tower_jev_20261123/` 中的权重、日志、曲线均保留。历史 VideoMAE 对比实现从 `6247e46` 的隔离 worktree 检查；仅将适用于当前 Tower 的损失/模板/训练协议复用到当前共享模块，不恢复旧 encoder 分支。
 
 | 提交 | 可恢复的历史状态 |
 | --- | --- |

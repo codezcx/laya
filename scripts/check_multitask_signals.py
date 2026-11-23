@@ -16,6 +16,8 @@ from eeg_align.leaf_data import LEAFSignalAdapter
 
 STORE = None
 ADAPTER = None
+PLAN_BATCH = CONFIG['global_batch']
+PLAN_MICRO = CONFIG['microbatch']
 
 
 def initialize():
@@ -24,10 +26,12 @@ def initialize():
 
 
 def check_step(step):
-    tid, rows = STORE.sample(step, CONFIG['global_batch'], CONFIG['seed'])
+    tid, rows = STORE.sample(step, PLAN_BATCH, CONFIG['seed'])
+    if any(r['split'] != 'train' for r in rows):
+        raise ValueError('Held-out rows cannot enter planned training')
     try:
-        for start in range(0, len(rows), CONFIG['microbatch']):
-            for _, _, pieces in ADAPTER.batch(rows[start:start + CONFIG['microbatch']]):
+        for start in range(0, len(rows), PLAN_MICRO):
+            for _, _, pieces in ADAPTER.batch(rows[start:start + PLAN_MICRO]):
                 if not all(np.isfinite(x).all() for x in pieces):
                     raise ValueError('Nonfinite LEAF input after adaptation')
     except Exception as exc:
@@ -36,12 +40,17 @@ def check_step(step):
 
 
 def main():
-    global STORE
+    global STORE, PLAN_BATCH, PLAN_MICRO
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--start-step', type=int, default=1)
     parser.add_argument('--stop-step', type=int, default=CONFIG['steps'])
+    parser.add_argument('--global-batch', type=int, default=CONFIG['global_batch'])
+    parser.add_argument('--microbatch', type=int, default=CONFIG['microbatch'])
     args = parser.parse_args()
+    PLAN_BATCH, PLAN_MICRO = args.global_batch, args.microbatch
+    if min(PLAN_BATCH, PLAN_MICRO) < 1:
+        raise ValueError('Positive batch sizes required')
     if not 1 <= args.start_step <= args.stop_step:
         raise ValueError('Invalid planned update interval')
     if args.out.exists():
@@ -61,6 +70,7 @@ def main():
         raise RuntimeError('Signal preflight code/config changed')
     write_json(args.out, dict(passed=True, planned_updates=args.stop_step - args.start_step + 1,
         start_step=args.start_step, stop_step=args.stop_step, sample_presentations=counts,
+        global_batch=PLAN_BATCH, microbatch=PLAN_MICRO,
         heldout_model_evaluations=0, quality_summary_sha256=CONFIG['quality_summary_sha256'],
         code_sha256=hashes, elapsed_seconds=time.monotonic() - start))
 
