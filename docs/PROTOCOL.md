@@ -1,132 +1,76 @@
-# LEAF Tower 语言决策训练与个人适配协议
+# LEAF 13 库部分复现协议
 
-_2026-11-24：原生8B共享SFT，原test作为开发集；后文保留已完成的个人联合适配协议。_
+_2026-11-24；当前实现见 leaf_repro/，固定官方提交 08ee6577ca4e9517536e73ba3053e676c028a379。_
 
-## 📋 后续实验：原 test 用作开发集
+## 🎯 复现范围
 
-2026-11-24用户明确决定：希望在探索阶段观察原test上随训练步数变化的表现，并据此选步数、checkpoint和方法；原valid待方案确定后再使用。接受此用途安排，不交换原始划分名单、被试或缓存标签。
+本轮复现原生 LEAF 的多任务指令训练与直接推理，不是 Tower→JEV，也不是从零复现全部无监督预训练或逐数据集监督微调。官方模型/损失来自本地固定版本的 `LEAF.py`、`b_instruct_tuning.py`；只增加本机路径、分片读取、日志、断点与检查，不修改上游仓库。[^native]
 
-| 原始文件划分 | 后续用途 | 是否用于梯度更新 |
-| --- | --- | --- |
-| `train` | 训练和训练指标监测 | 是 |
-| `test` | 开发过程评估、选步数/checkpoint、比较方法 | 否 |
-| `valid` | 用户确定方案后再评估 | 否 |
+初始化为官方 `leaf-v1.0-pretrain.ckpt`，SHA256 `bd5c29ddc047d0765fe72cbd4ee5e95b2bba37dd8632c2bfd31185fc010163ee`。不使用已接受下游标签训练的 instruct checkpoint。MPNet 文本缓存直接复用作者仓库；不在线更新文本编码器。
 
-原test承担的是模型选择中的开发/验证角色，其选中成绩标记为“原test开发集BAcc/Acc”，不作为未参与调参的独立benchmark测试结果。反复据留出集表现挑选设置也会引入选择偏差，不能因未反传就宣称其评价独立[^evaluation_roles]。本项目原valid已经在历史及当前实验中多次评估、选点，后续即使暂不使用，也不能将其描述为从未接触过的盲测；如需这样的最终评估，须另外预留未用于开发的数据并排查被试/预训练重叠。
+## ⚙️ 联合训练
 
-实施状态：4B已完成，旧实现归档`ad4c054`后统一更新共享训练器、控制器及绘图。新策略见[配置](../configs/evaluation_policy.json)和[运行门禁](../eeg_align/evaluation_protocol.py)：test只能评估，valid禁止前向，train独占梯度。评估ledger记录完成的每库评估次数及全局样本数（包含重复评估），随checkpoint保存/恢复，不再固定写test次数为0。旧4B结果不重标。
+将 13 库 train 样本合并后统一 shuffle；一份模型、一套优化器、混合 batch，不是每个库单独训练。按样本数自然采样，不额外均衡数据集。
 
-抽样沿用原512算法（固定随机128起点，再按类别/被试队列扩充），但底层只请求原test；不改原始行标签。`test_selection_ids.json`保存固定ID，后续选点前逐条核对；完整预测保存`test_*_predictions.npz`。`test_step*_subset/full.json`显式记录split、development用途和评估范围；完整原test结果同样不是独立测试。原始数据配置不变，保证InfoNCE父权重及缓存身份核验；新run的effective config明确覆盖旧selection/test_policy声明。
-
-新运行须记录`selection_split=test`、原划分ID及样本指纹、评估频率和全量/子集范围；方案未确定前不自动执行valid最终评价。该用途调整不授权改变学习率、batch、训练预算、缓存或被试划分，也不自动将个人适配query纳入support。实验设计与文档技能用于区分文件标签和统计用途、保留暴露历史，过程引用沿用文末[^skills]。
-
-[^evaluation_roles]: scikit-learn developers. Cross-validation: evaluating estimator performance. https://scikit-learn.org/stable/modules/cross_validation.html
-
-## 📋 当前控制：原生 Qwen3-VL-8B 指令微调
-
-本轮“用我们的JEV微调”指沿用现有EEG指令决策训练流程，不是用27B JEV生成答案或蒸馏。模型为官方Qwen3-VL-8B-Instruct[^qwen8b]，仅加载内置`Qwen3VLTextModel`；不运行视觉encoder、ECG代码或远程Python。复制在`third_party/Qwen3-VL-8B-Instruct`，官方revision及校验值固定在[语言主干配置](../configs/language_backbones.json)。启动器检查四份权重完整SHA256和配置/tokenizer/index的Git blob哈希；源目录不修改。这不是此前测速的ECG-R1-8B派生权重。
-
-共用[训练实现](../eeg_align/train_joint.py)、[抽样/预算配置](../configs/benchmark_train.json)和[任务文本](../configs/benchmark_tasks.json)。旧JEV加载器和前向保持哈希不变；小模型只替换主干加载及连接器宽度，不新建另一套训练器。
-
-| 项目 | 本轮设置 |
+| 项目 | 设置 |
 | --- | --- |
-| EEG初始化 | 已完成多正例InfoNCE的best step1700 Tower；不是JEV SFT step1360 |
-| 语言初始化 | 官方Qwen3-VL-8B-Instruct；无JEV/ECG-R1 LoRA |
-| 连接器 | 新LayerNorm(256)→Linear(256,4096)→GELU→Linear(4096,4096) |
-| 语言更新 | 新LoRA r32、alpha64、dropout0；Q/K/V/O及MLP gate/up/down；基础权重冻结 |
-| 决策更新 | 原生A–P词表行初始化16行读出，bias初始化0；允许训练，不是随机分类头 |
-| 损失和输出 | 随机排列候选选项的choice交叉熵；单次forward，不逐字生成，不新增对比/蒸馏损失 |
-| 数据 | 原17库训练，9库原test开发评估；缓存、QC、subject/session划分及task文本不变 |
-| 预算 | 2040步，seed42，global batch16，micro4，四卡同步；前340步仅连接器 |
-| 学习率 | connector 1e-4、语言LoRA 5e-6、head 1e-5、Tower 1e-6；原warmup62/cosine/wd0.01 |
-| 开发评估 | 从step0起每340步，原test固定每库512上限；九库等权BAcc选点，同分取更早步数 |
-| 最终报告 | 选中checkpoint的完整原test开发分数；不执行原valid前向 |
+| EEG 网络 | 双分支 Tower＋FiLM＋Q-Former，全量训练实际前向参数 |
+| Q-Former | 8 queries、4 layers、256 维；拼接后 Dropout(0.3)＋Linear(2048,768) |
+| 损失 | 归一化 EEG 向量与 23 个全局唯一冻结文本原型的 cosine logits，交叉熵，无额外温度 |
+| 文本条件 | 10% Default 指令；独立 90% 概率混合所有候选类别文本的归一化均值，不用真实标签构造指令 |
+| 输入 | 200 Hz、65 通道；训练随机补零/裁剪至 2000 点，验证右补零/从头裁剪 |
+| 优化器 | AdamW，weight decay 0.001 |
+| LR | tokenizer 0.001，其余 0.0002；2 epoch warmup，cosine multiplier 1→0.1 |
+| 预算 | 100 epochs，seed42，bf16-mixed |
+| Batch | 官方脚本的每卡 256，四卡总 1024；没有额外 LR scaling |
+| 验证 | 每 10 epoch，完整 valid、全局原型 CE/Acc，额外记录每库 loss/全局 Acc |
+| 保存 | 每 epoch 保存可续训状态；每 10 epoch 导出原生 state_dict；保存最低 valid loss 点 |
+| 测试 | 训练完成后，固定 final epoch 与 valid-loss 选中点；不据 test 再挑模型 |
 
-8B权重有独立`lm_head.weight`，读出从该矩阵抽取A–P行；微调读出是独立FP32参数，不更新词嵌入或其余词表行。语言LoRA为标准A随机、B全零，初始不改变原生主干。Tower继续使用原eval/冻结buffers策略。17步短测逐个覆盖全部训练库，只评估train，检查实际梯度、四rank一致性和保存重载；正式阶段重新初始化，不继承短测更新。每20步保存续训状态。
+公开仓库入口默认四卡、每卡256，当前YAML warmup为2epochs；论文v3表6明确写global batch512、warmup1epoch。本轮按公开代码默认执行global1024/warmup2，二者并不完全一致，属于已记录的部分复现差异，不声称严格重现论文数值。额外最低验证 loss checkpoint 是本地记录选择，final epoch 结果同时报告，避免隐去此差异。
 
-四卡实际加载语言基础参数7,568,405,504；connector 17,834,496、语言LoRA 87,293,952、choice head 65,552、Tower 19,557,632，联合可训练124,751,632。审计见本轮`initial_state.json`。4B历史语言基础参数4,022,468,096、联合可训练92,873,488；8B随主干hidden size改为4096，connector及LoRA参数量相应增大，不能宣称可训练参数量不变。学习率、rank、batch和步数保持不变。
+训练和验证使用全局原型分类；原生 direct inference 则限定到当前数据集候选类别。直接推理不补成10秒，按作者脚本使用原生4秒/10秒窗口，分别报告 Default、Task、Task+Target 三种指令层次。完整 test 使用单卡顺序加载，不含 DDP 补齐的重复样本。训练期分布式 valid 沿用官方 DistributedSampler，最多补齐3个样本，日志不是逐库独立测试分数。
 
-这仍是类别选项监督的EEG决策SFT，不是开放式通用问答训练。与已有27B相比，参数量、架构、预训练/决策LoRA经历、tokenizer和连接器宽度都不同，属于实用替换对照，不能将差异唯一归因于模型大小。已知TUAB/TUEV候选身份重叠和LEAF上游预训练重叠风险沿用原协议。
+## 📊 数据与划分
 
-运行目录`artifacts/benchmark/leaf_tower_qwen8b_20261124/`；`native_weight_verification.json`保存官方校验，`pipeline.json`保存执行阶段，`train/leaf_infonce_mlp/`保存训练/原test开发曲线数据、transfer audit和checkpoint。绘图文件用`development_test`命名，轴标题也标出original test。尚未有8B最终准确率；4B完整原valid BAcc为42.68%，不可与8B原test开发分数直接作同协议模型对比。
+以下是本轮目标名单；窗口数在全量预处理后由 `datasets/leaf13/manifest.json` 实测。数量不从历史 EEG-FM-Bench 表搬用。被试总数为库内唯一人数；train 与 valid 的被试集合重叠，因此三个被试数不能相加求总数。[^data]
 
-[^qwen8b]: Qwen. Qwen3-VL-8B-Instruct official model repository. https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct
+| 数据集 | 本轮处理后窗口：总（训/验/测） | 任务（分类数） | 本轮划分协议 | 被试：唯一总数（训/验/测） |
+| --- | --- | --- | --- | --- |
+| BCIC-IV-2a | 处理中，待清单核验 | 运动想象（4） | A01–A07 中每第5样本验证；A08–A09测试 | 9（7/7/2） |
+| OpenBMI-MI | 处理中，待清单核验 | 运动想象（2） | 前42人训验池，后12人测试 | 54（42/42/12） |
+| SHU-MI | 处理中，待清单核验 | 运动想象（2） | 前20人训验池，后5人测试 | 25（20/20/5） |
+| HighGamma | 处理中，待清单核验 | 左/右运动解码（2） | 前10人训验池，后4人测试；去掉feet | 14（10/10/4） |
+| Cho2017 | 处理中，待清单核验 | 运动想象（2） | 排除32/46/49，剩余前40/后9人 | 49（40/40/9） |
+| Shin2017A | 处理中，待清单核验 | 运动想象（2） | 排除S05，剩余前22/后6人 | 28（22/22/6） |
+| PhysioNet | 处理中，待清单核验 | T1/T2运动执行与想象（2） | 前80人训验池，后29人测试；R03–R14 | 109（80/80/29） |
+| FACED | 处理中，待清单核验 | 情绪（9） | 000–099训验池，100–122测试 | 123（100/100/23） |
+| SEED | 处理中，待清单核验 | 情绪（3） | 每人trial 1–9/10–12/13–15 | 15（15/15/15） |
+| SEED-IV | 处理中，待清单核验 | 情绪（4） | 每人每session trial 1–16/17–20/21–24 | 15（15/15/15） |
+| SEED-VII | 处理中，待清单核验 | 情绪（7） | 每人每session trial 1–10/11–15/16–20 | 20（20/20/20） |
+| OpenBMI-SSVEP | 处理中，待清单核验 | SSVEP（4） | 前42人训验池，后12人测试；仅公开train blocks | 54（42/42/12） |
+| Workload | 处理中，待清单核验 | 负荷（2） | 前32人训验池，后4人测试 | 36（32/32/4） |
 
-## 🎯 问题与假设
+所有“训验池”都先按官方被试/样本顺序拼接，再取从index0开始每5个样本中的一个为valid，其余train；不是每名被试重新从0计数。
 
-目标是用单个新用户的少量标注数据适配已训练EEG→JEV系统，同时保持服务器LM不变。原残差-only两库等权BAcc为50.18%；本轮检验进一步更新Tower是否改善独立session/run预测，而非仅提高支持集拟合。不增加共享源用户训练，不新增对比损失、TTT或LM更新。
+## ⚠️ 已知差异与限制
 
-## ⚙️ 两组训练路径
+- 缺少 SEED-V、BCIC-Upperlimb、BCIC-Speech；下载结果不会中途加入已启动的13库训练。
+- Cho2017/HighGamma/SSVEP 的 MOABB 缓存已经有200Hz、0.1–75Hz与60Hz notch处理，再执行LEAF的0.3–40Hz/尺度归一化；不能恢复滤掉的信息，不能宣称与作者原NPZ逐样本相同。逐trial源路径、run、标签另存到shard旁的sources.json。
+- SSVEP现有两session公开train共10,800条，未包含公开test blocks。与后续个人/跨被试划分的“test”不是同一个概念。
+- PhysioNet本地缺少的执行运动runs从PhysioNet公开源补齐，再调用官方R03–R14处理器。官方代码将T1/T2统一记为Left/Right，但其中也包含双拳/双脚及实际运动；不应称为纯左右手想象。
+- FACED按代码的100/23被试划分，不按论文表格可能存在的边界笔误。SEED采用当前官方修正后的Negative/Neutral/Positive顺序；SHU严格采用当前tasks.yaml的Right/Left映射，后续对原始标注语义仍应单独核验。
+- 复用官方按被试或按被试/划分估计的robust scaling，包含同一评估组内未标注信号统计；不是单trial在线归一化。保留原始short-window滤波与大量插值通道的警告，不擅自改变方法。
+- 13库的留出测试仍来自指令训练涉及的同名数据集，不是13个全新数据集的zero-shot；跨数据集zero-shot应额外用未参与指令训练的Dreyer2023、Weibo2014等独立数据评估。[^heldout]
+- 官方主结果还包含每库单独的Tower＋MLP监督微调；本轮未运行该阶段，不能把direct-inference结果与其最佳监督微调结果等同。
 
-两组都使用个人原始EEG→Tower→残差adapter→冻结原connector→冻结JEV；支持集标签与JEV choice logits的交叉熵是唯一损失。梯度穿过冻结LM和连接器，最终预测仍由JEV输出。
+## 🔧 工程与软件
 
-| 模块 | joint_lora | joint_full |
-| --- | --- | --- |
-| LEAF forward Tower | 双分支最后两层attention的Q/V LoRA-r8；alpha8，无LoRA dropout | 全部19,557,632个前向参数 |
-| 残差adapter | 更新33,088参数 | 更新33,088参数 |
-| 原MLP connector，27,535,872参数 | 冻结 | 冻结 |
-| JEV基础权重、已有语言LoRA、choice head | 全冻结 | 全冻结 |
-| Tower BN running统计量及所有buffers | 冻结 | 冻结 |
-| 总可训练参数 | 65,856 | 19,590,720 |
+四卡短测从单被试/库的训练样本进行3步；正式阶段重新加载无监督预训练Tower与随机Q-Former。原作者前向与优化器保留；只将数据存储改为按被试HDF5分片，避免每个rank重复加载整库。过程有源码SHA256、模型SHA256、完整划分indices、有限值检查、梯度审计、每库CSV日志、完整模型/优化器恢复。
 
-adapter为256→64→256、GELU、残差上投影零初始化。LoRA为原个人C分支相同的Q/V低秩参数化，不更新K或原投影权重；两组均保留Tower eval模式，仅改变requires_grad，不引入BN适配或dropout差异。全参指实际forward Tower，既有接口已移除不用的重建头。
+Lightning 2.6.4，PyTorch 2.11.0+cu128；依赖原有MNE 1.12.1及h5py 3.16.0。使用训练框架、资源检查、科学模型检索与文档技能辅助容量检查、原始权重核验及协议记录；这些是工程流程，不是模型创新。[^skills]
 
-父模型固定为`artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，原验证选中step1360。每位用户独立重置Tower、LoRA、adapter及优化器；不继承另一人的更新，也不从上一轮个人adapter再加100步。先seed42初始化adapter，再单独重置seed42初始化LoRA，保持adapter初始化跨组一致。每个用户需云端LM前向及输入梯度，不是纯边缘端训练。
-
-## 📋 数据与划分
-
-下表描述父模型处理后窗口与原被试划分，不是个人support/query数量。MI缓存每trial恰好一个4秒窗口。
-
-| 数据集 | 处理后窗口总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（父模型原训／验／测） |
-| --- | ---: | --- | --- | ---: |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 固定跨被试；个人T→E session | 9（5/2/2） |
-| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 固定跨被试；个人前四→后两imagery run | 109（69/19/21） |
-
-- 正式用户：2a 8、9；PhysioMI 89–109。两组各23人，共46次独立适配。
-- 每人按类无放回选择5条，共20条；2a支持来自T session，query为全部E session；PhysioMI支持来自R04/R06/R08/R10，query为全部R12/R14。
-- 每组共460条support、1,208条query（2a 576，PhysioMI 632）。支持池剩余样本不训练、不加入query。
-- 从已完成`leaf_personal_ce_alltest_20261123`逐条核对支持/query ID、共同基线与100步batch流。
-- 复用已校验的原始归一化信号缓存；旧tokens只用于共同不适配对照，联合训练与适配后预测全部重新经过Tower。
-- 短测：2a验证用户6、PhysioMI验证用户70，两组各3步、8条query；只核查工程实现，不选超参数。
-- 不使用query标签或集合统计更新权重、归一化、选点或早停。2a用record/run/event联合键防止重复trial。
-
-## 🔒 固定预算与审计
-
-| 设置 | 固定值 |
-| --- | --- |
-| 支持样本／seed | 每人5条/类，共20条；seed42 |
-| 步数／选点 | 固定100步，无query选点 |
-| Tower与adapter学习率 | 同为1e-4，constant，无新LR组或扫描 |
-| 优化器 | AdamW，weight decay0.01 |
-| 梯度／batch | 两部分合并global clip1；batch16=micro4×4 |
-| 抽样 | 每步类均衡，在已选20条内有放回取样；逐条匹配原baseline |
-| GPU | 0/1联合LoRA，2/3联合全参；每组12/11人，无跨用户梯度聚合 |
-| 恢复 | 跳过完整用户；未完整用户从父模型重跑，不恢复中途优化器 |
-
-每组先检查两部分非零有限梯度与真实更新，Tower冻结部分及全部buffers哈希不变，JEV/connector/head参数版本不变且没有参数梯度。逐用户重置一致、初始adapter恒等、保存重载tokens/logits完全一致。源码/config/父权重/缓存变化触发停止，不在live job中热改。
-
-资源门槛：四卡各至少60,000MiB空闲，磁盘至少20GiB。所有单元测试和四卡短测通过后才正式运行。每10步保存信号侧`last.pt`及loss，完成保存`adapter.pt`、预测和审计；全参组保存的是完整个人Tower＋adapter，不是小LoRA文件。LM权重不复制。
-
-## 📊 输出、比较与限制
-
-根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。主要比较同一用户/同一query上原残差-only、联合LoRA、联合全参的BAcc。先按用户等权得到每库均值，再计算两库等权均值；另列23用户等权均值、每用户变化及负迁移人数。不能将support Acc作为泛化结果。
-
-全部46次通过审计才生成完整汇总，部分结果不混作完整均值。原baseline来自先前已完成运行，不冒充本轮同步重跑的对照；运行前复核相同父权重、输入、batch和初始预测。仅一个seed、2a两名用户，被试8已观察过；属于探索性对照，非盲测或显著性结论。上游LEAF预训练身份重叠未完全排除，个人query是原test子集，不是完整EEG-FM-Bench。
-
-## ⚡ 推理速度基线（不改变适配协议）
-
-`scripts/benchmark_inference.py`是当前模型的只读诊断工具，不是新增训练方案。固定父step1360和2a被试8 joint_lora checkpoint，单卡batch1，测试0.5/1/2/4/8/16/30秒；原提示词、模型精度、未合并LoRA和10秒上限分块保持不变。每项预热10次，50次CUDA同步计时；完整路径与各模块分别测量。
-
-长片段重复真实4秒trial，短片段取前缀，仅用于计算量/延迟测试；没有据此训练、选模型或评价分类准确率。预处理与当前LEAFSignalAdapter逐值核对，分拆语言主干与原JEVBridge logits核对一致。测速不包括采集等待、模型加载或网络开销，详见[结果页](RESULTS.md)及原始记录。当前缺少Qwen线性注意力快速kernel，未安装依赖或进行代码优化。
-
-同一测速脚本支持`--backbone qwen3vl-8b`：从本地ECG-R1-8B-RL读取内置Qwen3VLTextModel对应的语言权重，复用现有JEVBridge.forward的单次决策读出。小主干未进行EEG对齐，连接器为随机256→4096→4096；仅测速，不替换当前正式方法或报告其分类效果。沿用同一信号侧权重、输入和10/50计时预算；tokenizer差异导致文本token数为72而非JEV的76，需与架构/kernel/LoRA路径差异一起披露。原27B结果保留，比较见[结果页](RESULTS.md)。
-
-`--backbone leaf-native`只测发布的完整LEAF，默认分别测FP32和BF16 autocast；strict加载原checkpoint，不用父模型或个人权重。沿用同一4秒输入及预处理，使用发布MPNet缓存、Motor任务指令level1和四类原型，终点为CPU余弦分类argmax；不计在线文本编码。超过10秒分别跑完整LEAF再按分块时长加权平均类别分数，这是显式测速包装，不当作官方原生长序列能力。没有训练、改变当前个人适配方案或覆盖之前结果。
-
-## 🔗 实现与归档
-
-[配置](../configs/personalization.json)、[模型模块](../eeg_align/personalization.py)、[训练入口](../eeg_align/run_personalization.py)、[控制器](../scripts/run_personalization.py)。此前残差-only归档`34c11a8`，运行源码`513427d`；夜间MEMO/SSF/AdaBN全部完成，保留在隔离worktree及原产物，不恢复其独立实现到当前树。原192次计划的取消标记继续保留。
-
-实验设计技能用于逐用户匹配和隔离数据，资源技能用于容量检查，模型技能用于冻结LM梯度路径，Markdown技能用于同步当前协议；沿用现有本地模型/环境。资源目录未能提供本任务适用模型，不作为模型选择证据。过程参考[^skills]不是方法新颖性来源。
-
+[^native]: LEAF官方指令训练说明及固定代码。https://leaf-bci.github.io/docs/instruction-tuning.html ; https://github.com/Jiang-Muyun/LEAF/tree/08ee6577ca4e9517536e73ba3053e676c028a379
+[^data]: LEAF官方数据处理与划分。https://leaf-bci.github.io/docs/datasets/instruction-tuning-datasets.html
+[^heldout]: LEAF官方独立数据集评测。https://leaf-bci.github.io/docs/datasets/held-out.html
 [^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

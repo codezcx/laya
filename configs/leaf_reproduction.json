@@ -1,0 +1,23 @@
+{
+  "upstream": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
+  "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
+  "raw_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/mne_data",
+  "moabb_root": "/inspire/dataset/moabb-processed/v1/EEG-processed",
+  "prepared_root": "datasets/leaf13",
+  "output_root": "artifacts/benchmark/leaf_native13_20261124",
+  "pretrain_checkpoint": "checkpoints/leaf-v1.0-pretrain.ckpt",
+  "pretrain_sha256": "bd5c29ddc047d0765fe72cbd4ee5e95b2bba37dd8632c2bfd31185fc010163ee",
+  "seed": 42,
+  "devices": [0, 1, 2, 3],
+  "batch_size_per_device": 256,
+  "workers_per_device": 4,
+  "prepare_workers": 6,
+  "datasets": ["MI_BCIC_IV2a", "MI_OpenBMI", "MI_ShanghaiU", "MI_HighGamma", "MI_Cho2017", "MI_Shin2017A", "MI_PhysioNet", "EMO_FACED", "EMO_SEED_3_seg4", "EMO_SEED_4_seg4", "EMO_SEED_7_seg4", "SSVEP_OpenBMI", "Workload"],
+  "evaluation": "official valid during training; test only after training, report final epoch and minimum validation loss checkpoint",
+  "scope": "Native instruction-tuning reproduction on 13 available datasets; released unsupervised Tower initialization; not a reproduction of pretraining or all 16 datasets",
+  "known_deviations": {
+    "MI_Cho2017": "MOABB 200Hz, 0.1-75Hz/notch-60 processed trials, then official 0.3-40Hz, right-edge padding and subject robust scaling; no author NPZ source",
+    "MI_HighGamma": "MOABB processed trials instead of author NPZ; official subject ordering, normalization includes left/right/feet before feet are removed by split loader",
+    "SSVEP_OpenBMI": "Only public train blocks from both sessions are available (10800 total trials); public test blocks missing; MOABB preprocessing precedes LEAF filtering/scaling"
+  }
+}

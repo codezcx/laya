@@ -1,8 +1,10 @@
 # Git 与实验产物归档
 
+2026-11-24：当前工作树切换为13库原生LEAF部分复现，见[当前协议](PROTOCOL.md)。上一轮完整Qwen/JEV及个人适配实现和结果提交于 `5611b49`；58个专属代码/配置/测试从当前树移除，可通过隔离worktree恢复。所有ignored数据、检查点、日志、环境和第三方安装均保留。下文为历史阶段记录，不代表当前运行入口。
+
 夜间AdaBN/SSF/MEMO三组23人方法控制已于2026-11-23 20:57:10 UTC全部完成。隔离分支 `experiment/personal-method-controls`、实现 `460d31e` 及 worktree `/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev-worktrees/personal-method-controls` 保留；结果在 `artifacts/benchmark/leaf_personal_methods_20261123/`，没有遗留运行队列。
 
-当前维护同一23名留出用户的残差adapter＋Tower联合LoRA/全参两组匹配控制，见[协议](PROTOCOL.md)。残差-only完整基线归档 `34c11a8`，运行源码 `513427d`，产物 `leaf_personal_ce_alltest_20261123` 保留。新run为 `leaf_personal_joint_20261124`，46次独立个人适配；从历史 `05403f7` 仅复用所需Tower Q/V LoRA，不恢复旧192次计划或新增LM更新。替换前确认四卡任务已结束，不影响live job。全部原数据、权重、缓存和日志保留。
+此前维护同一23名留出用户的残差adapter＋Tower联合LoRA/全参两组匹配控制，其协议保存在Git `5611b49`。残差-only完整基线归档 `34c11a8`，运行源码 `513427d`，产物 `leaf_personal_ce_alltest_20261123` 保留。该run为 `leaf_personal_joint_20261124`，46次独立个人适配，现已全部完成。全部原数据、权重、缓存和日志保留。
 
 `ef07d2c` 保存本轮新增对齐前的纯 Tower 无对比基线：2040 步、完整验证 BAcc 43.41%、Acc 46.32%。`artifacts/benchmark/leaf_tower_jev_20261123/` 中的权重、日志、曲线均保留。历史 VideoMAE 对比实现从 `6247e46` 的隔离 worktree 检查；仅将适用于当前 Tower 的损失/模板/训练协议复用到当前共享模块，不恢复旧 encoder 分支。
 
