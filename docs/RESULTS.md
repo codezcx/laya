@@ -8,7 +8,9 @@ _更新：2026-11-24；原生LEAF完整结束，新的JEV-27B四卡短测通过�
 
 输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。17项单元测试通过。控制器PID1453443；13步四卡真实短测完成，训练分支梯度/四卡同步/样本分片/checkpoint重载检查全部通过，短测访问train208条，valid/test均为0。峰值已分配显存约54.57GiB/卡。
 
-控制器已启动正式四卡训练（2040步、global batch16），正式权重重新初始化，短测不用于选点。当前没有可报告的本轮开发指标；原test仅作为开发池，不视为独立测试。实时状态：[pipeline](../artifacts/benchmark/leaf13_jev27b_20261124/pipeline.json)、[训练进度](../artifacts/benchmark/leaf13_jev27b_20261124/train/progress.json)、[短测完成审计](../artifacts/benchmark/leaf13_jev27b_20261124/smoke/complete.json)。
+控制器已启动正式四卡训练（2040步、global batch16），已核验参数更新到step2。正式初始化与短测起点的Tower/连接器/JEV适配参数/buffers哈希完全一致，短测权重未继承。step0原test开发子集共6,232条，13库等权BAcc为37.21%、Acc为35.47%；仅是更新前基线，不是训练后的效果，也不是完整独立测试。原valid本轮访问计数为0。
+
+实时状态：[pipeline](../artifacts/benchmark/leaf13_jev27b_20261124/pipeline.json)、[训练进度](../artifacts/benchmark/leaf13_jev27b_20261124/train/progress.json)、[短测完成审计](../artifacts/benchmark/leaf13_jev27b_20261124/smoke/complete.json)、[step0开发基线](../artifacts/benchmark/leaf13_jev27b_20261124/train/test_step000000_subset.json)。
 
 | 可训练组 | 参数量 |
 | --- | ---: |
