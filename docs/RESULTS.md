@@ -1,14 +1,14 @@
 # LEAF 13库：JEV训练状态与原生参照
 
-_更新：2026-11-24；原生LEAF完整结束，新的JEV-27B四卡短测通过，正式阶段已启动。_
+_更新：2026-11-24 20:05 UTC；原生LEAF完整结束，共享JEV在新节点恢复，个人适配队列已启动等待共享parent完成。_
 
 ## 📋 当前JEV运行
 
 用户确认使用JEV-27B。运行目录：`artifacts/benchmark/leaf13_jev27b_20261124/`，代码`jev_train/`，配置[jev13_train.json](../configs/jev13_train.json)。13库预处理manifest与native LEAF完全共用；初始化、预算与评估角色差异见[协议](PROTOCOL.md)。
 
-输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。17项单元测试通过。控制器PID1453443；13步四卡真实短测完成，训练分支梯度/四卡同步/样本分片/checkpoint重载检查全部通过，短测访问train208条，valid/test均为0。峰值已分配显存约54.57GiB/卡。
+输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。最初17项单元测试通过。原控制器PID1453443；13步四卡真实短测完成，训练分支梯度/四卡同步/样本分片/checkpoint重载检查全部通过，短测访问train208条，valid/test均为0。峰值已分配显存约54.57GiB/卡。
 
-控制器已启动正式四卡训练（2040步、global batch16），已核验参数更新到step2。正式初始化与短测起点的Tower/连接器/JEV适配参数/buffers哈希完全一致，短测权重未继承。step0原test开发子集共6,232条，13库等权BAcc为37.21%、Acc为35.47%；仅是更新前基线，不是训练后的效果，也不是完整独立测试。原valid本轮访问计数为0。
+节点更换后，控制器PID69498使用`--resume`从完整step1200断点继续，恢复优化器与四卡RNG，不继承断点后的未保存更新。已核验进度到step1660/2040、四组梯度正常，原共享代码/配置哈希没有改变；2040步、global batch16及学习率预算未改。正式初始化与短测起点的Tower/连接器/JEV适配参数/buffers哈希完全一致，短测权重未继承。step0原test开发子集共6,232条，13库等权BAcc为37.21%、Acc为35.47%；仅是更新前基线，不是训练后的效果，也不是完整独立测试。共享运行的原valid访问计数仍为0。
 
 实时状态：[pipeline](../artifacts/benchmark/leaf13_jev27b_20261124/pipeline.json)、[训练进度](../artifacts/benchmark/leaf13_jev27b_20261124/train/progress.json)、[短测完成审计](../artifacts/benchmark/leaf13_jev27b_20261124/smoke/complete.json)、[step0开发基线](../artifacts/benchmark/leaf13_jev27b_20261124/train/test_step000000_subset.json)。
 
@@ -20,6 +20,14 @@ _更新：2026-11-24；原生LEAF完整结束，新的JEV-27B四卡短测通过�
 | 16行choice权重与偏置 | 81,936 |
 
 前340步仅连接器更新，之后四组联合训练；原始27B语言主干权重保持冻结。
+
+## 👤 个人适配队列
+
+用户新授权使用原valid做个人适配。代码与[配置](../configs/personal13.json)已完成，全部25项单元测试通过。控制器PID788058于2026-11-24 20:05:22 UTC启动，预算到2026-11-25 08:05:22 UTC；先准备固定support/query清单，再等待当前共享训练结束及四卡释放，随后真实27B smoke通过才开始正式个人更新。此处“队列启动”不等于个人适配已在GPU更新，尚无本轮适配分数。
+
+预审计：2a 7人、PhysioNet 80人、OpenBMI-MI 42人、OpenBMI-SSVEP 3人符合每类5条support和独立session/run query条件；SSVEP39人因support不足而跳过。四卡各常驻一份冻结parent，按用户领取全部9种方法/对照；在12小时内优先形成完整配对结果，不保证完成132个库内用户。方法、参数量、固定优化设置与见过被试的解释边界见[协议](PROTOCOL.md)。
+
+实时文件：[队列状态](../artifacts/benchmark/leaf13_personal_20261124/queue.json)、[控制器日志](../artifacts/benchmark/leaf13_personal_20261124/controller.log)。启动后依次生成`plan.json`、`smoke.json`、每卡`progress_gpuN.json`与`summary.json`；后者分别列部分完成数据和相同用户完整方法组，不能混用人数不同的均值排名。个人support反传、query不反传且不选点，原test不用于本轮个人适配。
 
 ## 📊 已完成的原生LEAF参照
 

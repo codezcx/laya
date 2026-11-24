@@ -1,6 +1,6 @@
 # LEAF Tower → JEV-27B：13 库验证实验协议
 
-_2026-11-24；当前实现为jev_train/。数据来自已完成原生LEAF复现；历史JEV训练语义来自5611b49。_
+_2026-11-24；共享训练为jev_train/，当前个人适配匹配对照为personal/。数据来自已完成原生LEAF复现；历史JEV训练语义来自5611b49。_
 
 ## 🎯 当前实验
 
@@ -36,7 +36,7 @@ JEV使用本地`laya/JEV-27B-VL`原始语言权重和adapter_vllm；载入现有
 
 ## 📋 评估角色与数据契约
 
-沿用用户对JEV后续实验的现行约定：只使用原train产生梯度，原test用于开发曲线/选点，原valid暂缓，不改变manifest内任何成员和split名称。原valid与原test已经在原生LEAF实验被观察过；暂缓不构成全新盲测。所有选点后的原test分数标记development、independent_test_estimate=false。
+共享训练沿用用户约定：只使用原train产生梯度，原test用于开发曲线/选点，不访问原valid，不改变manifest内任何成员和split名称。下述个人适配遵循更新的用户授权，允许原valid的support更新个人参数；不追溯改变共享训练或原生LEAF的记录。原valid与原test已经在原生LEAF实验被观察过，不构成全新盲测。所有选点后的原test分数标记development、independent_test_estimate=false。
 
 manifest SHA256固定为`60647f3ae8a5fb9cd286a6958cc758d4a394a6c2f748ec8c9379e908400c9f2a`；启动审计窗口数、标签范围、划分间样本不重叠和训练信号有限值，记录源文件stat与每样本ID。signal()逐次检查源shard未改变。类别顺序逐库与固定的LEAF tasks.yaml核对，尤其OpenBMI/SHU为Right/Left，SEED各库不能互套旧标签编号。
 
@@ -76,13 +76,46 @@ HighGamma的文本说明为实际运动；PhysioNet沿用原处理器的二分�
 - 官方主结果还包含每库单独的Tower＋MLP监督微调；本轮未运行该阶段，不能把direct-inference结果与其最佳监督微调结果等同。
 
 
+## 👤 当前个人适配匹配对照
+
+2026-11-24用户明确要求“用验证集来adapter吧，反正现在也用不上验证集。先把效果跑通”。因此原valid不再在本轮个人适配中保留不用，但不改原manifest、不把全部valid混入共享训练。运行只前向该用户的valid support/query，不前向train/test信号。所有方法从共享训练结束后同一个`best.pt`初始化；该parent由原test开发分数选择，其SHA256固定到队列中。
+
+每个用户先固定每类5条support，余下指定session/run的query全部评估。2a用T支持、E评估；PhysioNet用R03–R10支持、R11–R14评估；OpenBMI-MI与SSVEP用较早session支持、较晚session评估。只使用原valid中的成员，未抽中的support侧样本不进入query。按原处理器重建trial/session来源，核对行数和标签顺序；OpenBMI-MI的session边界依据固定官方处理器和400行shard，不声称重新逐条读原MAT验证。所有ID、session/run、support/query哈希、跳过理由写入`plan.json`。
+
+数据审计得到2a 7名、PhysioNet 80名、OpenBMI-MI 42名、SSVEP 3名合格库内用户。SSVEP另外39名原valid在较早session里至少一类不足5条，明确跳过，不偷偷改成更小shot；这3人不能代表完整SSVEP人群。OpenBMI两个任务有被试重叠，因此132个库内用户不等于132名独立参与者。四卡按数据集轮流领取用户，每个用户优先跑完整方法组；12小时预算不保证跑完全部132组。
+
+| 对照 | 个人更新位置 | 个人参数量 | 目标 |
+| --- | --- | ---: | --- |
+| 不适配 | 无；共享parent原样推理 | 0 | 每用户配对基线 |
+| residual | Tower输出后256→64→256残差MLP | 33,088 | CE |
+| soft_prompt | EEG tokens后8×5120向量 | 40,960 | CE |
+| connector_lora | 连接器第二个5120→5120线性层的rank4增量 | 40,960 | CE |
+| kv_prefix | 最后4个full-attention层，每层5个KV槽 | 40,960 | CE |
+| soft_prompt_kd | 与soft_prompt相同 | 40,960 | CE＋0.1 KL |
+| residual_kd | 与residual相同 | 33,088 | CE＋0.1 KL |
+| soft_prompt_residual | soft prompt与残差MLP联合 | 74,048 | CE |
+| icl | 序列前加support EEG tokens及真实语义标签 | 0 | 不训练，只前向 |
+| icl_shuffled | 同样示例及顺序，置换示例标签 | 0 | ICL必要对照 |
+
+共享Tower、连接器原权重、JEV原权重/已有LoRA/choice head全部冻结；梯度允许穿过JEV到个人模块。此处connector_lora不是解冻原连接器，也不是更新JEV原LoRA。个人KV prefix位于Qwen3.5的第51/55/59/63层（从0计数），直接学习post-RoPE K/V，不改原序列position，不在linear-attention层仿造KV cache；关闭时严格调用原attention路径。
+
+沿用历史个人适配的AdamW lr=1e-4、weight_decay=0.01、batch16、microbatch4、100步、clip=1、基础seed42、残差宽64。没有按方法单独调LR，也不扫seed/shot/训练步数。每用户所有方法使用相同support抽样及选项置换；每用户重新初始化个人参数，不跨用户继承。保存第100步结果，不用query选点或早停。soft prompt与KV prefix插入本身可能改变未训练输出，所以另外保存各自step0的query logits，不能把结构插入效果算成学习收益。
+
+蒸馏教师是冻结parent，分别用正序/倒序选项推理support，再映射回语义类别求概率均值；仅两种教师都预测对已知support标签的样本施加KL。温度1、权重0.1固定；教师不看query。这只是本轮待检验的正则组件，不称BiomedCoOp复现。ICL未在共享SFT专门训练过，也不预设有效。
+
+记录每用户support Acc、query Acc/BAcc、不适配基线、变化百分点、负迁移、步级CE/KL/梯度、个人参数量和逐样本预测。总体比较只用`summary.json`中`matched_complete_blocks`的相同用户，不拿完成数量不同的方法均值排名。不把query预测回灌训练。
+
+这些用户全部在共享train出现过其他trial，共享训练也接触过同session的其他样本；已有预处理含组内统计。不同session/run只保证个人support与query的trial隔离，不能宣称共享模型从未见过该session。结果标记`seen_subject_personalization_development`，不是未见用户、跨数据集zero-shot或独立测试。
+
+运行入口`python -m personal.run --start`。12小时从队列启动计时，包含等待共享训练收尾和真实27B smoke；最多四张卡各一个冻结parent。smoke只用valid support，核验原无适配forward一致、每个模块非零有限梯度、共享参数不变和个人参数重载一致。任一失败停止队列。每10步保存可恢复个人checkpoint，deadline后在当前步结束处保存，评估/退出可能稍晚；不加长训练填满预算。
+
 ## 🔧 工程与历史参照
 
 原生LEAF13库复现已完成，完整源码与协议归档Git `73e26f9`。原生LEAF使用无监督预训练Tower、MPNet＋IQF，完整测试Task+Targets BAcc为第50轮49.59%、第100轮48.85%；其valid/test角色与本轮JEV不同。原生复现实现保留为同数据参照与公共准备工具，不与JEV同时重复训练。
 
 当前JEV训练器、权重加载、分阶段LR、选项重排、梯度同步与小checkpoint语义继承Git `5611b49`，仅恢复当前需要的模块，未恢复旧独立实验。17项单元测试和13步四卡真实短测均已通过；控制器随后自动进入正式阶段。
 
-资源检查/Transformers技能用于本地权重与四卡容量核查，Markdown技能用于记录可复核的训练参数和数据边界；科学模型目录未检索到适用EEG条目，未引入其他模型或服务。[^skills]
+资源检查/Transformers技能用于本地权重与四卡容量核查，实验设计技能用于同用户匹配、session/run隔离及参数量控制，Markdown技能用于记录可复核的训练参数和数据边界；科学模型目录未检索到适用EEG条目，未引入其他模型或服务。[^skills]
 
 [^native]: LEAF固定官方代码。https://github.com/Jiang-Muyun/LEAF/tree/08ee6577ca4e9517536e73ba3053e676c028a379
 [^data]: LEAF官方数据处理与划分。https://leaf-bci.github.io/docs/datasets/instruction-tuning-datasets.html
