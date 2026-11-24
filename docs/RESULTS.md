@@ -1,12 +1,23 @@
 # LEAF 13库：JEV训练状态与原生参照
 
-_更新：2026-11-24 18:23 UTC；100 epochs 与两个 checkpoint 的13库完整测试均已完成。_
+_更新：2026-11-24；原生LEAF完整结束，新的JEV-27B四卡短测通过，正式阶段已启动。_
 
 ## 📋 当前JEV运行
 
 用户确认使用JEV-27B。运行目录：`artifacts/benchmark/leaf13_jev27b_20261124/`，代码`jev_train/`，配置[jev13_train.json](../configs/jev13_train.json)。13库预处理manifest与native LEAF完全共用；初始化、预算与评估角色差异见[协议](PROTOCOL.md)。
 
-输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。17项单元测试通过。四卡短测和正式训练准备启动；尚无本轮JEV指标。原test仅作为开发池，不视为独立测试。
+输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。17项单元测试通过。控制器PID1453443；13步四卡真实短测完成，训练分支梯度/四卡同步/样本分片/checkpoint重载检查全部通过，短测访问train208条，valid/test均为0。峰值已分配显存约54.57GiB/卡。
+
+控制器已启动正式四卡训练（2040步、global batch16），正式权重重新初始化，短测不用于选点。当前没有可报告的本轮开发指标；原test仅作为开发池，不视为独立测试。实时状态：[pipeline](../artifacts/benchmark/leaf13_jev27b_20261124/pipeline.json)、[训练进度](../artifacts/benchmark/leaf13_jev27b_20261124/train/progress.json)、[短测完成审计](../artifacts/benchmark/leaf13_jev27b_20261124/smoke/complete.json)。
+
+| 可训练组 | 参数量 |
+| --- | ---: |
+| LEAF信号Tower实际forward | 19,557,632 |
+| 两层MLP连接器 | 27,535,872 |
+| JEV已有LoRA | 217,579,520 |
+| 16行choice权重与偏置 | 81,936 |
+
+前340步仅连接器更新，之后四组联合训练；原始27B语言主干权重保持冻结。
 
 ## 📊 已完成的原生LEAF参照
 
