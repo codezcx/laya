@@ -1,7 +1,8 @@
-"""Independent per-user residual adapters, supervised through a fully frozen JEV."""
+"""Matched per-user joint Tower/residual adaptation through a frozen JEV."""
 from collections import defaultdict
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 
@@ -9,6 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.utils import parametrize
 
 from .checkpoint import tensor_fingerprint
 from .online_leaf import OnlineLEAFTower, upstream_files
@@ -119,8 +121,9 @@ def make_manifest(store, smoke=False):
                     for name in CONFIG['datasets']}
         if observed != CONFIG['held_out_subjects']:
             raise ValueError(f'Unexpected held-out subject list: {observed}')
-    for index, case in enumerate(cases):
-        case['worker'] = index % len(CONFIG['gpus'])
+    cohort_index = {(c['dataset'], c['subject']): i for i, c in enumerate(cohorts)}
+    for case in cases:
+        case['worker'] = 2 * CONFIG['arms'].index(case['arm']) + cohort_index[(case['dataset'], case['subject'])] % 2
     return dict(config=CONFIG, smoke=smoke, original_split=split, cohorts=cohorts, cases=cases,
                 cache_indexes={store.tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
                 query_used_for_selection=False, original_splits_modified=False)
@@ -145,6 +148,61 @@ class ResidualAdapter(nn.Module):
 
     def forward(self, x):
         return x + self.up(F.gelu(self.down(x)))
+
+
+class QVDelta(nn.Module):
+    """Same zero-init Q/V-only MHA parametrization as the earlier personal C arm."""
+    def __init__(self, width, rank, alpha):
+        super().__init__()
+        self.scale = alpha / rank
+        self.q_A = nn.Parameter(torch.empty(rank, width))
+        self.q_B = nn.Parameter(torch.zeros(width, rank))
+        self.v_A = nn.Parameter(torch.empty(rank, width))
+        self.v_B = nn.Parameter(torch.zeros(width, rank))
+        nn.init.kaiming_uniform_(self.q_A, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.v_A, a=math.sqrt(5))
+
+    def forward(self, original):
+        q, v = self.q_B @ self.q_A, self.v_B @ self.v_A
+        return original + self.scale * torch.cat([q, torch.zeros_like(q), v])
+
+
+def install_lora(encoder, config=CONFIG):
+    encoder.requires_grad_(False)
+    locations = []
+    for branch in ('mask_transformer', 'next_transformer'):
+        layers = getattr(encoder.tower, branch).layers
+        for index in range(len(layers)-config['lora']['last_layers'], len(layers)):
+            attention = layers[index].self_attn
+            if not isinstance(attention, nn.MultiheadAttention) or not attention._qkv_same_embed_dim:
+                raise ValueError('Expected combined QKV multi-head attention')
+            delta = QVDelta(attention.embed_dim, config['lora']['rank'], config['lora']['alpha'])
+            delta.to(device=attention.in_proj_weight.device, dtype=attention.in_proj_weight.dtype)
+            parametrize.register_parametrization(attention, 'in_proj_weight', delta)
+            locations.append(f'tower.{branch}.layers.{index}.self_attn.in_proj_weight')
+    return locations
+
+
+class JointPersonal(nn.Module):
+    """Only signal-side parameters; never contains the frozen LM or connector."""
+    def __init__(self, encoder, adapter):
+        super().__init__()
+        self.encoder, self.adapter = encoder, adapter
+
+    def forward(self, x):
+        return self.adapter(self.encoder(x))
+
+
+def configure_personal(encoder, adapter, mode):
+    if mode == 'lora':
+        locations = install_lora(encoder)
+    elif mode == 'full':
+        encoder.requires_grad_(True)
+        locations = []
+    else:
+        raise ValueError(f'Unknown Tower mode: {mode}')
+    encoder.eval()  # Gradients enabled; BN statistics and dropout policy unchanged.
+    return JointPersonal(encoder, adapter), locations
 
 
 def load_parent():
@@ -185,4 +243,4 @@ def copy_trainable(module, state):
 
 
 def fixed_server_versions(server):
-    return {n: p._version for n, p in server.named_parameters()}
+    return {n: p._version for n, p in server.named_parameters() if not n.startswith('eeg_encoder.')}

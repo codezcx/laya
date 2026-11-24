@@ -1,75 +1,72 @@
-# 全部留出用户的个人残差适配协议
+# 个人残差 adapter＋LEAF Tower 联合适配协议
 
-_2026-11-23：扩展成功的个人CE pilot；固定训练预算，仅增加目标用户覆盖。_
+_2026-11-24：相对完成的23人残差-only对照，仅改变Tower参数更新方式。_
 
----
+## 🎯 问题与假设
 
-## 🎯 问题与本轮假设
+目标是用单个新用户的少量标注数据适配已训练EEG→JEV系统，同时保持服务器LM不变。原残差-only两库等权BAcc为50.18%；本轮检验进一步更新Tower是否改善独立session/run预测，而非仅提高支持集拟合。不增加共享源用户训练，不新增对比损失、TTT或LM更新。
 
-目标是让已训练的EEG→JEV系统，利用新用户少量标注样本做个人校准，同时保持服务器LM和共享信号模型不变。少量样本可拟合支持集，却不一定提升独立session/run；因此主要观察同一用户在同一query上的适配前后差值，而不是支持集准确率。
+## ⚙️ 两组训练路径
 
-旧2a被试8、20条support、100步的B＋冻结LM结果为64.93%（不适配53.82%）。本轮假设是该机制能在更多目标用户上改善表现；不将单用户成绩外推为结论。只扩展该分支，不新增对比损失、TTT、源用户共享训练、LM LoRA或Tower解冻对照。
+两组都使用个人原始EEG→Tower→残差adapter→冻结原connector→冻结JEV；支持集标签与JEV choice logits的交叉熵是唯一损失。梯度穿过冻结LM和连接器，最终预测仍由JEV输出。
 
-## ⚙️ 唯一训练路径
+| 模块 | joint_lora | joint_full |
+| --- | --- | --- |
+| LEAF forward Tower | 双分支最后两层attention的Q/V LoRA-r8；alpha8，无LoRA dropout | 全部19,557,632个前向参数 |
+| 残差adapter | 更新33,088参数 | 更新33,088参数 |
+| 原MLP connector，27,535,872参数 | 冻结 | 冻结 |
+| JEV基础权重、已有语言LoRA、choice head | 全冻结 | 全冻结 |
+| Tower BN running统计量及所有buffers | 冻结 | 冻结 |
+| 总可训练参数 | 65,856 | 19,590,720 |
 
-个人EEG经过已训练且冻结的LEAF Tower、个人残差adapter、冻结原connector、冻结JEV，得到choice logits。损失为support真实标签对choice logits的交叉熵；梯度经过冻结JEV和connector，只有adapter参数更新。没有文本原型相似度读出。
+adapter为256→64→256、GELU、残差上投影零初始化。LoRA为原个人C分支相同的Q/V低秩参数化，不更新K或原投影权重；两组均保留Tower eval模式，仅改变requires_grad，不引入BN适配或dropout差异。全参指实际forward Tower，既有接口已移除不用的重建头。
 
-adapter为 `z + Linear(64,256)(GELU(Linear(256,64)(z)))`，含bias共33,088参数；上投影weight/bias零初始化，初始函数恒等。Tower有19,557,632参数，四秒输入输出16×256 tokens；原connector是LN256→Linear256/5120→GELU→Linear5120/5120，共27,535,872参数。JEV全部冻结，包括基础权重、已有语言LoRA、choice head；仍需云端LM前向和输入梯度计算，不是纯边缘设备本地训练。
-
-父模型固定为 `artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，原验证选中step1360。每个用户重置到同一个adapter初始权重，新建优化器；不继承另一用户的更新。父模型不因个人适配改变。
+父模型固定为`artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，原验证选中step1360。每位用户独立重置Tower、LoRA、adapter及优化器；不继承另一人的更新，也不从上一轮个人adapter再加100步。先seed42初始化adapter，再单独重置seed42初始化LoRA，保持adapter初始化跨组一致。每个用户需云端LM前向及输入梯度，不是纯边缘端训练。
 
 ## 📋 数据与划分
 
-以下是父模型使用的处理后窗口/原被试划分，不是本轮个人support/query数量。当前MI缓存每trial恰好一个4秒窗口。
+下表描述父模型处理后窗口与原被试划分，不是个人support/query数量。MI缓存每trial恰好一个4秒窗口。
 
-| 数据集 | 处理后窗口数：总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试数：总计（父模型原训／验／测） |
+| 数据集 | 处理后窗口总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（父模型原训／验／测） |
 | --- | ---: | --- | --- | ---: |
-| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 原固定跨被试；个人T→E session | 9（5/2/2） |
-| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 原固定跨被试；个人前四→后两imagery run | 109（69/19/21） |
+| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 固定跨被试；个人T→E session | 9（5/2/2） |
+| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 固定跨被试；个人前四→后两imagery run | 109（69/19/21） |
 
-- 主实验：2a被试8、9；PhysioMI被试89–109，共23人。未将原训练/验证被试算入新用户主结果。
-- 2a：每人从T session 288条中按类无放回取5条，共20条支持；E session全部288条query。两人共40条支持、576条query。
-- PhysioMI：每人从R04/R06/R08/R10按类无放回取5条，共20条支持；R12/R14全部query。21人共420条支持、632条query。
-- 总计460条支持样本选择、1,208条query；支持池剩余样本不训练，也不并入query。
-- seed42和每类抽样算法逐条沿用旧InfoNCE个人实验；支持与query ID、记录边界和batch流有哈希核对。
-- 短测只用原验证被试2a 6、PhysioMI 70，各3步，取8条query检查工程正确性；不选超参数，不计入主结果。
-- 2a六个run的event会重置，使用record/run/event联合键查重；不将同trial多个窗口误当独立样本。
-- 预处理和Tower tokens复用已校验的个人输入缓存；不利用query集合统计拟合归一化。问题文本不含query真值。
+- 正式用户：2a 8、9；PhysioMI 89–109。两组各23人，共46次独立适配。
+- 每人按类无放回选择5条，共20条；2a支持来自T session，query为全部E session；PhysioMI支持来自R04/R06/R08/R10，query为全部R12/R14。
+- 每组共460条support、1,208条query（2a 576，PhysioMI 632）。支持池剩余样本不训练、不加入query。
+- 从已完成`leaf_personal_ce_alltest_20261123`逐条核对支持/query ID、共同基线与100步batch流。
+- 复用已校验的原始归一化信号缓存；旧tokens只用于共同不适配对照，联合训练与适配后预测全部重新经过Tower。
+- 短测：2a验证用户6、PhysioMI验证用户70，两组各3步、8条query；只核查工程实现，不选超参数。
+- 不使用query标签或集合统计更新权重、归一化、选点或早停。2a用record/run/event联合键防止重复trial。
 
 ## 🔒 固定预算与审计
 
 | 设置 | 固定值 |
 | --- | --- |
-| 每人支持样本 | 5条/类，共20条 |
-| 更新预算 | 100步，seed42，仅一个seed |
-| 优化器/学习率 | AdamW，1e-4，constant |
-| Batch | 16，microbatch4，累积4次 |
-| 正则/梯度 | weight decay0.01，clip norm1 |
-| 每步抽样 | 类别均衡；在已选20条支持样本内有放回抽取 |
-| 选点 | 固定第100步，无query早停/选点 |
-| 并行 | 四卡各持同一冻结父模型，独立处理不同用户；不DDP合并用户梯度 |
-| 恢复 | 完整用户跳过；未完整用户从父模型重跑，不声称中途精确续训 |
+| 支持样本／seed | 每人5条/类，共20条；seed42 |
+| 步数／选点 | 固定100步，无query选点 |
+| Tower与adapter学习率 | 同为1e-4，constant，无新LR组或扫描 |
+| 优化器 | AdamW，weight decay0.01 |
+| 梯度／batch | 两部分合并global clip1；batch16=micro4×4 |
+| 抽样 | 每步类均衡，在已选20条内有放回取样；逐条匹配原baseline |
+| GPU | 0/1联合LoRA，2/3联合全参；每组12/11人，无跨用户梯度聚合 |
+| 恢复 | 跳过完整用户；未完整用户从父模型重跑，不恢复中途优化器 |
 
-控制器检查四卡各至少60,000MiB空闲、磁盘至少20GiB。启动前单元测试、两名验证被试真实GPU短测全部通过后才进入正式运行。
+每组先检查两部分非零有限梯度与真实更新，Tower冻结部分及全部buffers哈希不变，JEV/connector/head参数版本不变且没有参数梯度。逐用户重置一致、初始adapter恒等、保存重载tokens/logits完全一致。源码/config/父权重/缓存变化触发停止，不在live job中热改。
 
-每次适配核查：初始adapter恒等；共同不适配基线等于旧实验同query；训练batch ID流相同；adapter真实更新；Tower/JEV参数及buffers不变且无参数梯度；保存重载tokens与logits一致；无query选点。源码/config/父权重/缓存哈希改变则停止，不热改训练语义。
+资源门槛：四卡各至少60,000MiB空闲，磁盘至少20GiB。所有单元测试和四卡短测通过后才正式运行。每10步保存信号侧`last.pt`及loss，完成保存`adapter.pt`、预测和审计；全参组保存的是完整个人Tower＋adapter，不是小LoRA文件。LM权重不复制。
 
-旧个人CE运行被用户取消的剩余批次继续保持取消。本轮使用新run根目录，不覆盖或篡改旧manifest、取消标记或结果。旧amortized训练已结束并归档，不保留独立实现分支在当前工作树。
+## 📊 输出、比较与限制
 
-## 📊 输出与解读
+根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。主要比较同一用户/同一query上原残差-only、联合LoRA、联合全参的BAcc。先按用户等权得到每库均值，再计算两库等权均值；另列23用户等权均值、每用户变化及负迁移人数。不能将support Acc作为泛化结果。
 
-根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`。逐用户记录支持集CE/Acc、query适配前后Acc/BAcc、confusion matrix、耗时、参数数、训练批次与冻结审计、小adapter checkpoint、逐trial预测。
+全部46次通过审计才生成完整汇总，部分结果不混作完整均值。原baseline来自先前已完成运行，不冒充本轮同步重跑的对照；运行前复核相同父权重、输入、batch和初始预测。仅一个seed、2a两名用户，被试8已观察过；属于探索性对照，非盲测或显著性结论。上游LEAF预训练身份重叠未完全排除，个人query是原test子集，不是完整EEG-FM-Bench。
 
-主汇总先在每库按用户等权平均BAcc，再报告两库等权平均；另列23名用户等权平均，避免混淆两种权重。报告改善/下降/持平人数、各用户差值，不只报均值。只有23人全部完成且审计通过才标完整汇总；部分结果不冒充完整结果。
+## 🔗 实现与归档
 
-2a只有两名目标用户、一个seed，且被试8已观察过；本轮是探索性扩展，不宣称盲测、显著性或严格zero-shot。上游LEAF预训练身份重叠未完整排除。父模型与EEG-FM-Bench原论文仍有已记录窗口数量差异，详见[结果页](RESULTS.md)。本轮个人query是原test的严格子集，不等于原test整份评测。
+[配置](../configs/personalization.json)、[模型模块](../eeg_align/personalization.py)、[训练入口](../eeg_align/run_personalization.py)、[控制器](../scripts/run_personalization.py)。此前残差-only归档`34c11a8`，运行源码`513427d`；夜间MEMO/SSF/AdaBN全部完成，保留在隔离worktree及原产物，不恢复其独立实现到当前树。原192次计划的取消标记继续保留。
 
-## 🔗 实现与过程来源
-
-后续夜间匹配方法对照已在隔离分支 `experiment/personal-method-controls` 实现（`460d31e`）：AdaBN＋CE、内部SSF、CE＋MEMO。原基线所有规则不变；新方法逐一比较同一20条support与同一query，不扫描shot或LR。SSF参数量63,488，MEMO额外使用当前query无标签更新，需分别报告容量与transductive差异。完整方法协议位于 `/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev-worktrees/personal-method-controls/docs/PROTOCOL.md`；主工作树不热改源文件。夜间截止2026-11-23 22:50:52 UTC。
-
-当前入口与全部设置见[配置](../configs/personalization.json)、[个人适配模块](../eeg_align/personalization.py)、[训练入口](../eeg_align/run_personalization.py)、[控制器](../scripts/run_personalization.py)。旧成功pilot见[原结果](../artifacts/benchmark/leaf_personalization_jev_ce_20261123/pilot_summary.json)，历史代码 `05403f7` 在隔离worktree检查复用。
-
-实验设计/资源检查技能用于锁定逐用户配对、泄漏边界和运行容量；Transformers技能用于检查冻结模型仍传递输入梯度；Markdown技能用于同步当前协议。未更换现有模型或依赖。科学资源目录无法访问，不作为模型选择证据；采用现有本地权重。技能过程参考[^skills]，不是本方法的新颖性来源。
+实验设计技能用于逐用户匹配和隔离数据，资源技能用于容量检查，模型技能用于冻结LM梯度路径，Markdown技能用于同步当前协议；沿用现有本地模型/环境。资源目录未能提供本任务适用模型，不作为模型选择证据。过程参考[^skills]不是方法新颖性来源。
 
 [^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

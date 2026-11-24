@@ -1,22 +1,33 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-23。当前扩展个人残差adapter＋冻结JEV到全部23名原测试被试，见[协议](PROTOCOL.md)。_
+_更新：2026-11-24。当前为个人残差adapter＋Tower LoRA/全参两组联合适配，见[协议](PROTOCOL.md)。_
 
----
+## 📋 当前：联合更新 adapter 与 Tower
 
-## 📋 当前：全部留出用户的个人CE适配
+两组各23人，GPU 0/1为联合LoRA-r8，GPU 2/3为联合全参。每人20条support、seed42、100步；Tower和adapter同为LR1e-4，原AdamW/wd0.01/global clip1/batch16全部不变。共享父模型仍为step1360，JEV和原connector全冻结，BN统计量不更新。每位用户重新初始化，不从上一轮个人adapter再叠加训练。
 
-2026-11-23 17:06:06 UTC另已启动方法对照夜间队列，控制器2854547；先做输入校验，随后等待本基线完成再运行MEMO、SSF、AdaBN。不是shot/step/seed扫描。三组同一23人、每类5条；监督组均100步、LR1e-4，JEV全部冻结。SSF新增63,488参数，不与33,088参数残差adapter冒称等容量；MEMO从各用户完成的CE adapter起步，逐query无标签更新并重置，另保留只做增强平均控制；AdaBN只用support统计，另保留AdaBN-only控制。
+109项自动测试通过，真实Tower参数核对：LoRA联合65,856参数，全参联合19,590,720参数。正式运行前四卡各做原验证用户3步短测，须通过两分支梯度/更新、冻结参数/buffers、共同基线/批次及保存重载审计。尚无正式结果，不能把旧C分支的单独LoRA结果称作联合训练结果。
 
-隔离实现 `460d31e`，119项自动测试已通过；实际GPU短测尚待基线释放资源，不报告新方法准确率。[夜间状态](../artifacts/benchmark/leaf_personal_methods_20261123/pipeline.json)。代码/完整协议在 `../eegjev-worktrees/personal-method-controls` 分支worktree；新输出根 `artifacts/benchmark/leaf_personal_methods_20261123/`。截止2026-11-23 22:50:52 UTC，部分结果明确标注覆盖，不混作完整23人均值。
+根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。实际状态见[pipeline.json](../artifacts/benchmark/leaf_personal_joint_20261124/pipeline.json)，每10步loss和信号侧checkpoint即时保存；46次完整适配通过审计后才生成完整汇总。
 
-沿用2a被试8获得64.93%的残差adapter方法，扩展至2a 8、9及PhysioMI 89–109；每人每类5条、seed42、100步。只更新33,088参数，Tower、原connector、JEV及其LoRA/head冻结。没有额外源用户训练，没有TTT、多shot或多seed。
+## 📊 已完成：23名留出用户残差-only基线
 
-本轮根目录 `artifacts/benchmark/leaf_personal_ce_alltest_20261123/`。105项自动测试、两名原验证用户各3步真实GPU短测通过：初始恒等、共同基线/批次ID一致、仅33,088个adapter参数更新、父模型及buffers冻结、保存重载一致。[短测审计](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/smoke_verified.json)。短测只检查工程正确性，不作为任务效果。
+2026-11-23 17:56:59 UTC全部完成，运行源码`513427d`。每人20条support、seed42、100步，仅更新33,088参数；Tower/JEV/连接器冻结。下表原划分计数与个人support/query不同。
 
-2026-11-23 16:41:33 UTC已启动四卡正式适配，16:42:33 UTC四个worker均加载完成。控制器1927932，worker PID为1986578/1986579/1986580/1986581，分别承担6/6/6/5人。源码提交 `513427d`，文档更新不改变训练哈希；460条support、1,208条query清单已核验。尚无正式完成用户，不报告本轮准确率。
+| 数据集 | 处理后窗口总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（父模型原训／验／测） | 本轮用户 | Support/query | 不适配BAcc（%） | 残差adapter BAcc（%） | 提升（百分点） | 提升/下降/持平人数 |
+| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| BCIC-IV-2a | 5,184（2,880/1,152/1,152） | 运动想象（4类） | 固定跨被试；个人T→E | 9（5/2/2） | 2 | 40/576 | 50.87 | 57.81 | +6.94 | 2/0/0 |
+| PhysioMI | 9,837（6,210/1,734/1,893） | 运动想象（4类） | 固定跨被试；个人前四→后两run | 109（69/19/21） | 21 | 420/632 | 38.08 | 42.54 | +4.46 | 14/7/0 |
 
-真实进度见[pipeline.json](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/pipeline.json)、四个 `worker_*.json`及各用户 `complete.json`。完整23人结束后生成 `summary.md/json`，含逐用户前后BAcc、两库各自与等权均值、负迁移人数。每人100步的旧pilot约12–13分钟，本轮短测约8.2秒/步；四卡整轮预计约80–100分钟，正式速度稳定后再更新。
+两库等权44.48%→50.18%，+5.70个百分点；23用户等权39.19%→43.87%，+4.68个百分点。两种权重不是同一指标。被试8复现64.93%，被试9为50.69%。[完整汇总](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/summary.md)、[机器记录](../artifacts/benchmark/leaf_personal_ce_alltest_20261123/summary.json)。
+
+## 📊 已完成：夜间方法控制
+
+MEMO、SSF、AdaBN均23/23完成，控制器于2026-11-23 20:57:10 UTC结束，无遗留队列。两库等权BAcc：MEMO 49.80%，SSF 47.03%，AdaBN＋残差CE 48.99%。原残差-only为50.18%，未观察到这些方法超过它。
+
+MEMO逐query无标签更新，严格同单trial batch对照为50.12%（而非原batch8的50.18%，有bf16批大小数值差异），相对该匹配对照下降0.32个百分点；不把差异都归为算法。SSF有63,488参数，容量不等同残差adapter；MEMO/AdaBN为TTA，不冒称原始联合自监督TTT。
+
+实现保留在隔离worktree `../eegjev-worktrees/personal-method-controls`（实现`460d31e`）。[完整方法结果](../artifacts/benchmark/leaf_personal_methods_20261123/summary.json)、[完成记录](../artifacts/benchmark/leaf_personal_methods_20261123/complete.json)；原产物不删除。
 
 ## 📦 已归档：G/H＋FiLM前向适配
 

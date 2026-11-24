@@ -1,4 +1,4 @@
-"""Support-only personal residual adaptation across all 23 original held-out MI users."""
+"""Matched joint residual/Tower personal adaptation for 23 held-out MI users."""
 import argparse
 from collections import defaultdict
 import json
@@ -16,7 +16,8 @@ from .distributed import atomic_save
 from .multitask_data import TrialStore, write_json
 from .personalization import (CONFIG, DATA, ROOT, ResidualAdapter,
     check_support_rows, copy_trainable, frozen_hash, ids_hash, load_encoder,
-    load_parent, make_manifest, source_identity, trainable_state, fixed_server_versions)
+    load_parent, make_manifest, source_identity, trainable_state, fixed_server_versions,
+    configure_personal)
 from .runtime import digest
 from .task_options import make_variant
 
@@ -81,24 +82,26 @@ def prepare(root):
             raise ValueError('Support/query cohorts differ from previous experiment')
         lookup = {c['key']:c for c in original['cases']}
         for c in manifest['cases']:
-            reference_key = f'{c["dataset"]}_s{c["subject"]}_{c["signal_arm"]}_k{c["shots_per_class"]}_seed{c["seed"]}'
+            reference_key = f'{c["dataset"]}_s{c["subject"]}_residual_frozen_k{c["shots_per_class"]}_seed{c["seed"]}'
             prior = lookup[reference_key]
             for field in ('support_ids','query_ids','support_sha256','query_sha256','original_split'):
                 if c[field] != prior[field]:
                     raise ValueError(f'Unmatched reference trial list: {reference_key}/{field}')
             c['reference_case'] = reference_key
+            reference_result = source/('smoke' if smoke else 'episodes')/reference_key/'complete.json'
+            artifacts[str(reference_result)] = digest(reference_result)
         write_json(root/name, manifest)
         artifacts[str(root/name)] = digest(root/name)
     guard()
     proof = dict(code_sha256=hashes, parent_step=saved['step'], encoder_sha256=previous['encoder_sha256'],
                  parent_checkpoint_sha256=previous['parent_checkpoint_sha256'],
-                 input_root=str(source), source_train_only=True, target_used_for_projection_fit=False,
+                 input_root=previous['input_root'], source_train_only=True, target_used_for_projection_fit=False,
                  direct_text_readout_used=False, inputs_identical_to_reference=True,
                  artifacts_sha256=artifacts,
                  personal_cases=len(make_manifest(store)['cases']), subjects=len(make_manifest(store)['cohorts']))
     write_json(root/'prepared.json', proof)
     report(root/'prepare_progress.json', status='complete', personal_cases=proof['personal_cases'],
-           subjects=proof['subjects'], input_root=str(source))
+           subjects=proof['subjects'], input_root=proof['input_root'])
 
 
 def load_server(saved, encoder):
@@ -140,6 +143,13 @@ def metrics(rows, scores, classes):
     return {kind: classification_metrics(labels, value, classes) for kind,value in scores.items()}
 
 
+@torch.no_grad()
+def encode_personal(personal, signals):
+    personal.eval()
+    return torch.cat([personal(signals[i:i+CONFIG['encode_batch']]).cpu()
+                      for i in range(0, len(signals), CONFIG['encode_batch'])])
+
+
 def worker(root, worker_id, smoke=False):
     prepared = json.loads((root/'prepared.json').read_text())
     if prepared['code_sha256'] != source_identity():
@@ -171,16 +181,21 @@ def worker(root, worker_id, smoke=False):
     server, tokenizer = load_server(saved, encoder)
     del saved
     seed_rng(CONFIG['seed'])
-    personal = ResidualAdapter(bottleneck=CONFIG['adapter_width']).cuda()
+    adapter = ResidualAdapter(bottleneck=CONFIG['adapter_width']).cuda()
+    adapter_init_hash = tensor_fingerprint(adapter.state_dict())
     if any(p.requires_grad for p in server.parameters()):
         raise ValueError('The complete parent, including language LoRA, must be frozen')
+    # Preserve the baseline's adapter initialization, independently of LoRA allocation.
+    seed_rng(CONFIG['seed'])
+    personal, locations = configure_personal(encoder, adapter, cases[0]['tower_mode'])
     server_version = fixed_server_versions(server)
     server_buffer_hash = tensor_fingerprint(dict(server.named_buffers()))
-    parameters = list(personal.parameters())
+    parameters = [p for p in personal.parameters() if p.requires_grad]
     initial_state = trainable_state(personal)
     fixed_encoder_hash = frozen_hash(encoder)
     n_params = sum(p.numel() for p in parameters)
-    if n_params != 33088:
+    tower_n = sum(p.numel() for p in encoder.parameters() if p.requires_grad)
+    if tower_n != (32768 if cases[0]['tower_mode'] == 'lora' else 19557632) or n_params != tower_n + 33088:
         raise ValueError('Unexpected personal parameter count')
     parameter_groups = [dict(params=parameters, lr=CONFIG['learning_rate'])]
     tasks = TrialStore().tasks
@@ -214,11 +229,14 @@ def worker(root, worker_id, smoke=False):
         si, qi = [ix[r['id']] for r in support_rows], [ix[r['id']] for r in query_rows]
         base_support = cache['tokens'][si].cuda()
         base_query = cache['tokens'][qi]
+        support_signals, query_signals = cache['x'][si].cuda(), cache['x'][qi]
         task = tasks[case['task']]
         copy_trainable(personal, initial_state)
+        if tensor_fingerprint(trainable_state(personal)) != tensor_fingerprint(initial_state):
+            raise RuntimeError('Per-user Tower/adapter reset failed')
         server.eval()
         with torch.no_grad():
-            identity_error = float((personal(base_support)-base_support).abs().max())
+            identity_error = float((adapter(base_support)-base_support).abs().max())
         if identity_error != 0:
             raise RuntimeError(f'Non-identity initialization: {identity_error}')
         baseline_path = out/f'baseline_{key[0]}_s{key[1]}_worker{worker_id}.pt'
@@ -231,17 +249,17 @@ def worker(root, worker_id, smoke=False):
                             scores=predict(base_query, query_rows, server, tokenizer, task))
             atomic_save(baseline, baseline_path)
         baseline_metrics = metrics(query_rows, baseline['scores'],len(task['classes']))
-        old_path = input_root/('smoke' if smoke else 'episodes')/case['reference_case']/'complete.json'
+        old_path = Path(CONFIG['reference_run'])/('smoke' if smoke else 'episodes')/case['reference_case']/'complete.json'
         old_result = json.loads(old_path.read_text())
         if baseline_metrics['jev'] != old_result['baseline']['jev']:
-            raise ValueError('Common baseline differs from prior InfoNCE experiment')
+            raise ValueError('Common baseline differs from completed residual-only experiment')
         seed_rng(case['seed'])
         generator = np.random.default_rng(case['seed'])
         labels = torch.tensor([int(r['label']) for r in support_rows], device='cuda')
         label_array = labels.cpu().numpy()
         optimizer = torch.optim.AdamW(parameter_groups, weight_decay=CONFIG['weight_decay'])
         total = 3 if smoke else CONFIG['steps']
-        history, batches = [], []
+        history, batches, gradient_proof = [], [], {}
         suffix = suffix_for(task,tokenizer)
         torch.cuda.reset_peak_memory_stats()
         training_started = time.monotonic()
@@ -257,17 +275,28 @@ def worker(root, worker_id, smoke=False):
             loss_sum = 0.0
             for start in range(0,len(indices),CONFIG['microbatch']):
                 sub = indices[start:start+CONFIG['microbatch']]
-                z = personal(base_support[sub])
+                z = personal(support_signals[sub])
                 valid = torch.ones(z.shape[:2],device='cuda',dtype=torch.bool)
                 loss = server(z,valid,labels=labels[sub],suffix_ids=[suffix]*len(sub),
                               num_choices=len(task['classes']))['loss']
                 (loss*(len(sub)/len(indices))).backward()
                 loss_sum += float(loss.detach())*len(sub)/len(indices)
+            if step == 1:
+                for name, module in [('adapter', adapter), ('tower', encoder)]:
+                    value = sum(float(p.grad.float().square().sum()) for p in module.parameters()
+                                if p.requires_grad and p.grad is not None)
+                    if not np.isfinite(value) or value <= 0:
+                        raise RuntimeError(f'{name} did not receive finite nonzero support gradients')
+                    gradient_proof[name] = value ** .5
             norm = torch.nn.utils.clip_grad_norm_(parameters,CONFIG['clip_grad_norm'],error_if_nonfinite=True)
             optimizer.step()
             if step==1 or step%10==0 or step==total:
                 history.append(dict(step=step,support_batch_ce=loss_sum,signal_grad_norm=float(norm),
                                     lm_grad_norm=0.0))
+                write_json(directory/'support_history.json', history)
+                atomic_save(dict(case=case, personal=trainable_state(personal), step=step,
+                    code_sha256=hashes, parent_checkpoint_sha256=prepared['parent_checkpoint_sha256']),
+                    directory/'last.pt')
                 report(progress,status='adapting',worker=worker_id,case=case['key'],step=step,total=total,
                        completed=completed,cases=len(cases),elapsed_seconds=time.monotonic()-started,loss=loss_sum)
                 guard()
@@ -276,26 +305,26 @@ def worker(root, worker_id, smoke=False):
         del optimizer
         server.eval()
         updated_state = trainable_state(personal)
-        if tensor_fingerprint(updated_state) == tensor_fingerprint(initial_state):
-            raise RuntimeError('Personal adapter did not update')
+        for prefix in ('adapter.', 'encoder.'):
+            before = {n:v for n,v in initial_state.items() if n.startswith(prefix)}
+            after = {n:v for n,v in updated_state.items() if n.startswith(prefix)}
+            if tensor_fingerprint(before) == tensor_fingerprint(after):
+                raise RuntimeError(f'Joint component {prefix} did not update')
         if frozen_hash(encoder) != fixed_encoder_hash:
-            raise RuntimeError('Frozen Tower changed')
+            raise RuntimeError('Frozen Tower parameters or buffers changed')
         if (fixed_server_versions(server) != server_version
                 or tensor_fingerprint(dict(server.named_buffers())) != server_buffer_hash
-                or any(p.grad is not None for p in server.parameters())):
-            raise RuntimeError('Frozen JEV/Tower/connector/head or buffers changed')
+                or any(p.grad is not None for p in server.parameters() if not p.requires_grad)):
+            raise RuntimeError('Frozen JEV/Tower-base/connector/head or buffers changed')
         batch_hash = ids_hash([dict(id=k) for k in batches])
         if batch_hash != old_result['training_batch_ids_sha256']:
             raise ValueError('Calibration batch stream differs from prior experiment')
-        with torch.no_grad():
-            adapted_tokens = torch.cat([personal(base_query[i:i+32].cuda()).cpu()
-                                        for i in range(0, len(base_query), 32)])
-            support_tokens = personal(base_support).cpu()
+        adapted_tokens = encode_personal(personal, query_signals)
+        support_tokens = encode_personal(personal, support_signals)
         prediction = predict(adapted_tokens,query_rows,server,tokenizer,task)
         support_prediction = predict(support_tokens,support_rows,server,tokenizer,task)
         # Identical batch shape before/after reload, independent of bf16 batching roundoff.
-        with torch.no_grad():
-            probe_tokens = personal(base_query[:4].cuda()).cpu()
+        probe_tokens = encode_personal(personal, query_signals[:4])
         probe = predict(probe_tokens,query_rows[:4],server,tokenizer,task)
         checkpoint = dict(case=case,personal=updated_state,code_sha256=hashes,
                           parent_checkpoint_sha256=prepared['parent_checkpoint_sha256'],step=total)
@@ -304,11 +333,10 @@ def worker(root, worker_id, smoke=False):
         del checkpoint
         restored = torch.load(directory/'adapter.pt',map_location='cpu',weights_only=False,mmap=True)
         copy_trainable(personal,restored['personal'])
-        with torch.no_grad():
-            restored_tokens = personal(base_query[:4].cuda()).cpu()
+        restored_tokens = encode_personal(personal, query_signals[:4])
         check = predict(restored_tokens,query_rows[:4],server,tokenizer,task)
         if not torch.equal(restored_tokens,probe_tokens) or any(not np.array_equal(check[k],probe[k]) for k in check):
-            raise RuntimeError('Saved personal/LM adapter reload changed prediction')
+            raise RuntimeError('Saved joint Tower/adapter reload changed prediction')
         del restored
         atomic_save(dict(ids=[r['id'] for r in query_rows],labels=[int(r['label']) for r in query_rows],
                          baseline=baseline['scores'],adapted=prediction),directory/'predictions.pt')
@@ -317,9 +345,14 @@ def worker(root, worker_id, smoke=False):
             support=metrics(support_rows,support_prediction,len(task['classes'])),
             final_support_ce=float(F.cross_entropy(torch.from_numpy(support_prediction['jev']),labels.cpu())),
             trainable_parameters=n_params,signal_trainable_parameters=n_params,lm_trainable_parameters=0,
-            lora_locations=[],train_seconds=train_seconds,peak_gpu_allocated_bytes=torch.cuda.max_memory_allocated(),
+            tower_trainable_parameters=tower_n,adapter_trainable_parameters=33088,
+            lora_locations=locations,train_seconds=train_seconds,peak_gpu_allocated_bytes=torch.cuda.max_memory_allocated(),
             edge_local_training=False,peak_includes_jev=True,training_batch_ids_sha256=batch_hash,
-            parent_encoder_frozen_verified=True,
+            frozen_parameters_verified=True,buffers_frozen_verified=True,
+            tower_updated_verified=True,adapter_updated_verified=True,
+            parent_encoder_fully_frozen=False,first_step_gradient_norms=gradient_proof,
+            adapter_initialization_sha256=adapter_init_hash,per_user_reset_verified=True,
+            residual_only_reference=old_result['adapted'],
             jev_base_connector_head_frozen_verified=True,lm_lora_updated=False,
             initialization_identity_max_error=identity_error,checkpoint_reload_verified=True,
             query_used_for_selection=False,original_benchmark_test_modified=False,
@@ -376,33 +409,43 @@ def summarize(root):
                 or result['steps'] != CONFIG['steps'] or result['code_sha256'] != source_identity()):
             raise ValueError('Incomplete or mismatched result')
         results.append(result)
-    if len(results) != 23:
-        raise ValueError('Expected all 23 held-out users')
-    summary = aggregate_results(results)
-    summary.update(config=CONFIG, complete=True, original_benchmark_test=False,
-        aggregation='Per-dataset subject-equal means; dataset-equal and 23-user-equal means separately reported',
-        limitations='One seed, fixed 100 steps; 2a only two users; subject8 previously inspected. Personal supervised adaptation, not zero-shot.')
+    if len(results) != 46:
+        raise ValueError('Expected both arms on all 23 held-out users')
+    groups = {arm: aggregate_results([r for r in results if r['case']['arm'] == arm])
+              for arm in CONFIG['arms']}
+    references = [json.loads((Path(CONFIG['reference_run'])/'episodes'/r['case']['reference_case']/'complete.json').read_text())
+                  for r in results if r['case']['arm'] == CONFIG['arms'][0]]
+    reference = aggregate_results(references)
+    summary = dict(config=CONFIG, complete=True, arms=groups, residual_only_reference=reference,
+        original_benchmark_test=False,
+        aggregation='Within each arm: subject-equal per dataset, then dataset-equal; 23-user mean also reported',
+        limitations='One seed, fixed 100 steps; 2a only two users; historical controls and subject8 previously inspected. Supervised personal adaptation, not zero-shot.')
     write_json(root/'summary.json', summary)
     labels = {
         'bcic_2a': ('BCIC-IV-2a','5,184 (2,880/1,152/1,152)','9 (5/2/2)','固定跨被试；个人 T→E'),
         'motor_mv_img': ('PhysioMI','9,837 (6,210/1,734/1,893)','109 (69/19/21)','固定跨被试；个人前四→后两想象 run')}
-    lines = ['# 全部留出用户：个人残差 adapter → 冻结 JEV', '',
-        '每人每类5条（共20条）support，seed42，固定100步；仅33,088个adapter参数更新。',
-        '逐人重置到同一父模型；以下原划分计数不等于个人support/query数量。', '',
-        '| 数据集 | 处理后窗口总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（父模型原训／验／测） | 本轮目标用户 | Support/query 条数 | 不适配 BAcc（%） | 适配 BAcc（%） | 增量（百分点） | 提升/下降/持平人数 |',
+    lines = ['# 个人残差 adapter＋Tower 联合适配', '',
+        '每人20条support、seed42、100步，Tower和adapter均LR1e-4；JEV和connector全冻结。',
+        '两组从共享父模型重新开始，不在已完成的个人adapter上叠加100步。表内原划分计数不是个人support/query数量。', '',
+        '| 数据集 | 处理后窗口总计（父模型原训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（父模型原训／验／测） | 目标用户 | Support/query | 不适配 BAcc（%） | 原残差adapter BAcc（%） | 联合LoRA BAcc（%） | 联合全参 BAcc（%） |',
         '| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
-    for r in summary['rows']:
-        title, windows, subjects, protocol = labels[r['dataset']]
-        lines.append(f"| {title} | {windows} | 运动想象（4类） | {protocol} | {subjects} | {r['subjects']} | {r['support_n']}/{r['query_n']} | {100*r['baseline_bacc']:.2f} | {100*r['adapted_bacc']:.2f} | {r['delta_pp']:+.2f} | {r['improved']}/{r['worse']}/{r['tied']} |")
-    macro = summary['dataset_equal_mean']
-    lines += ['', f"两库等权：{100*macro['baseline_bacc']:.2f}% → {100*macro['adapted_bacc']:.2f}%，增量 {macro['delta_pp']:+.2f} 个百分点。", '',
-        '## 逐用户配对结果', '',
-        '| 数据集 | 用户 | Support/query | 不适配 BAcc（%） | 适配 BAcc（%） | 增量（百分点） | Support Acc（%） |',
+    for index, row in enumerate(reference['rows']):
+        title, windows, subjects, protocol = labels[row['dataset']]
+        scores = [100*groups[a]['rows'][index]['adapted_bacc'] for a in CONFIG['arms']]
+        lines.append(f"| {title} | {windows} | 运动想象（4类） | {protocol} | {subjects} | {row['subjects']} | {row['support_n']}/{row['query_n']} | {100*row['baseline_bacc']:.2f} | {100*row['adapted_bacc']:.2f} | {scores[0]:.2f} | {scores[1]:.2f} |")
+    lines += ['', '## 📊 两库等权与逐用户结果', '',
+        '| 方法 | 两库等权BAcc（%） | 相对原残差adapter（百分点） | 23用户等权BAcc（%） |',
+        '| --- | ---: | ---: | ---: |']
+    for arm, report in [('residual_only_reference', reference), *groups.items()]:
+        mean = report['dataset_equal_mean']['adapted_bacc']
+        lines.append(f"| {arm} | {100*mean:.2f} | {100*(mean-reference['dataset_equal_mean']['adapted_bacc']):+.2f} | {100*report['subject_equal_mean']['adapted_bacc']:.2f} |")
+    lines += ['', '| 数据集 | 用户 | Support/query | 不适配BAcc（%） | 原残差adapter（%） | 联合LoRA（%） | 联合全参（%） |',
         '| --- | --- | ---: | ---: | ---: | ---: | ---: |']
-    for r in summary['per_subject']:
-        lines.append(f"| {labels[r['dataset']][0]} | {r['subject']} | {r['support_n']}/{r['query_n']} | {100*r['baseline_bacc']:.2f} | {100*r['adapted_bacc']:.2f} | {r['delta_pp']:+.2f} | {100*r['support_accuracy']:.2f} |")
+    for index, row in enumerate(reference['per_subject']):
+        scores = [100*groups[a]['per_subject'][index]['adapted_bacc'] for a in CONFIG['arms']]
+        lines.append(f"| {labels[row['dataset']][0]} | {row['subject']} | {row['support_n']}/{row['query_n']} | {100*row['baseline_bacc']:.2f} | {100*row['adapted_bacc']:.2f} | {scores[0]:.2f} | {scores[1]:.2f} |")
     lines += ['', summary['limitations'], '']
-    (root/'summary.md').write_text('\\n'.join(lines).replace('\\n', '\n'))
+    (root/'summary.md').write_text('\n'.join(lines))
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

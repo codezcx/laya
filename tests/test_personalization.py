@@ -4,7 +4,7 @@ from torch import nn
 
 from eeg_align.personalization import (CONFIG, ResidualAdapter, check_support_rows,
     copy_trainable, frozen_hash, select_support, separate_session_rows,
-    trainable_state, fixed_server_versions, make_manifest)
+    trainable_state, fixed_server_versions, make_manifest, configure_personal, QVDelta)
 from eeg_align.task_options import make_variant
 
 
@@ -88,13 +88,14 @@ def test_query_prompt_is_label_independent():
 
 
 def test_budget_and_objective_are_matched():
-    assert CONFIG['arms'] == ['residual_frozen']
+    assert CONFIG['arms'] == ['joint_lora', 'joint_full']
     assert CONFIG['steps'] == 100 and CONFIG['batch_size'] == 16
     assert CONFIG['seeds'] == [42]
     assert CONFIG['datasets'] == {'bcic_2a': [5], 'motor_mv_img': [5]}
     assert CONFIG['objective'] == 'jev_ce' and CONFIG['microbatch'] == 4
     assert CONFIG['learning_rate'] == 1e-4 and CONFIG['weight_decay'] == .01
-    assert CONFIG['arm_settings']['residual_frozen']['train_lm_lora'] is False
+    assert all(not c['train_lm_lora'] for c in CONFIG['arm_settings'].values())
+    assert CONFIG['lora'] == dict(rank=8, alpha=8, last_layers=2)
 
 
 class TinyLM(nn.Module):
@@ -177,9 +178,13 @@ def fake_store():
 def test_manifest_all_test_users_and_no_extra_sweep():
     manifest = make_manifest(fake_store())
     cases = manifest['cases']
-    assert len(cases) == len(manifest['cohorts']) == 23
-    assert [sum(c['worker'] == i for c in cases) for i in range(4)] == [6, 6, 6, 5]
-    assert {(c['shots_per_class'], c['seed'], c['arm']) for c in cases} == {(5,42,'residual_frozen')}
+    assert len(cases) == 46 and len(manifest['cohorts']) == 23
+    assert [sum(c['worker'] == i for c in cases) for i in range(4)] == [12, 11, 12, 11]
+    assert {(c['shots_per_class'], c['seed'], c['arm']) for c in cases} == {(5,42,a) for a in CONFIG['arms']}
+    for worker in range(4):
+        assert {c['arm'] for c in cases if c['worker'] == worker} == {CONFIG['arms'][worker//2]}
+    for lora, full in zip(cases[::2], cases[1::2]):
+        assert lora['support_ids'] == full['support_ids'] and lora['query_ids'] == full['query_ids']
     assert {c['original_split'] for c in cases} == {'test'}
     assert all(len(set(c['support_ids'])) == 20 for c in cases)
     assert all(not set(c['support_ids']) & set(c['query_ids']) for c in cases)
@@ -187,10 +192,10 @@ def test_manifest_all_test_users_and_no_extra_sweep():
 
 def test_smoke_is_validation_only():
     manifest = make_manifest(fake_store(), smoke=True)
-    assert len(manifest['cases']) == 2
+    assert len(manifest['cases']) == 4
     assert {c['subject'] for c in manifest['cases']} == {'6', '70'}
     assert {c['original_split'] for c in manifest['cases']} == {'valid'}
-    assert {c['worker'] for c in manifest['cases']} == {0, 1}
+    assert {c['worker'] for c in manifest['cases']} == {0, 1, 2, 3}
 
 
 def test_missing_original_test_user_rejected():
@@ -230,3 +235,84 @@ def test_batch_stream_preserves_reference_sampling():
                 for _ in range(100) for j in range(16)]
     assert ids_hash(stream()) == ids_hash(stream())
     assert set(r['id'] for r in stream()) <= set(r['id'] for r in support)
+
+
+class TinyTower(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.tower = nn.Module()
+        for name in ('mask_transformer', 'next_transformer'):
+            layer = nn.TransformerEncoderLayer(8, 2, 16, dropout=0, batch_first=True)
+            setattr(self.tower, name, nn.TransformerEncoder(layer, 3, enable_nested_tensor=False))
+        self.register_buffer('frozen_stat', torch.ones(8))
+
+    def forward(self, x):
+        return self.tower.mask_transformer(x) + self.tower.next_transformer(x)
+
+
+@pytest.mark.parametrize('mode', ['lora', 'full'])
+def test_joint_update_reset_and_frozen_server(mode):
+    torch.manual_seed(42)
+    torch.backends.mha.set_fastpath_enabled(False)
+    encoder = TinyTower().requires_grad_(False).eval()
+    adapter = ResidualAdapter(width=8, bottleneck=2)
+    x, y = torch.randn(4, 3, 8), torch.arange(4)
+    baseline = encoder(x).detach()
+    model, locations = configure_personal(encoder, adapter, mode)
+    assert torch.equal(model(x), baseline)
+    assert len(locations) == (4 if mode == 'lora' else 0)
+    initial = trainable_state(model)
+    frozen = frozen_hash(encoder)
+    server = nn.Module()
+    server.head = nn.Linear(8, 4).requires_grad_(False)
+    server.eeg_encoder = encoder
+    versions = fixed_server_versions(server)
+    outputs = []
+    for user in range(2):
+        copy_trainable(model, initial)
+        params = [p for p in model.parameters() if p.requires_grad]
+        optimizer = torch.optim.AdamW(params, lr=CONFIG['learning_rate'], weight_decay=.01)
+        assert not optimizer.state
+        for _ in range(3):
+            optimizer.zero_grad(set_to_none=True)
+            nn.functional.cross_entropy(server.head(model(x).mean(1)), y).backward()
+            assert adapter.up.weight.grad.abs().sum() > 0
+            assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in encoder.parameters())
+            assert all(p.grad is None for p in server.head.parameters())
+            optimizer.step()
+        outputs.append(model(x).detach().clone())
+        assert fixed_server_versions(server) == versions
+        assert frozen_hash(encoder) == frozen
+        updated = trainable_state(model)
+        for prefix in ('adapter.', 'encoder.'):
+            assert any(not torch.equal(updated[n], initial[n]) for n in initial if n.startswith(prefix))
+    assert torch.equal(*outputs)
+    copy_trainable(model, initial)
+    assert torch.equal(model(x), baseline)
+    copy_trainable(model, updated)
+    assert torch.equal(model(x), outputs[0])
+
+
+def test_qv_delta_never_modifies_key_or_original_weight():
+    original = nn.Parameter(torch.randn(24, 8), requires_grad=False)
+    delta = QVDelta(8, 2, 2)
+    assert torch.equal(delta(original), original)
+    optimizer = torch.optim.AdamW(delta.parameters(), lr=1e-4)
+    delta(original).square().sum().backward()
+    optimizer.step()
+    assert torch.equal(delta(original)[8:16], original[8:16])
+    assert not torch.equal(delta(original)[:8], original[:8])
+    assert not torch.equal(delta(original)[16:], original[16:])
+    assert original.grad is None
+
+
+def test_adapter_initialization_does_not_depend_on_tower_mode():
+    states = []
+    for mode in ('lora', 'full'):
+        encoder = TinyTower()
+        torch.manual_seed(42)
+        adapter = ResidualAdapter(width=8, bottleneck=2)
+        torch.manual_seed(42)
+        configure_personal(encoder, adapter, mode)
+        states.append(trainable_state(adapter))
+    assert all(torch.equal(states[0][n], states[1][n]) for n in states[0])

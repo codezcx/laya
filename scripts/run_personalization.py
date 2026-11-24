@@ -1,4 +1,4 @@
-"""Four independent GPU workers for personal residual adapters; no shared retraining."""
+"""Two GPU workers per joint Tower/adaptation arm; independent users, frozen LM."""
 import argparse
 import fcntl
 import json
@@ -33,7 +33,8 @@ def verify_paired(root, smoke=False):
         result = json.loads(path.read_text())
         if result['smoke'] != smoke or result['case'] != case or result['code_sha256'] != source_identity():
             raise ValueError('Mismatched episode identity')
-        if not all(result[k] for k in ('parent_encoder_frozen_verified',
+        if not all(result[k] for k in ('frozen_parameters_verified', 'buffers_frozen_verified',
+                                       'tower_updated_verified', 'adapter_updated_verified', 'per_user_reset_verified',
                                        'jev_base_connector_head_frozen_verified', 'checkpoint_reload_verified',
                                        'reference_batch_ids_verified', 'reference_baseline_verified')):
             raise ValueError('Freeze/reload checks failed')
@@ -52,7 +53,8 @@ def verify_paired(root, smoke=False):
                 if result['case'][field] != first['case'][field]:
                     raise ValueError('Arms used different trials')
             if (result['training_batch_ids_sha256'] != first['training_batch_ids_sha256']
-                    or result['baseline'] != first['baseline']):
+                    or result['baseline'] != first['baseline']
+                    or result['adapter_initialization_sha256'] != first['adapter_initialization_sha256']):
                 raise ValueError('Arm batch stream or common baseline differs')
     return dict(episodes=len(manifest['cases']), paired_comparisons=len(pairs),
                 frozen_and_reload_verified=True, same_support_query_batches_and_baseline=True)
@@ -154,7 +156,7 @@ def main():
         report(status='preparing', episodes=len(manifest['cases']), subjects=len(manifest['cohorts']), free_mib=free)
         report(jobs=[launch('prepare')])
         wait_children()
-        report(status='smoke', jobs=[launch('worker', i, True) for i in range(2)])
+        report(status='smoke', jobs=[launch('worker', i, True) for i in range(4)])
         wait_children()
         smoke_proof = verify_paired(root, True)
         write_json(root/'smoke_verified.json', smoke_proof)
