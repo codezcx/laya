@@ -110,3 +110,31 @@ def test_plot_reader_uses_original_test_not_valid_and_checks_same_ids(tmp_path):
     (tmp_path/'test_step000340_subset.json').write_text(json.dumps(second))
     with pytest.raises(ValueError, match='IDs changed'):
         read_records(tmp_path)
+
+
+def test_development_plot_outputs_are_not_named_validation(tmp_path, monkeypatch):
+    import sys
+    from scripts.plot_training_curves import main
+    folder = tmp_path/'train'/'fixture'
+    folder.mkdir(parents=True)
+    identity = dict(config=effective_config(CONFIG), language_backbone='qwen3vl8b')
+    (folder/'config.json').write_text(json.dumps(identity))
+    training = [dict(status='training', step=i+1, dataset=name, loss=1., accuracy=.5)
+                for i, name in enumerate(CONFIG['datasets'])]
+    (folder/'metrics.jsonl').write_text('\n'.join(map(json.dumps, training))+'\n')
+    for step in (0, 2040):
+        report = dict(step=step, split='test', role='development', scope='subset',
+            independent_test_estimate=False, macro_balanced_accuracy=.5,
+            datasets={name: dict(n=512, accuracy=.5, balanced_accuracy=.5, sample_ids_sha256=name)
+                      for name in CONFIG['datasets'][:9]})
+        (folder/f'test_step{step:06d}_subset.json').write_text(json.dumps(report))
+    monkeypatch.setattr(sys, 'argv', ['plot_training_curves.py', '--run-dir', str(tmp_path), '--arm', 'fixture'])
+    main()
+    output = tmp_path/'figures'/'fixture'
+    manifest = json.loads((output/'figure_manifest.json').read_text())
+    assert manifest['evaluation_split'] == 'test' and manifest['evaluation_role'] == 'development'
+    assert manifest['independent_test_estimate'] is False
+    assert not any('validation' in p.name for p in output.iterdir())
+    assert (output/'development_test.csv').exists()
+    svg = (output/'development_test_by_dataset.svg').read_text()
+    assert 'Development (original test)' in svg

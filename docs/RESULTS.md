@@ -8,7 +8,11 @@ _更新：2026-11-24。当前换为原生8B共享SFT；4B与个人联合适配�
 
 换用官方8B语言权重，四个safetensors分片及配置/tokenizer/index均通过官方哈希校验。原InfoNCE step1700 Tower、17库训练、2040步、340步connector-only、global batch16和全部LR保持不变；新connector为256→4096→4096，语言LoRA-r32，choice交叉熵，不增加蒸馏或第二轮对比学习。
 
-输出`artifacts/benchmark/leaf_tower_qwen8b_20261124/`，启动检查中，尚无正式准确率。训练中每340步在九库固定原test子集（每库最多512）选点，最后评估完整原test；本轮不运行原valid。结果属于开发/探索性结果，与下方4B原valid成绩不能直接比较。4B实现已归档`ad4c054`；没有新建独立版本训练器。
+输出`artifacts/benchmark/leaf_tower_qwen8b_20261124/`。124项自动测试通过，含开发用途门禁、抽样ID稳定性、计数恢复和实际曲线导出；2040个计划batch输入预检通过（98.5秒）。四卡17步短测完成，梯度、rank权重一致、输入分片、encoder更新、checkpoint精确重载全部通过，短测只评估train。2026-11-24 14:57:19 UTC控制器292730已进入正式阶段，训练进程429384，运行源码`896056a`。[执行阶段](../artifacts/benchmark/leaf_tower_qwen8b_20261124/pipeline.json)、[短测审计](../artifacts/benchmark/leaf_tower_qwen8b_20261124/smoke/leaf_infonce_mlp/complete.json)。
+
+实际语言基础参数7,568,405,504，总可训练124,751,632；原生A–P行来自`lm_head.weight`，不是4B的tied embedding。训练中每340步在九库固定原test子集（每库最多512）选点，最后评估完整原test；本轮不运行原valid。尚无最终准确率；结果属于开发/探索性结果，与下方4B原valid成绩不能直接比较。4B实现已归档`ad4c054`；没有新建独立版本训练器。
+
+启动核查时已完成正式13/2040步，四rank初始权重与短测的初始状态完全匹配。此时仅connector有梯度，语言LoRA/head/Tower的LR和梯度为0，符合前340步预热；不是仅创建队列。step0原test开发子集九库BAcc为29.50%，这是未训练连接器的起点，不是最终结果；原valid模型评估次数为0。固定ID和用途见本轮`test_selection_ids.json`及`test_step000000_subset.json`。模型/资源/绘图技能用于官方权重核验、四卡检查与开发标签审计，过程引用沿用[协议](PROTOCOL.md)。
 
 ## 📋 原生 Qwen3-VL-4B 指令微调控制
 
