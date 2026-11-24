@@ -24,6 +24,8 @@ laya/.venv-eeg/bin/python scripts/run_personalization.py --start --resume
 
 根目录：`artifacts/benchmark/leaf_personal_joint_20261124/`。输入核对及四卡验证用户3步短测通过后，自动进入46次正式个人训练。
 
+2026-11-24 08:54:08 UTC已进入四卡正式阶段；109项自动测试和4次真实GPU短测全部通过。运行实现`98d257d`，每组两卡分别处理12/11人，预计整轮约3小时。
+
 `pipeline.json`和`worker_*.json`记录实际状态；`episodes/*/support_history.json`记录loss；`last.pt`每10步保存信号侧权重，`adapter.pt`保存完成的联合权重。没有LM权重副本，不承诺中途优化器精确续训。全部46次完成并审计通过后生成`summary.md/json`，同时列原残差-only匹配对照。当前运行状态见[结果页](docs/RESULTS.md)。
 
 ## 📊 已完成对照与边界

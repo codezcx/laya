@@ -6,7 +6,13 @@ _更新：2026-11-24。当前为个人残差adapter＋Tower LoRA/全参两组联
 
 两组各23人，GPU 0/1为联合LoRA-r8，GPU 2/3为联合全参。每人20条support、seed42、100步；Tower和adapter同为LR1e-4，原AdamW/wd0.01/global clip1/batch16全部不变。共享父模型仍为step1360，JEV和原connector全冻结，BN统计量不更新。每位用户重新初始化，不从上一轮个人adapter再叠加训练。
 
-109项自动测试通过，真实Tower参数核对：LoRA联合65,856参数，全参联合19,590,720参数。正式运行前四卡各做原验证用户3步短测，须通过两分支梯度/更新、冻结参数/buffers、共同基线/批次及保存重载审计。尚无正式结果，不能把旧C分支的单独LoRA结果称作联合训练结果。
+109项自动测试通过，真实Tower参数核对：LoRA联合65,856参数，全参联合19,590,720参数。四卡各做原验证用户3步短测，全部通过两部分非零梯度/真实更新、冻结参数/buffers、共同基线/批次及保存重载审计；两个配对用户的初始adapter梯度范数也一致。[短测审计](../artifacts/benchmark/leaf_personal_joint_20261124/smoke_verified.json)。尚无完整正式结果，不能把旧C分支的单独LoRA结果称作联合训练结果。
+
+2026-11-24 08:54:08 UTC，控制器84713自动进入正式阶段，GPU 0/1/2/3 worker PID为151498/151503/151508/151511，承担12/11/12/11人。运行源码为`98d257d`。短测每组三步约28秒，GPU峰值约49.5–49.8GiB；据短测及历史基线估计整轮约3小时，实际以正式训练速度为准。
+
+08:55:35–36 UTC四个正式worker均完成第1步更新：被试8两组初始CE均1.11288208，被试9两组均0.99153653；不是仅创建队列。当前仍在训练，不报告尚未完成的query成绩。
+
+首次08:41启动在权重加载期间进程退出，无完成短测、无正式更新、无Python报错；系统OOM计数为0，退出原因未确定。08:51以相同源码和配置恢复，旧日志保留；没有修改LR或训练预算。
 
 根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。实际状态见[pipeline.json](../artifacts/benchmark/leaf_personal_joint_20261124/pipeline.json)，每10步loss和信号侧checkpoint即时保存；46次完整适配通过审计后才生成完整汇总。
 
@@ -33,7 +39,7 @@ MEMO逐query无标签更新，严格同单trial batch对照为50.12%（而非原
 
 该轮已于2026-11-23 16:00:33 UTC完成，不再运行。冻结Tower与全参Tower两组分别离线训练共享G/H/FiLM，两组均340步、验证选中170步；不是个人100步微调。2a被试8前向适配BAcc分别53.125%、52.0833%，未超过同用户不适配53.8194%。[完整结果](../artifacts/benchmark/leaf_amortized_film_20261123/summary.json)、[完成记录](../artifacts/benchmark/leaf_amortized_film_20261123/complete.json)。
 
-实现归档到Git `36b33d0`，输出全部保留。当前不继续74名源被试共享训练；恢复个人CE方案所需部分，历史LM LoRA/Tower LoRA分支不在当前入口保留。
+实现归档到Git `36b33d0`，输出全部保留。当前不继续74名源被试共享训练；历史LM LoRA对照不恢复，Tower LoRA只用于当前个人联合训练组。
 
 ## 🧪 历史：单被试 JEV CE 与 LM LoRA 对照已完成
 
