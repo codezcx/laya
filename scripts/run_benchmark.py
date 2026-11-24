@@ -12,6 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from eeg_align.runtime import CONFIG, digest
+from eeg_align.language_backbones import CONFIG_PATH as BACKBONE_CONFIG, backbone_spec, verify_native_checkpoint
 from eeg_align.multitask_data import write_json
 
 
@@ -24,10 +25,11 @@ def require_gpu_capacity(gpus, minimum_free_mib):
     return {g: free[g] for g in gpus}
 
 
-def training_command(python, gpus, arm, directory, smoke=False, resume=False):
+def training_command(python, gpus, arm, directory, smoke=False, resume=False, backbone='jev'):
     command = [python, '-u', '-m', 'torch.distributed.run', '--standalone',
                '--nnodes=1', f'--nproc-per-node={len(gpus)}', '--max-restarts=0',
-               '-m', 'eeg_align.train_joint', '--arm', arm, '--out', str(directory)]
+               '-m', 'eeg_align.train_joint', '--arm', arm, '--out', str(directory),
+               '--backbone', backbone]
     if smoke:
         command.append('--smoke')
     if resume:
@@ -44,11 +46,13 @@ def verify_initialization(smoke, formal):
         raise RuntimeError('Rank initialization was not verified')
 
 
-def validate_resume(output, arm):
+def validate_resume(output, arm, backbone='jev'):
     directory = output / 'train' / arm
     identity = json.loads((directory / 'config.json').read_text())
     if identity['config'] != CONFIG or identity['smoke'] or identity['arm'] != arm:
         raise ValueError('Resume identity mismatch')
+    if identity.get('language_backbone', 'jev') != backbone:
+        raise ValueError('Resume language backbone mismatch')
     if any(not Path(p).is_file() or digest(p) != h for p, h in identity['code_sha256'].items()):
         raise ValueError('Resume source hashes changed')
     if (directory / 'complete.json').exists():
@@ -63,20 +67,23 @@ def main():
     mode.add_argument('--start', action='store_true')
     mode.add_argument('--execute', action='store_true')
     parser.add_argument('--resume', action='store_true')
+    parser.add_argument('--arm', choices=CONFIG['arms'], default='leaf_tower_mlp')
+    parser.add_argument('--backbone', choices=['jev', 'qwen3vl4b'], default='jev')
     parser.add_argument('--gpus', nargs='+', type=int)
     parser.add_argument('--recovery-dir', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     os.chdir(ROOT)
-    # Baseline remains reproducible; aligned arms are orchestrated by run_contrastive.py.
-    arm = 'leaf_tower_mlp'
+    # Reuse the same trainer/preflight for the small-language-backbone control.
+    arm = args.arm
+    language_spec = backbone_spec(args.backbone)
     gpus = CONFIG['gpus'] if args.gpus is None else args.gpus
     if (len(gpus) != CONFIG['world_size'] or len(set(gpus)) != len(gpus)
             or any(g < 0 for g in gpus)):
         parser.error('Use exactly world_size distinct GPU indices')
-    output = Path('artifacts/benchmark') / CONFIG['run_name']
+    output = Path('artifacts/benchmark') / language_spec.get('run_name', CONFIG['run_name'])
     if args.start:
         if args.resume:
-            validate_resume(output, arm)
+            validate_resume(output, arm, args.backbone)
             with (output / 'controller.lock').open('a') as probe:
                 fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
             args.recovery_dir = output / 'recovery' / (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()) + f'_{os.getpid()}')
@@ -91,7 +98,8 @@ def main():
         env.update(OMP_NUM_THREADS='3', MKL_NUM_THREADS='3', OPENBLAS_NUM_THREADS='3',
                    TOKENIZERS_PARALLELISM='false', HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
                    PYTHONUNBUFFERED='1')
-        command = [sys.executable, '-u', __file__, '--execute', '--gpus', *map(str, gpus)]
+        command = [sys.executable, '-u', __file__, '--execute', '--gpus', *map(str, gpus),
+                   '--arm', arm, '--backbone', args.backbone]
         if args.resume:
             command += ['--resume', '--recovery-dir', str(args.recovery_dir)]
         with log_path.open('x') as log:
@@ -102,7 +110,7 @@ def main():
     lock = (output / 'controller.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     state = dict(status='preflight', controller_pid=os.getpid(), test_evaluations=0,
-                 arm=arm, world_size=len(gpus), gpus=gpus)
+                 arm=arm, language_backbone=args.backbone, world_size=len(gpus), gpus=gpus)
     def report(**values):
         state.update(values, updated_utc=time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()))
         write_json(output / 'pipeline.json', state)
@@ -110,17 +118,23 @@ def main():
     child = None
     try:
         if args.resume:
-            validate_resume(output, arm)
+            validate_resume(output, arm, args.backbone)
         watched = sorted((ROOT / 'eeg_align').glob('*.py')) + [ROOT / p for p in (
             'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
             'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py',
             'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py')]
+        watched.append(ROOT / BACKBONE_CONFIG)
         hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}
         def guard():
             if hashes != {str(p.relative_to(ROOT)): digest(p) for p in watched}:
                 raise RuntimeError('Live sources/config changed')
         report(launch_free_mib=require_gpu_capacity(gpus, CONFIG['minimum_free_gpu_mib']),
                code_sha256=hashes)
+        if args.backbone != 'jev':
+            report(status='verifying_official_weights')
+            verified = verify_native_checkpoint(language_spec)
+            write_json(output / 'native_weight_verification.json', dict(
+                specification=language_spec, verified_hashes=verified))
         if not args.resume:
             report(status='cpu_signal_preflight')
             subprocess.run([sys.executable, '-u', 'scripts/check_multitask_signals.py',
@@ -133,7 +147,8 @@ def main():
             env = os.environ.copy()
             env['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, gpus))
             log_root = args.recovery_dir if args.resume else output
-            command = training_command(sys.executable, gpus, arm, directory, phase == 'smoke', args.resume)
+            command = training_command(sys.executable, gpus, arm, directory, phase == 'smoke', args.resume,
+                                       backbone=args.backbone)
             with (log_root / f'{phase}_{arm}.log').open('x') as log:
                 child = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log,
                     stderr=subprocess.STDOUT, env=env, start_new_session=True)

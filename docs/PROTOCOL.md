@@ -1,6 +1,54 @@
-# 个人残差 adapter＋LEAF Tower 联合适配协议
+# LEAF Tower 语言决策训练与个人适配协议
 
-_2026-11-24：相对完成的23人残差-only对照，仅改变Tower参数更新方式。_
+_2026-11-24：增加原生小Qwen共享SFT对照；后文保留已完成的个人联合适配协议。_
+
+## 📋 后续实验：原 test 用作开发集
+
+2026-11-24用户明确决定：希望在探索阶段观察原test上随训练步数变化的表现，并据此选步数、checkpoint和方法；原valid待方案确定后再使用。接受此用途安排，不交换原始划分名单、被试或缓存标签。
+
+| 原始文件划分 | 后续用途 | 是否用于梯度更新 |
+| --- | --- | --- |
+| `train` | 训练和训练指标监测 | 是 |
+| `test` | 开发过程评估、选步数/checkpoint、比较方法 | 否 |
+| `valid` | 用户确定方案后再评估 | 否 |
+
+原test承担的是模型选择中的开发/验证角色，其选中成绩标记为“原test开发集BAcc/Acc”，不作为未参与调参的独立benchmark测试结果。反复据留出集表现挑选设置也会引入选择偏差，不能因未反传就宣称其评价独立[^evaluation_roles]。本项目原valid已经在历史及当前实验中多次评估、选点，后续即使暂不使用，也不能将其描述为从未接触过的盲测；如需这样的最终评估，须另外预留未用于开发的数据并排查被试/预训练重叠。
+
+实施状态：本次只记录后续默认约定，尚未修改评估代码。当前`leaf_tower_qwen4b_20261124`已启动，训练器和控制器对源码/config有哈希保护；继续按旧valid协议完成，不中途切换、停止重跑或追溯重标旧结果。下次启动新实验前，在没有相关live job时统一调整`require_split`、评估抽样、checkpoint选择、计数/文件命名、控制器检查和绘图；补上test仅评估、valid默认禁用及train独占梯度更新的测试。不能只解除test访问门禁而保留“test_evaluations=0”等旧声明。
+
+新运行须记录`selection_split=test`、原划分ID及样本指纹、评估频率和全量/子集范围；方案未确定前不自动执行valid最终评价。该用途调整不授权改变学习率、batch、训练预算、缓存或被试划分，也不自动将个人适配query纳入support。实验设计与文档技能用于区分文件标签和统计用途、保留暴露历史，过程引用沿用文末[^skills]。
+
+[^evaluation_roles]: scikit-learn developers. Cross-validation: evaluating estimator performance. https://scikit-learn.org/stable/modules/cross_validation.html
+
+## 📋 当前控制：原生 Qwen3-VL-4B 指令微调
+
+本轮“用我们的JEV微调”指沿用现有EEG指令决策训练流程，不是用27B JEV生成答案或蒸馏。模型为官方Qwen3-VL-4B-Instruct[^qwen4b]，仅加载内置`Qwen3VLTextModel`；不运行视觉encoder、ECG代码或远程Python。复制在`third_party/Qwen3-VL-4B-Instruct`，官方revision及校验值固定在[语言主干配置](../configs/language_backbones.json)。启动器检查两份权重完整SHA256和配置/tokenizer/index的Git blob哈希；源目录不修改。
+
+共用[训练实现](../eeg_align/train_joint.py)、[抽样/预算配置](../configs/benchmark_train.json)和[任务文本](../configs/benchmark_tasks.json)。旧JEV加载器和前向保持哈希不变；小模型只替换主干加载及连接器宽度，不新建另一套训练器。
+
+| 项目 | 本轮设置 |
+| --- | --- |
+| EEG初始化 | 已完成多正例InfoNCE的best step1700 Tower；不是JEV SFT step1360 |
+| 语言初始化 | 官方Qwen3-VL-4B-Instruct；无JEV/ECG-R1 LoRA |
+| 连接器 | 新LayerNorm(256)→Linear(256,2560)→GELU→Linear(2560,2560) |
+| 语言更新 | 新LoRA r32、alpha64、dropout0；Q/K/V/O及MLP gate/up/down；基础权重冻结 |
+| 决策更新 | 原生A–P词表行初始化16行读出，bias初始化0；允许训练，不是随机分类头 |
+| 损失和输出 | 随机排列候选选项的choice交叉熵；单次forward，不逐字生成，不新增对比/蒸馏损失 |
+| 数据 | 原17库训练，9库验证；缓存、QC、subject/session划分及task文本不变 |
+| 预算 | 2040步，seed42，global batch16，micro4，四卡同步；前340步仅连接器 |
+| 学习率 | connector 1e-4、语言LoRA 5e-6、head 1e-5、Tower 1e-6；原warmup62/cosine/wd0.01 |
+| 验证 | 从step0起每340步，固定每库512上限；九库宏平均BAcc选点，最后完整验证 |
+| 测试 | 不执行test前向；后续独立授权后评价，不混入模型选择 |
+
+原4B权重采用tied embedding，读出从`model.language_model.embed_tokens.weight`抽取A–P行；微调读出是独立FP32参数，不更新词嵌入。语言LoRA为标准A随机、B全零，初始不改变原生主干。Tower继续使用原eval/冻结buffers策略。17步短测逐个覆盖全部训练库，检查实际梯度、四rank一致性和保存重载；正式阶段重新初始化，不继承短测更新。每20步保存续训状态。
+
+实际加载语言基础参数4,022,468,096；252处LoRA共66,060,288参数，connector 7,214,592、choice head 40,976、Tower 19,557,632，联合阶段总可训练92,873,488参数。不加载原视觉塔；完整原生权重在磁盘约8.88GB，语言参数量不包含视觉分支。
+
+这仍是类别选项监督的EEG决策SFT，不是开放式通用问答训练。与已有27B相比，参数量、架构、预训练/决策LoRA经历、tokenizer和连接器宽度都不同，属于实用替换对照，不能将差异唯一归因于模型大小。已知TUAB/TUEV候选身份重叠和LEAF上游预训练重叠风险沿用原协议。
+
+运行目录`artifacts/benchmark/leaf_tower_qwen4b_20261124/`；`native_weight_verification.json`保存官方校验，`pipeline.json`保存执行阶段，`train/leaf_infonce_mlp/`保存训练/验证曲线原始数据、transfer audit和checkpoint。尚未有本轮最终准确率。
+
+[^qwen4b]: Qwen. Qwen3-VL-4B-Instruct official model repository. https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct
 
 ## 🎯 问题与假设
 
@@ -62,6 +110,16 @@ adapter为256→64→256、GELU、残差上投影零初始化。LoRA为原个人
 根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。主要比较同一用户/同一query上原残差-only、联合LoRA、联合全参的BAcc。先按用户等权得到每库均值，再计算两库等权均值；另列23用户等权均值、每用户变化及负迁移人数。不能将support Acc作为泛化结果。
 
 全部46次通过审计才生成完整汇总，部分结果不混作完整均值。原baseline来自先前已完成运行，不冒充本轮同步重跑的对照；运行前复核相同父权重、输入、batch和初始预测。仅一个seed、2a两名用户，被试8已观察过；属于探索性对照，非盲测或显著性结论。上游LEAF预训练身份重叠未完全排除，个人query是原test子集，不是完整EEG-FM-Bench。
+
+## ⚡ 推理速度基线（不改变适配协议）
+
+`scripts/benchmark_inference.py`是当前模型的只读诊断工具，不是新增训练方案。固定父step1360和2a被试8 joint_lora checkpoint，单卡batch1，测试0.5/1/2/4/8/16/30秒；原提示词、模型精度、未合并LoRA和10秒上限分块保持不变。每项预热10次，50次CUDA同步计时；完整路径与各模块分别测量。
+
+长片段重复真实4秒trial，短片段取前缀，仅用于计算量/延迟测试；没有据此训练、选模型或评价分类准确率。预处理与当前LEAFSignalAdapter逐值核对，分拆语言主干与原JEVBridge logits核对一致。测速不包括采集等待、模型加载或网络开销，详见[结果页](RESULTS.md)及原始记录。当前缺少Qwen线性注意力快速kernel，未安装依赖或进行代码优化。
+
+同一测速脚本支持`--backbone qwen3vl-8b`：从本地ECG-R1-8B-RL读取内置Qwen3VLTextModel对应的语言权重，复用现有JEVBridge.forward的单次决策读出。小主干未进行EEG对齐，连接器为随机256→4096→4096；仅测速，不替换当前正式方法或报告其分类效果。沿用同一信号侧权重、输入和10/50计时预算；tokenizer差异导致文本token数为72而非JEV的76，需与架构/kernel/LoRA路径差异一起披露。原27B结果保留，比较见[结果页](RESULTS.md)。
+
+`--backbone leaf-native`只测发布的完整LEAF，默认分别测FP32和BF16 autocast；strict加载原checkpoint，不用父模型或个人权重。沿用同一4秒输入及预处理，使用发布MPNet缓存、Motor任务指令level1和四类原型，终点为CPU余弦分类argmax；不计在线文本编码。超过10秒分别跑完整LEAF再按分块时长加权平均类别分数，这是显式测速包装，不当作官方原生长序列能力。没有训练、改变当前个人适配方案或覆盖之前结果。
 
 ## 🔗 实现与归档
 

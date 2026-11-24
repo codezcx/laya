@@ -1,20 +1,98 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-24。当前为个人残差adapter＋Tower LoRA/全参两组联合适配，见[协议](PROTOCOL.md)。_
+_更新：2026-11-24。当前新增原生小Qwen共享SFT控制；个人联合适配已完成，见[协议](PROTOCOL.md)。_
 
-## 📋 当前：联合更新 adapter 与 Tower
+后续用途约定：新实验拟使用原test进行开发评估和checkpoint选择，原valid待方案确定后再评估，见[协议](PROTOCOL.md)。本次只更新约定文档，未切换评估代码；以下历史结果及已运行的4B任务仍按各自原始协议解读，不追溯改名。未来原test选点成绩标为开发结果；原valid已有被观察和用于选点的历史，不将其冒充全新盲测。
+
+## 📋 原生 Qwen3-VL-4B 指令微调控制
+
+原生4B从本地复制并核对官方权重SHA256；不是此前测速的ECG-R1-8B派生模型。复用InfoNCE step1700 Tower，使用相同17库、2040步、global batch16及原LR；新连接器和语言LoRA/决策读出，单次forward交叉熵训练。没有27B教师蒸馏，也没有用test选点。[配置](../configs/language_backbones.json)、[完整口径](PROTOCOL.md)。
+
+输出根目录`artifacts/benchmark/leaf_tower_qwen4b_20261124/`。119项测试全部通过；真实GPU前向/反向检查确认输入、connector和LoRA具有有限非零梯度，语言基础权重没有梯度。实际语言主干4,022,468,096参数，联合阶段总可训练92,873,488参数。
+
+全部2040个计划batch的CPU输入预检通过（131.8秒）；四卡17库短测已完成并通过rank权重一致性、encoder更新和checkpoint精确重载审计。GPU峰值allocated约10.00GiB。控制器2905152已进入正式2040步训练阶段，重新从InfoNCE step1700 Tower＋原生Qwen初始化。最新阶段见[pipeline.json](../artifacts/benchmark/leaf_tower_qwen4b_20261124/pipeline.json)，[短测完成审计](../artifacts/benchmark/leaf_tower_qwen4b_20261124/smoke/leaf_infonce_mlp/complete.json)。尚无本轮最终准确率，不能把此前随机连接器的速度测试当作本轮训练结果。
+
+启动核查时正式训练已完成15/2040步，确认不是仅建立队列；step0九库验证及训练监测已保存，正式初始化与短测初始哈希逐项相同。第15步处于connector-only阶段，只有connector梯度非零，语言LoRA、head和Tower的LR/梯度均为0，符合前340步预热约定。
+
+## 📋 已完成：联合更新 adapter 与 Tower
 
 两组各23人，GPU 0/1为联合LoRA-r8，GPU 2/3为联合全参。每人20条support、seed42、100步；Tower和adapter同为LR1e-4，原AdamW/wd0.01/global clip1/batch16全部不变。共享父模型仍为step1360，JEV和原connector全冻结，BN统计量不更新。每位用户重新初始化，不从上一轮个人adapter再叠加训练。
 
-109项自动测试通过，真实Tower参数核对：LoRA联合65,856参数，全参联合19,590,720参数。四卡各做原验证用户3步短测，全部通过两部分非零梯度/真实更新、冻结参数/buffers、共同基线/批次及保存重载审计；两个配对用户的初始adapter梯度范数也一致。[短测审计](../artifacts/benchmark/leaf_personal_joint_20261124/smoke_verified.json)。尚无完整正式结果，不能把旧C分支的单独LoRA结果称作联合训练结果。
+2026-11-24 11:39:00 UTC，46次正式个人适配全部完成并通过审计。两库等权BAcc：残差-only 50.18%、联合LoRA 50.44%（+0.26个百分点）、联合全参49.62%（−0.56个百分点）；单seed探索性结果，不作显著提升结论。[完整汇总](../artifacts/benchmark/leaf_personal_joint_20261124/summary.md)、[完成审计](../artifacts/benchmark/leaf_personal_joint_20261124/complete.json)。
+
+训练启动前109项自动测试通过，真实Tower参数核对：LoRA联合65,856参数，全参联合19,590,720参数。四卡各做原验证用户3步短测，全部通过两部分非零梯度/真实更新、冻结参数/buffers、共同基线/批次及保存重载审计；两个配对用户的初始adapter梯度范数也一致。[短测审计](../artifacts/benchmark/leaf_personal_joint_20261124/smoke_verified.json)。旧C分支的单独LoRA结果不是本轮联合训练结果。
 
 2026-11-24 08:54:08 UTC，控制器84713自动进入正式阶段，GPU 0/1/2/3 worker PID为151498/151503/151508/151511，承担12/11/12/11人。运行源码为`98d257d`。短测每组三步约28秒，GPU峰值约49.5–49.8GiB；据短测及历史基线估计整轮约3小时，实际以正式训练速度为准。
 
-08:55:35–36 UTC四个正式worker均完成第1步更新：被试8两组初始CE均1.11288208，被试9两组均0.99153653；不是仅创建队列。当前仍在训练，不报告尚未完成的query成绩。
+08:55:35–36 UTC四个正式worker均完成第1步更新：被试8两组初始CE均1.11288208，被试9两组均0.99153653；不是仅创建队列。以上为启动记录，当前均已完成。
 
 首次08:41启动在权重加载期间进程退出，无完成短测、无正式更新、无Python报错；系统OOM计数为0，退出原因未确定。08:51以相同源码和配置恢复，旧日志保留；没有修改LR或训练预算。
 
-根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。实际状态见[pipeline.json](../artifacts/benchmark/leaf_personal_joint_20261124/pipeline.json)，每10步loss和信号侧checkpoint即时保存；46次完整适配通过审计后才生成完整汇总。
+根目录`artifacts/benchmark/leaf_personal_joint_20261124/`。实际状态见[pipeline.json](../artifacts/benchmark/leaf_personal_joint_20261124/pipeline.json)，每10步loss和信号侧checkpoint均保留；完整汇总来自全部46次通过审计的适配。
+
+## ⚡ 已完成：不同 EEG 时长的推理基线
+
+2026-11-24，单张H100 80GB，batch=1；共享InfoNCE→JEV step1360，加2a被试8的joint_lora个人权重。原精度、LoRA和分块策略不变；eval＋inference_mode，无量化、合并LoRA或编译。固定76个文本tokens，每0.5秒EEG产生2个tokens。每个长度/阶段预热10次，再测50次；表内为CUDA同步后的墙钟中位数，P95为完整路径第95百分位。
+
+| EEG 时长（秒） | Tower（ms） | JEV语言主干（ms） | 完整计算路径（ms） | 完整路径P95（ms） |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.5 | 8.17 | 259.03 | 269.05 | 273.36 |
+| 1 | 8.96 | 259.76 | 268.77 | 274.65 |
+| 2 | 8.64 | 256.55 | 268.13 | 272.00 |
+| 4 | 8.69 | 255.12 | 269.49 | 274.32 |
+| 8 | 8.46 | 261.33 | 274.27 | 279.53 |
+| 16 | 17.54 | 266.21 | 291.31 | 297.01 |
+| 30 | 25.83 | 277.16 | 314.61 | 320.33 |
+
+完整路径从已滤波/重采样到200Hz、驻留CPU内存的22通道EEG开始，包含归一化、映射65通道、分块、H2D、Tower、个人adapter、connector、JEV和概率回CPU；不含采集等待、EDF读取、上游滤波/重采样、模型加载、网络与排队。各模块独立计时，不能用中位数简单相加替代完整路径。峰值PyTorch allocated显存48.81–48.85GiB。
+
+0.5–4秒使用同一4秒trial前缀，8–30秒通过重复该trial构造形状测试，不是真实连续MI记录；只报告速度，不报告这些长度的准确率。16秒按8＋8秒、30秒按10＋10＋10秒编码后拼接。短时长之间约1–6ms差异不能解释为稳定的算法优劣。
+
+观察：4秒Tower仅约8.7ms，JEV语言主干约255ms；30秒总计算延迟比4秒约增17%，主瓶颈在JEV。环境核对发现Qwen的`causal_conv1d`和FLA gated-delta快速算子不可用，`is_fast_path_available=False`，回退普通PyTorch实现。因此这是当前实现基线，不是H100最佳部署速度；本次未安装依赖或改变模型，尚不能声称补齐kernel的实际收益。
+
+[完整分解与口径](../artifacts/benchmark/inference_latency_20261124/summary.md)、[50次原始计时](../artifacts/benchmark/inference_latency_20261124/results.json)、[环境核对](../artifacts/benchmark/inference_latency_20261124/environment_audit.json)、[测速脚本](../scripts/benchmark_inference.py)。资源/模型/文档技能分别用于容量检查、无梯度推理和报告边界；过程来源见[协议中的技能引用](PROTOCOL.md)，不作为加速方法贡献。
+
+### 本地 Qwen3-VL-8B 语言主干速度对照
+
+直接复用`third_party/ECG-R1/ECG-R1-8B-RL`，只加载Qwen3-VL语言主干（7,567,324,160参数）和16个词表行，不加载视觉/ECG分支，不新增下载或训练。这是ECG-R1微调后的Qwen3-VL-8B派生权重，不是小号JEV。其隐藏维度4096，测速采用随机初始化256→4096→4096连接器，不能作为EEG效果结果。
+
+| EEG 时长（秒） | JEV-27B完整计算（ms） | 本地8B完整计算（ms） | 完整路径加速比 | 8B完整路径P95（ms） |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.5 | 269.05 | 31.29 | 8.60× | 33.16 |
+| 1 | 268.77 | 32.15 | 8.36× | 32.47 |
+| 2 | 268.13 | 32.01 | 8.38× | 33.47 |
+| 4 | 269.49 | 33.09 | 8.14× | 34.24 |
+| 8 | 274.27 | 34.50 | 7.95× | 36.16 |
+| 16 | 291.31 | 46.88 | 6.21× | 61.20 |
+| 30 | 314.61 | 59.35 | 5.30× | 61.57 |
+
+两组均单H100、batch1、预热10次/测量50次；同一LEAF＋个人LoRA/adapter权重、同一输入及预处理，计时定义与上节相同。8B语言主干约20.1–20.5ms，峰值allocated显存约14.28–14.30GiB。源码和权重不在测速期间变动；113项自动测试通过。
+
+不是参数量的严格消融：27B是缺快速kernel的Qwen3.5混合注意力＋原语言LoRA，8B为Qwen3-VL标准注意力；相同提示词经原生tokenizer得到76/72个文本tokens，连接器维度也不同。只说明当前两套执行路径的实测差异，不说明分类效果保持或所有8B模型都会同样快。
+
+[8B完整记录及模型来源](../artifacts/benchmark/inference_latency_qwen8b_20261124/summary.md)、[原始计时](../artifacts/benchmark/inference_latency_qwen8b_20261124/results.json)、[比较审计](../artifacts/benchmark/inference_latency_qwen8b_20261124/comparison.json)。过程技能引用已保留在报告中。
+
+### 原生 LEAF 发布版速度对照
+
+直接加载`leaf-v1.0-instruct-mpnet-base.ckpt`完整LEAF，不加载我们训练的父模型/个人adapter。发布模型共26.424M参数，推理有效参数25.752M＝Tower 19.558M＋指令Q-Former 6.194M，不含离线MPNet。原生直接推理以缓存文本向量条件化FiLM/Q-Former，输出768维向量与类别原型做余弦匹配，不是把EEG送入自回归语言模型。[上游推理接口](https://github.com/Jiang-Muyun/LEAF/blob/main/c_direct_inference.py)
+
+相同H100、batch1、输入和预处理，预热10次/测量50次；单位ms，完整路径墙钟中位数。前两轮JEV/8B数据保留，未重跑。
+
+| EEG时长（秒） | 原生LEAF FP32（ms） | 原生LEAF BF16 autocast（ms） | Tower→本地8B（ms） | Tower→JEV-27B（ms） |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.5 | 7.85 | 10.82 | 31.29 | 269.05 |
+| 1 | 8.73 | 11.70 | 32.15 | 268.77 |
+| 2 | 9.23 | 11.26 | 32.01 | 268.13 |
+| 4 | 9.81 | 12.62 | 33.09 | 269.49 |
+| 8 | 10.76 | 14.12 | 34.50 | 274.27 |
+| 16 | 20.94 | 27.43 | 46.88 | 291.31 |
+| 30 | 33.74 | 42.78 | 59.35 | 314.61 |
+
+FP32为本地上游推理默认，BF16只作计算精度控制，未验证分类精度变化。4秒完整LEAF前向7.91ms，含预处理/传输/CPU匹配共9.81ms；峰值allocated 0.158GiB，不含离线文本编码器。MPNet文本向量已缓存，不把该耗时说成“在线跑完整语言模型”。比较中的8B仍未做EEG对齐；原27B缺部分快速kernel，系统能力/参数/权重/读出不同，不是等价能力对照。
+
+LEAF单次输入上限10秒；16/30秒用8+8或10+10+10逐块运行完整LEAF，再按时长平均类别余弦分数，这是本次测速wrapper而非上游原生超长推理。长输入重复同一4秒trial，仅作形状测速；没有进行准确率评估或训练。114项自动测试、14组GPU测速及上游源码哈希核对通过，四卡已释放。
+
+[完整LEAF报告](../artifacts/benchmark/inference_latency_leaf_native_20261124/summary.md)、[原始计时](../artifacts/benchmark/inference_latency_leaf_native_20261124/results.json)、[比较审计](../artifacts/benchmark/inference_latency_leaf_native_20261124/comparison.json)。
 
 ## 📊 已完成：23名留出用户残差-only基线
 

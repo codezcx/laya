@@ -17,7 +17,8 @@ from .multitask_data import TrialStore, write_json
 from .benchmark_data import classification_metrics
 from .leaf_data import LEAFSignalAdapter
 from .online_leaf import OnlineLEAFTower, encode_batch, upstream_files
-from .jev import JEVBridge, load_jev
+from .language_backbones import (CONFIG_PATH as BACKBONE_CONFIG, backbone_spec,
+                                backbone_files, load_backbone, build_decision_bridge)
 from .task_options import make_variant
 from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
 from .distributed import atomic_save, average_gradients, rank_rows
@@ -31,17 +32,19 @@ def code_identity():
         'configs/contrastive_train.json', 'scripts/run_contrastive.py',
         'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py',
         'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py')]
-    paths += upstream_files(CONFIG)
+    paths += [BACKBONE_CONFIG] + upstream_files(CONFIG)
     return {str(p): digest(p) for p in paths}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--arm', choices=CONFIG['arms'], required=True)
+    parser.add_argument('--backbone', default='jev', choices=['jev', 'qwen3vl4b'])
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
+    language_spec = backbone_spec(args.backbone)
     torch.set_num_threads(3)
     world = int(os.environ.get('WORLD_SIZE', 1))
     rank = int(os.environ.get('RANK', 0))
@@ -85,7 +88,7 @@ def main():
     bridge_only = 1 if args.smoke else CONFIG['bridge_only_steps']
     batch_size = CONFIG['global_batch']
     hashes = code_identity()
-    source_paths = [Path(CONFIG['checkpoint'])]
+    source_paths = [Path(CONFIG['checkpoint'])] + backbone_files(language_spec)
     if setting.get('alignment'):
         from .contrastive_protocol import parent_directory, load_aligned_tower
         parent = parent_directory(setting['alignment'])
@@ -98,15 +101,16 @@ def main():
         if hashes != code_identity() or source_stats() != fixed_source_stats:
             raise RuntimeError('Live training code/config changed')
     import transformers
-    root = Path('laya/JEV-27B-VL')
     identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, world_size=world, code_sha256=hashes,
         checkpoint_sha256=digest(CONFIG['checkpoint']),
         adaptation=setting,
         cache_indexes={tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
         runtime=dict(torch=torch.__version__, transformers=transformers.__version__),
-        jev_config_sha256={p: digest(root / p) for p in ('config.json', 'model.safetensors.index.json',
-            'adapter_vllm/adapter_config.json', 'adapter_vllm/decision_head.json', 'adapter_vllm/adapter_model.safetensors')},
-        jev_shard_stats={p.name: [p.stat().st_size, p.stat().st_mtime_ns] for p in sorted(root.glob('model-*.safetensors'))})
+        language_backbone=args.backbone, language_spec=language_spec,
+        language_config_sha256={str(p): digest(p) for p in backbone_files(language_spec)
+                               if not p.name.startswith('model-')},
+        language_shard_stats={str(p): [p.stat().st_size, p.stat().st_mtime_ns]
+                             for p in backbone_files(language_spec) if p.name.startswith('model-')})
     if args.resume:
         if identity != json.loads((args.out / 'config.json').read_text()):
             raise ValueError('Resume identity mismatch')
@@ -114,7 +118,7 @@ def main():
         write_json(args.out / 'config.json', identity)
     print('LOADING_RELEASE_MODELS', args.arm, flush=True)
     seed_rng(CONFIG['seed'])
-    text, weight, bias, tokenizer = load_jev(f'cuda:{device}')
+    text, weight, bias, tokenizer = load_backbone(args.backbone, f'cuda:{device}')
     # Reset after release loading; the bridge must match across aligned sources.
     seed_rng(CONFIG['seed'])
     encoder = OnlineLEAFTower(CONFIG)
@@ -127,8 +131,8 @@ def main():
         write_json(args.out / 'transfer_audit.json', dict(release=encoder.release_audit, alignment=transfer))
     # Encoder initialization consumes RNG; reset before the newly trained bridge.
     seed_rng(CONFIG['seed'])
-    model = JEVBridge(text, weight, bias, tokenizer, True, True, head_choices=16,
-                      input_dim=256)
+    model = build_decision_bridge(text, weight, bias, tokenizer, train_lora=True,
+                                  train_head=True, head_choices=16, input_dim=256)
     model.add_module('eeg_encoder', encoder)
     groups = [dict(name='connector', params=list(model.connector.parameters())),
         dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad]),
@@ -154,7 +158,9 @@ def main():
             aligned_transfer=transfer,
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens='2 * sum(ceil(segment_samples / 100)); all branches and chunks',
-            initialization='LEAF Tower only (optional aligned parent) + native JEV + new MLP; no MPNet/FiLM/Q-Former',
+            initialization=f'LEAF Tower only (optional aligned parent) + {args.backbone} + new MLP; no MPNet/FiLM/Q-Former',
+            language_backbone=args.backbone,
+            language_audit=getattr(text, 'backbone_audit', {'pretrained_jev_adapter_loaded': True}),
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
         proofs = collect(initial)
         if any(p != proofs[0] for p in proofs[1:]):

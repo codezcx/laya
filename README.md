@@ -1,8 +1,20 @@
-# LEAF Tower＋个人残差 adapter → 冻结 Qwen-JEV
+# LEAF Tower → 语言决策主干
 
-当前实验：每位用户用自己的20条标注样本，联合更新残差adapter与Tower；比较Tower LoRA和Tower全参两种方式。JEV与原连接器全冻结，最终仍由JEV分类，不采用文本相似度读出。
+后续评估约定（2026-11-24）：原`train`只用于训练；原`test`用于开发过程评估、选择步数和比较方案；原`valid`待用户确定方案后再评估。划分名单和文件标签不交换，原test成绩明确标作开发/探索性结果。原valid已在历史实验中使用，不能再宣称为从未看过的盲测。约定已写入[AGENTS.md](AGENTS.md)和[协议](docs/PROTOCOL.md)；评估代码尚未切换，须在当前任务结束后、下次启动前完成。当前4B运行仍保持下面的旧协议。
 
-## 📋 两组匹配实验
+当前新增同一训练流程的小语言主干对照：原生Qwen3-VL-4B-Instruct，复用InfoNCE对齐后的LEAF Tower、17库共享指令数据和原训练预算。只加载语言塔，新训练256→2560→2560连接器、语言LoRA-r32和A–P决策读出；不搬运27B JEV/ECG-R1权重，不进行教师蒸馏。该对照尚无正式准确率结果。
+
+原生模型从本地`CerebraGloss/DataEngine/models/Qwen3-VL-4B-Instruct`复制至`third_party/Qwen3-VL-4B-Instruct`，两份权重SHA256及配置/tokenizer Git blob哈希与官方仓库匹配。权重保持Git忽略，来源和固定revision见[配置](configs/language_backbones.json)。模型核验、资源检查与文档技能用于严格加载、四卡容量和记录边界，引用保留在[协议](docs/PROTOCOL.md)。
+
+```bash
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --backbone qwen3vl4b --arm leaf_infonce_mlp
+```
+
+输出`artifacts/benchmark/leaf_tower_qwen4b_20261124/`；先权重核验、全训练输入预检和四卡短测，再从相同初始化正式训练2040步，最后跑完整验证集。沿用九库验证选点；不读取测试集做模型前向。LR、batch、数据划分不变。此对照同时改变主干架构、初始化及接口维度，不能称为纯参数量消融。
+
+## 📋 已完成：个人联合适配对照
+
+每位用户用自己的20条标注样本，联合更新残差adapter与Tower；比较Tower LoRA和Tower全参两种方式。JEV与原连接器全冻结，最终仍由JEV分类，不采用文本相似度读出。以下个人协议与新共享SFT对照分开记录。
 
 | 组别 | Tower更新 | adapter更新 | 个人可训练参数 | GPU |
 | --- | --- | --- | ---: | --- |
@@ -24,9 +36,9 @@ laya/.venv-eeg/bin/python scripts/run_personalization.py --start --resume
 
 根目录：`artifacts/benchmark/leaf_personal_joint_20261124/`。输入核对及四卡验证用户3步短测通过后，自动进入46次正式个人训练。
 
-2026-11-24 08:54:08 UTC已进入四卡正式阶段；109项自动测试和4次真实GPU短测全部通过。运行实现`98d257d`，每组两卡分别处理12/11人，预计整轮约3小时。
+2026-11-24 11:39:00 UTC，46次正式个人适配已全部完成并通过审计。运行实现`98d257d`，每组两卡分别处理12/11人；两库等权BAcc：残差-only 50.18%、联合LoRA 50.44%、联合全参49.62%。见[完整汇总](artifacts/benchmark/leaf_personal_joint_20261124/summary.md)。
 
-`pipeline.json`和`worker_*.json`记录实际状态；`episodes/*/support_history.json`记录loss；`last.pt`每10步保存信号侧权重，`adapter.pt`保存完成的联合权重。没有LM权重副本，不承诺中途优化器精确续训。全部46次完成并审计通过后生成`summary.md/json`，同时列原残差-only匹配对照。当前运行状态见[结果页](docs/RESULTS.md)。
+`pipeline.json`和`worker_*.json`记录实际状态；`episodes/*/support_history.json`记录loss；`last.pt`每10步保存信号侧权重，`adapter.pt`保存完成的联合权重。没有LM权重副本，不承诺中途优化器精确续训。已生成`summary.md/json`，同时列原残差-only匹配对照。当前运行状态见[结果页](docs/RESULTS.md)。
 
 ## 📊 已完成对照与边界
 
@@ -36,6 +48,9 @@ laya/.venv-eeg/bin/python scripts/run_personalization.py --start --resume
 
 - [当前协议](docs/PROTOCOL.md)
 - [结果与历史对照](docs/RESULTS.md)
+- [不同 EEG 时长的推理延迟](artifacts/benchmark/inference_latency_20261124/summary.md)：单H100、batch1，0.5–30秒完整计算延迟约268–315ms；当前Qwen快速kernel缺失，未做部署优化。
+- [本地Qwen3-VL-8B主干速度对照](artifacts/benchmark/inference_latency_qwen8b_20261124/summary.md)：同一信号侧，4秒输入约33.09ms（当前27B约269.49ms）；小模型连接器未训练，只比较速度，不报告EEG准确率。
 - [Git归档](docs/ARCHIVE.md)
+- [原生LEAF完整推理测速](artifacts/benchmark/inference_latency_leaf_native_20261124/summary.md)：发布权重＋原Q-Former＋缓存文本余弦分类；4秒FP32约9.81ms，BF16 autocast约12.62ms。没有在线运行MPNet或Qwen，不是等价LM能力对照。
 
 原残差-only入口归档在`34c11a8`（运行实现`513427d`）；新两组是同一个人适配方案的匹配控制。数据、权重、日志、环境及用户未提交的ECG/专利/图件等均保留。
