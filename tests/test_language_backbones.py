@@ -12,6 +12,7 @@ from eeg_align.jev import LoadedLoRA
 from eeg_align.language_backbones import (add_fresh_lora, backbone_spec, choice_token_ids,
                                          verify_native_checkpoint, build_decision_bridge)
 from eeg_align.runtime import CONFIG
+from eeg_align.evaluation_protocol import POLICY, effective_config
 from scripts.run_benchmark import training_command, validate_resume
 
 
@@ -21,6 +22,10 @@ def test_native_profile_preserves_shared_recipe_and_jev_default():
     profile = backbone_spec('qwen3vl4b')
     assert profile['upstream_repo'] == 'Qwen/Qwen3-VL-4B-Instruct'
     assert profile['lora_rank'] == 32 and profile['lora_alpha'] == 64
+    larger = backbone_spec('qwen3vl8b')
+    assert larger['upstream_repo'] == 'Qwen/Qwen3-VL-8B-Instruct'
+    for key in ('lora_rank', 'lora_alpha', 'lora_targets'):
+        assert larger[key] == profile[key]
     assert CONFIG == before
     with pytest.raises(ValueError, match='Unknown language'):
         backbone_spec('made-up')
@@ -116,7 +121,8 @@ def test_verbalizers_and_launcher_forward_backbone(tmp_path):
     assert command[command.index('--backbone')+1] == 'qwen3vl4b'
     directory = tmp_path/'train'/'leaf_infonce_mlp'
     directory.mkdir(parents=True)
-    (directory/'config.json').write_text(json.dumps(dict(config=CONFIG, arm='leaf_infonce_mlp',
+    (directory/'config.json').write_text(json.dumps(dict(config=effective_config(CONFIG), evaluation_policy=POLICY,
+        arm='leaf_infonce_mlp',
         smoke=False, language_backbone='qwen3vl4b', code_sha256={})))
     for name in ('last.pt', 'best.pt'):
         (directory/name).write_bytes(b'fixture')

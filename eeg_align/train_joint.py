@@ -23,7 +23,9 @@ from .task_options import make_variant
 from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
 from .distributed import atomic_save, average_gradients, rank_rows
 from .lr_schedule import rates_at
-from .evaluation import require_split, fixed_training_rows, validation_rows
+from .evaluation import fixed_training_rows
+from .evaluation_protocol import (POLICY_PATH, POLICY, SELECTION_SPLIT, effective_config,
+                                  require_split, selection_rows, EvaluationLedger)
 
 
 def code_identity():
@@ -32,14 +34,14 @@ def code_identity():
         'configs/contrastive_train.json', 'scripts/run_contrastive.py',
         'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py',
         'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py')]
-    paths += [BACKBONE_CONFIG] + upstream_files(CONFIG)
+    paths += [BACKBONE_CONFIG, POLICY_PATH, Path('scripts/plot_training_curves.py')] + upstream_files(CONFIG)
     return {str(p): digest(p) for p in paths}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--arm', choices=CONFIG['arms'], required=True)
-    parser.add_argument('--backbone', default='jev', choices=['jev', 'qwen3vl4b'])
+    parser.add_argument('--backbone', default='jev', choices=['jev', 'qwen3vl4b', 'qwen3vl8b'])
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
@@ -101,7 +103,8 @@ def main():
         if hashes != code_identity() or source_stats() != fixed_source_stats:
             raise RuntimeError('Live training code/config changed')
     import transformers
-    identity = dict(arm=args.arm, smoke=args.smoke, config=CONFIG, world_size=world, code_sha256=hashes,
+    identity = dict(arm=args.arm, smoke=args.smoke, config=effective_config(CONFIG),
+        source_data_config=CONFIG, evaluation_policy=POLICY, world_size=world, code_sha256=hashes,
         checkpoint_sha256=digest(CONFIG['checkpoint']),
         adaptation=setting,
         cache_indexes={tasks[t]['task_id']: m['index_sha256'] for t, m in store.meta.items()},
@@ -169,6 +172,7 @@ def main():
         if rank == 0:
             write_json(args.out / 'initial_state.json', initial)
     step, best_score, best_step = 0, -1., None
+    ledger = EvaluationLedger()
     seed_rng(CONFIG['seed'] + rank)
     if args.resume:
         saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
@@ -178,15 +182,14 @@ def main():
         optimizer.load_state_dict(saved['optimizer'])
         restore_rng(saved['rng_by_rank'][rank])
         step, best_score, best_step = saved['step'], saved['best_score'], saved['best_step']
+        ledger = EvaluationLedger(saved['evaluation_counts'])
         del saved
     prompts = {}
     def forward(rows, training=False):
         splits = {r['split'] for r in rows}
         if len(splits) != 1 or not rows:
             raise ValueError('Empty or mixed split batch')
-        require_split(rows[0]['split'])
-        if training and splits != {'train'}:
-            raise RuntimeError('Only train rows can backpropagate')
+        require_split(rows[0]['split'], training=training)
         tid = rows[0]['task']
         if any(r['task'] != tid for r in rows):
             raise ValueError('One task per microbatch required')
@@ -206,7 +209,7 @@ def main():
     def report(item):
         if rank != 0:
             return
-        item.update(arm=args.arm, test_evaluations=0, elapsed_seconds=time.monotonic()-started)
+        item.update(arm=args.arm, **ledger.state_dict(), elapsed_seconds=time.monotonic()-started)
         log.write(json.dumps(item, allow_nan=False) + '\n')
         write_json(args.out / 'progress.json', item)
         print(json.dumps(item), flush=True)
@@ -225,7 +228,8 @@ def main():
             raise RuntimeError('Synchronized ranks have diverged')
         if rank == 0:
             value = dict(**capture_model(model), identity=identity, step=step, best_score=best_score,
-                         best_step=best_step, rng_by_rank=rngs, rank_weights_verified=True)
+                         best_step=best_step, rng_by_rank=rngs, rank_weights_verified=True,
+                         evaluation_counts=ledger.state_dict())
             if optimizer_state:
                 value['optimizer'] = optimizer.state_dict()
             atomic_save(value, args.out / filename)
@@ -237,11 +241,17 @@ def main():
         if split == 'train' and not cap:
             raise ValueError('Train monitoring requires a cap')
         model.eval()
-        summary, legacy = {}, {}
+        summary, manifest = {}, {}
+        selection_ids_path = args.out / f'{split}_selection_ids.json'
+        prior_ids = (json.loads(selection_ids_path.read_text())
+                     if split == SELECTION_SPLIT and cap is not None and selection_ids_path.exists() else None)
         for tid, task in enumerate(tasks):
             if task['role'] != 'benchmark':
                 continue
-            rows = fixed_training_rows(store, tid, cap) if split == 'train' else validation_rows(store, tid, cap)
+            rows = fixed_training_rows(store, tid, cap) if split == 'train' else selection_rows(store, tid, cap)
+            manifest[task['task_id']] = [r['id'] for r in rows]
+            if prior_ids is not None and prior_ids['datasets'][task['task_id']] != manifest[task['task_id']]:
+                raise RuntimeError('Fixed development selection IDs changed')
             indices = list(range(rank, len(rows), world))
             local = []
             for offset in range(0, len(indices), CONFIG['eval_microbatch']):
@@ -257,6 +267,7 @@ def main():
             losses = np.array([r[2] for r in records])
             if not np.isfinite(probabilities).all() or not np.isfinite(losses).all():
                 raise FloatingPointError('Invalid evaluation')
+            ledger.record(split, len(rows))
             labels = np.array([r['label'] for r in rows])
             metric = classification_metrics(labels, probabilities, len(task['classes']))
             metric.update(loss=float(losses.mean()), sample_ids_sha256=hashlib.sha256(
@@ -265,33 +276,35 @@ def main():
             metric['per_subject'] = {s:classification_metrics(labels[subjects==s], probabilities[subjects==s],
                                       len(task['classes'])) for s in sorted(set(subjects))}
             summary[task['task_id']] = metric
-            if split == 'valid':
-                ids = {r['id'] for r in store.evaluation(tid, 'valid', 128)}
-                mask = np.array([r['id'] in ids for r in rows])
-                legacy[task['task_id']] = classification_metrics(labels[mask], probabilities[mask], len(task['classes']))
             if cap is None and rank == 0:
-                np.savez_compressed(args.out / f'valid_{task["task_id"]}_predictions.npz',
+                np.savez_compressed(args.out / f'{split}_{task["task_id"]}_predictions.npz',
                     ids=np.array([r['id'] for r in rows]), subjects=subjects, labels=labels, probabilities=probabilities)
             report(dict(status='evaluating', step=step, split=split, dataset=task['task_id'],
                         n=len(rows), accuracy=metric['accuracy'], loss=metric['loss']))
         result = dict(step=step, selected_step=best_step, datasets=summary,
+            split=split, role=POLICY['selection_role'] if split == SELECTION_SPLIT else 'train_monitor',
+            scope='full' if cap is None else 'subset', cap_per_dataset=cap,
+            independent_test_estimate=False, evaluation_counts=ledger.state_dict(),
             macro_balanced_accuracy=float(np.mean([m['balanced_accuracy'] for m in summary.values()])),
             macro_accuracy=float(np.mean([m['accuracy'] for m in summary.values()])),
-            macro_loss=float(np.mean([m['loss'] for m in summary.values()])), legacy128=legacy,
-            legacy128_macro_balanced_accuracy=float(np.mean([m['balanced_accuracy'] for m in legacy.values()])) if legacy else None)
+            macro_loss=float(np.mean([m['loss'] for m in summary.values()])))
         if rank == 0:
             write_json(args.out / f'{split}_step{step:06d}_{"subset" if cap else "full"}.json', result)
+            if split == SELECTION_SPLIT and cap is not None and prior_ids is None:
+                write_json(selection_ids_path, dict(split=split, role=POLICY['selection_role'],
+                    cap_per_dataset=cap, datasets=manifest))
+        barrier()
         return result
 
     completed_step = step
     try:
         if not args.smoke and step == 0 and not args.resume:
-            baseline = evaluate('valid', CONFIG['validation_per_dataset'])
+            baseline = evaluate(SELECTION_SPLIT, CONFIG['validation_per_dataset'])
             best_score, best_step = baseline['macro_balanced_accuracy'], 0
             evaluate('train', CONFIG['train_monitor_per_dataset'])
             save('best.pt', False)
             save('last.pt')
-            report(dict(status='validation', **{k:v for k,v in baseline.items() if k != 'datasets'}))
+            report(dict(status='development', **{k:v for k,v in baseline.items() if k != 'datasets'}))
         for step in range(step+1, total+1):
             guard()
             tid, rows = store.sample(step, batch_size, CONFIG['seed'])
@@ -356,14 +369,15 @@ def main():
                 return
             if not args.smoke and (step % CONFIG['validation_every'] == 0 or step == total):
                 rng = capture_rng()
-                result = evaluate('valid', CONFIG['validation_per_dataset'])
+                result = evaluate(SELECTION_SPLIT, CONFIG['validation_per_dataset'])
                 if result['macro_balanced_accuracy'] > best_score:
                     best_score, best_step = result['macro_balanced_accuracy'], step
                     save('best.pt', False)
                 evaluate('train', CONFIG['train_monitor_per_dataset'])
                 restore_rng(rng)
                 save(f'step{step:06d}.pt', False)
-                report(dict(status='validation', step=step, macro_balanced_accuracy=result['macro_balanced_accuracy'],
+                report(dict(status='development', split=SELECTION_SPLIT, role=POLICY['selection_role'],
+                            step=step, macro_balanced_accuracy=result['macro_balanced_accuracy'],
                             best_score=best_score, best_step=best_step))
             if step % CONFIG['checkpoint_every'] == 0 or step in {bridge_only, bridge_only+1, total}:
                 save('last.pt')
@@ -389,7 +403,7 @@ def main():
             saved = torch.load(args.out / 'best.pt', map_location='cpu', mmap=True, weights_only=False)
             restore_model(model, saved)
             del saved
-            full = evaluate('valid', None)
+            full = evaluate(SELECTION_SPLIT, None)
         final_encoder_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
         if (final_encoder_proof != frozen_proof) != (train_encoder and (args.smoke or best_step > bridge_only)):
             raise RuntimeError('Final encoder update/freeze proof failed')
@@ -397,8 +411,10 @@ def main():
             raise RuntimeError('Final encoder differs across ranks')
         if rank == 0:
             write_json(args.out / 'complete.json', dict(smoke=args.smoke, updates=step,
-                selected_step=best_step, selection_score=best_score, validation=full,
-                test_evaluations=0, checkpoint_reload_verified=True, encoder_update_contract_verified=True,
+                selected_step=best_step, selection_score=best_score, development_evaluation=full,
+                evaluation_policy=POLICY, evaluation_counts=ledger.state_dict(),
+                test_evaluations=ledger.counts['test_evaluations'], valid_evaluations=ledger.counts['valid_evaluations'],
+                checkpoint_reload_verified=True, encoder_update_contract_verified=True,
                 encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
                 world_size=world, rank_weights_verified=True, distributed_sampling_verified=True,
                 selected_encoder_sha256=final_encoder_proof))

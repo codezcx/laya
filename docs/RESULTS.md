@@ -1,8 +1,14 @@
 # LEAF Tower→JEV 当前实验与历史对照
 
-_更新：2026-11-24。当前新增原生小Qwen共享SFT控制；个人联合适配已完成，见[协议](PROTOCOL.md)。_
+_更新：2026-11-24。当前换为原生8B共享SFT；4B与个人联合适配已完成，见[协议](PROTOCOL.md)。_
 
-后续用途约定：新实验拟使用原test进行开发评估和checkpoint选择，原valid待方案确定后再评估，见[协议](PROTOCOL.md)。本次只更新约定文档，未切换评估代码；以下历史结果及已运行的4B任务仍按各自原始协议解读，不追溯改名。未来原test选点成绩标为开发结果；原valid已有被观察和用于选点的历史，不将其冒充全新盲测。
+本轮用途约定已落实到共享决策训练：原test进行开发评估和checkpoint选择，原valid待方案确定后再评估，见[协议](PROTOCOL.md)。以下4B等历史结果仍按各自原始协议解读，不追溯改名。原test选点成绩标为开发结果；原valid已有被观察和用于选点的历史，不将其冒充全新盲测。
+
+## 📋 原生 Qwen3-VL-8B 指令微调
+
+换用官方8B语言权重，四个safetensors分片及配置/tokenizer/index均通过官方哈希校验。原InfoNCE step1700 Tower、17库训练、2040步、340步connector-only、global batch16和全部LR保持不变；新connector为256→4096→4096，语言LoRA-r32，choice交叉熵，不增加蒸馏或第二轮对比学习。
+
+输出`artifacts/benchmark/leaf_tower_qwen8b_20261124/`，启动检查中，尚无正式准确率。训练中每340步在九库固定原test子集（每库最多512）选点，最后评估完整原test；本轮不运行原valid。结果属于开发/探索性结果，与下方4B原valid成绩不能直接比较。4B实现已归档`ad4c054`；没有新建独立版本训练器。
 
 ## 📋 原生 Qwen3-VL-4B 指令微调控制
 
@@ -10,9 +16,9 @@ _更新：2026-11-24。当前新增原生小Qwen共享SFT控制；个人联合�
 
 输出根目录`artifacts/benchmark/leaf_tower_qwen4b_20261124/`。119项测试全部通过；真实GPU前向/反向检查确认输入、connector和LoRA具有有限非零梯度，语言基础权重没有梯度。实际语言主干4,022,468,096参数，联合阶段总可训练92,873,488参数。
 
-全部2040个计划batch的CPU输入预检通过（131.8秒）；四卡17库短测已完成并通过rank权重一致性、encoder更新和checkpoint精确重载审计。GPU峰值allocated约10.00GiB。控制器2905152已进入正式2040步训练阶段，重新从InfoNCE step1700 Tower＋原生Qwen初始化。最新阶段见[pipeline.json](../artifacts/benchmark/leaf_tower_qwen4b_20261124/pipeline.json)，[短测完成审计](../artifacts/benchmark/leaf_tower_qwen4b_20261124/smoke/leaf_infonce_mlp/complete.json)。尚无本轮最终准确率，不能把此前随机连接器的速度测试当作本轮训练结果。
+4B已全部完成2040步，原valid固定子集选中step2040，子集九库平均BAcc为43.26%；完整原valid九库61,327窗口平均BAcc为42.68%，平均Acc为44.28%。27B历史同一完整valid IDs的BAcc为47.83%，4B低5.15个百分点；选中步数、架构、初始化和接口容量不同，不能唯一归因于参数量。[完成审计](../artifacts/benchmark/leaf_tower_qwen4b_20261124/train/leaf_infonce_mlp/complete.json)、[完整valid指标](../artifacts/benchmark/leaf_tower_qwen4b_20261124/train/leaf_infonce_mlp/valid_step002040_full.json)。
 
-启动核查时正式训练已完成15/2040步，确认不是仅建立队列；step0九库验证及训练监测已保存，正式初始化与短测初始哈希逐项相同。第15步处于connector-only阶段，只有connector梯度非零，语言LoRA、head和Tower的LR/梯度均为0，符合前340步预热约定。
+全部2040个计划batch预检通过（131.8秒），四卡17库短测、正式rank权重一致性、encoder更新、checkpoint精确重载及初始哈希匹配均通过。正式训练加最终完整valid记录耗时1797.3秒，未进行原test前向。[完成阶段](../artifacts/benchmark/leaf_tower_qwen4b_20261124/pipeline.json)。
 
 ## 📋 已完成：联合更新 adapter 与 Tower
 

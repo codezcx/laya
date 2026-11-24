@@ -14,6 +14,8 @@ sys.path.insert(0, str(ROOT))
 from eeg_align.runtime import CONFIG, digest
 from eeg_align.language_backbones import CONFIG_PATH as BACKBONE_CONFIG, backbone_spec, verify_native_checkpoint
 from eeg_align.multitask_data import write_json
+from eeg_align.evaluation_protocol import (POLICY_PATH, POLICY, effective_config,
+                                          verify_evaluation_contract)
 
 
 def require_gpu_capacity(gpus, minimum_free_mib):
@@ -49,7 +51,8 @@ def verify_initialization(smoke, formal):
 def validate_resume(output, arm, backbone='jev'):
     directory = output / 'train' / arm
     identity = json.loads((directory / 'config.json').read_text())
-    if identity['config'] != CONFIG or identity['smoke'] or identity['arm'] != arm:
+    if (identity['config'] != effective_config(CONFIG) or identity.get('evaluation_policy') != POLICY
+            or identity['smoke'] or identity['arm'] != arm):
         raise ValueError('Resume identity mismatch')
     if identity.get('language_backbone', 'jev') != backbone:
         raise ValueError('Resume language backbone mismatch')
@@ -68,7 +71,7 @@ def main():
     mode.add_argument('--execute', action='store_true')
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--arm', choices=CONFIG['arms'], default='leaf_tower_mlp')
-    parser.add_argument('--backbone', choices=['jev', 'qwen3vl4b'], default='jev')
+    parser.add_argument('--backbone', choices=['jev', 'qwen3vl4b', 'qwen3vl8b'], default='jev')
     parser.add_argument('--gpus', nargs='+', type=int)
     parser.add_argument('--recovery-dir', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -109,7 +112,7 @@ def main():
         return
     lock = (output / 'controller.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    state = dict(status='preflight', controller_pid=os.getpid(), test_evaluations=0,
+    state = dict(status='preflight', controller_pid=os.getpid(), evaluation_policy=POLICY,
                  arm=arm, language_backbone=args.backbone, world_size=len(gpus), gpus=gpus)
     def report(**values):
         state.update(values, updated_utc=time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()))
@@ -123,7 +126,7 @@ def main():
             'configs/benchmark_train.json', 'configs/benchmark_tasks.json',
             'scripts/run_benchmark.py', 'scripts/check_multitask_signals.py',
             'scripts/prepare_multitask_signals.py', 'scripts/audit_multitask_signals.py')]
-        watched.append(ROOT / BACKBONE_CONFIG)
+        watched += [ROOT / BACKBONE_CONFIG, ROOT / POLICY_PATH, ROOT / 'scripts/plot_training_curves.py']
         hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}
         def guard():
             if hashes != {str(p.relative_to(ROOT)): digest(p) for p in watched}:
@@ -159,13 +162,15 @@ def main():
                 raise RuntimeError(f'{phase} exited {child.returncode}')
             guard()
             complete = json.loads((directory / 'complete.json').read_text())
-            if (complete['test_evaluations'] or not complete['checkpoint_reload_verified']
+            verify_evaluation_contract(complete)
+            if (not complete['checkpoint_reload_verified']
                     or not complete['encoder_update_contract_verified']
                     or not complete['rank_weights_verified']
                     or not complete['distributed_sampling_verified']
                     or complete['world_size'] != len(gpus)):
                 raise RuntimeError('Incomplete training contracts')
-            report(status=phase + '_complete', returncode=child.returncode)
+            report(status=phase + '_complete', returncode=child.returncode,
+                   evaluation_counts=complete['evaluation_counts'])
         smoke = json.loads((output / 'smoke' / arm / 'initial_state.json').read_text())
         formal = json.loads((output / 'train' / arm / 'initial_state.json').read_text())
         verify_initialization(smoke, formal)

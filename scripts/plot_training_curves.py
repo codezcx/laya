@@ -1,4 +1,4 @@
-"""Plot recorded multitask losses and fixed-subset validation; no model loading.
+"""Plot recorded multitask losses and explicitly labeled selection scores.
 
 Original metrics are read only. Missing records are gaps, not interpolated data.
 Training begins at step 1; an unrecorded step-0 loss is never invented.
@@ -56,6 +56,8 @@ def read_training_records(folder):
     identity_path = folder / 'config.json'
     identity = json.loads(identity_path.read_text())
     config = dict(identity['config'])
+    config['language_backbone'] = identity.get('language_backbone', 'jev')
+    config['run_name'] = identity.get('language_spec', {}).get('run_name', config['run_name'])
     continuation = identity.get('continuation', {})
     config['start_step'] = continuation.get('start_step', 0)
     if continuation:
@@ -76,7 +78,8 @@ def read_training_records(folder):
 
 def read_records(folder):
     config, training, source_paths = read_training_records(folder)
-    files = sorted(folder.glob('valid_step*_subset.json'))
+    split = config.get('selection_split', 'valid')
+    files = sorted(folder.glob(f'{split}_step*_subset.json'))
     validation = [json.loads(f.read_text()) for f in files]
     if not validation or validation[0]['step'] != 0:
         raise ValueError('The validation baseline at step 0 is required')
@@ -85,11 +88,18 @@ def read_records(folder):
         raise ValueError('Duplicate or out-of-order validation steps')
     datasets = list(validation[0]['datasets'])
     for report in validation:
+        if split == 'test' and (report.get('split') != 'test' or report.get('role') != 'development'
+                               or report.get('independent_test_estimate') is not False
+                               or report.get('scope') != 'subset'):
+            raise ValueError('Original-test scores must be labeled development subset')
         if set(report['datasets']) != set(datasets):
             raise ValueError('Validation task coverage changed')
         for name, metrics in report['datasets'].items():
             if metrics['n'] != validation[0]['datasets'][name]['n']:
                 raise ValueError('Validation sample count changed')
+            if split == 'test' and (not metrics.get('sample_ids_sha256') or
+                    metrics['sample_ids_sha256'] != validation[0]['datasets'][name].get('sample_ids_sha256')):
+                raise ValueError('Development sample IDs changed')
             for key in ('accuracy', 'balanced_accuracy'):
                 if not np.isfinite(metrics[key]) or not 0 <= metrics[key] <= 1:
                     raise ValueError('Invalid validation metric')
@@ -126,11 +136,11 @@ def decorate(ax, total, ticks, unfreeze):
     ax.axvline(unfreeze, color='#555555', linestyle=':', linewidth=1)
 
 
-def plot_validation(ax, steps, accuracy, balanced):
+def plot_validation(ax, steps, accuracy, balanced, label='Validation'):
     ax.plot(steps, balanced, color=BLUE, marker='o', label='Balanced accuracy')
     ax.plot(steps, accuracy, color=ORANGE, marker='s', linestyle='--', label='Accuracy')
     ax.set_ylim(*padded_limits(np.r_[accuracy, balanced], lower=0, upper=100))
-    ax.set_ylabel('Validation score (%)')
+    ax.set_ylabel(f'{label} score (%)')
 
 
 def write_csv(path, rows):
@@ -267,12 +277,15 @@ def main():
         parser.error('Full curve plots require --arm; --train-dir is only for --loss-datasets')
     folder = args.run_dir.resolve() / 'train' / args.arm
     output = args.out or args.run_dir / 'figures' / args.arm
-    stems = ['training_validation_curves', 'validation_by_dataset', 'training_loss_by_dataset']
+    config, train, validation, sources = read_records(folder)
+    development = config.get('selection_split', 'valid') == 'test'
+    evaluation_stem = 'development_test' if development else 'validation'
+    evaluation_label = 'Development (original test)' if development else 'Validation'
+    stems = [f'training_{evaluation_stem}_curves', f'{evaluation_stem}_by_dataset', 'training_loss_by_dataset']
     names = [f'{stem}.{ext}' for stem in stems for ext in ['png', 'pdf', 'svg']]
-    names += ['training.csv', 'validation.csv', 'validation_macro.csv', 'figure_manifest.json']
+    names += ['training.csv', f'{evaluation_stem}.csv', f'{evaluation_stem}_macro.csv', 'figure_manifest.json']
     if not args.overwrite and any((output / name).exists() for name in names):
         raise FileExistsError('Plot outputs already exist; use --overwrite deliberately')
-    config, train, validation, sources = read_records(folder)
     source_hashes = {str(p): sha256(p) for p in sources}
     output.mkdir(parents=True, exist_ok=True)
     total = config['steps']
@@ -298,8 +311,8 @@ def main():
     with plt.style.context(str(STYLE)):
         fig, axes = plt.subplots(1, 2, figsize=(13, 5.2))
         fig.subplots_adjust(left=.065, right=.975, bottom=.23, top=.80, wspace=.25)
-        fig.suptitle(f'{args.arm} → JEV | Multitask training curves', fontsize=16, x=.065, ha='left', y=.96)
-        fig.text(.065, .89, f'{len(train):,} updates recorded · 17 training tasks · fixed validation subsets · seed {config["seed"]}', fontsize=10)
+        fig.suptitle(f'{args.arm} → {config["language_backbone"]} | Multitask training curves', fontsize=14, x=.065, ha='left', y=.96)
+        fig.text(.065, .89, f'{len(train):,} updates · 17 training tasks · {evaluation_label} subsets · seed {config["seed"]}', fontsize=10)
         ax = axes[0]
         ax.plot(x, raw, color=GREY, linewidth=.45, alpha=.8, label='Raw per-update cross-entropy')
         ax.plot(x, smooth, color=BLUE, linewidth=2.2, label=f'Trailing {window}-update mean')
@@ -308,8 +321,8 @@ def main():
         ax.set_ylim(*padded_limits(raw, minimum_pad=.08, lower=0))
         ax.legend(loc='upper right')
         ax = axes[1]
-        plot_validation(ax, ticks, acc, balanced)
-        ax.set_title('b  Nine-dataset macro validation (zoomed y)', loc='left')
+        plot_validation(ax, ticks, acc, balanced, evaluation_label)
+        ax.set_title('b  Nine-dataset macro selection score (zoomed y)', loc='left')
         ax.legend(loc='lower right')
         ax.annotate(f'Best balanced accuracy\n{balanced[best]:.2f}% @ {ticks[best]}',
                     xy=(ticks[best], balanced[best]), xytext=(-118, 22), textcoords='offset points',
@@ -317,25 +330,25 @@ def main():
         for ax in axes:
             decorate(ax, total, ticks, unfreeze)
         fig.text(.065, .105, f'Loss: different tasks have different class counts; raw values are retained. No step-0 training loss was logged.', fontsize=9)
-        fig.text(.065, .055, f'Validation: up to {validation_cap} fixed windows/dataset; no smoothing. Dotted line: JEV adapter/head enabled at {unfreeze}.', fontsize=9)
+        fig.text(.065, .055, f'{evaluation_label}: ≤{validation_cap} fixed windows/dataset. Dotted line: LM/Tower updates enabled at {unfreeze}.', fontsize=9)
         axes_ranges['overview'] = [list(ax.get_ylim()) for ax in axes]
         save(fig, stems[0])
 
         datasets = list(validation[0]['datasets'])
         fig, axes = plt.subplots(3, 3, figsize=(12, 10.3))
         fig.subplots_adjust(left=.075, right=.98, bottom=.11, top=.86, hspace=.48, wspace=.31)
-        fig.suptitle('Validation curves by dataset', fontsize=16, x=.075, ha='left', y=.97)
+        fig.suptitle(f'{evaluation_label} curves by dataset', fontsize=16, x=.075, ha='left', y=.97)
         fig.text(.075, .93, f'Fixed subset: up to {validation_cap} windows/dataset · from step 0 · independent zoomed y axes', fontsize=10)
         handles = [Line2D([], [], color=BLUE, marker='o', label='Balanced accuracy'),
                    Line2D([], [], color=ORANGE, marker='s', linestyle='--', label='Accuracy')]
         fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(.52, .915), ncol=2)
         for ax, name in zip(axes.flat, datasets):
             a, b = validation_series(validation, ticks, name)
-            plot_validation(ax, ticks, a, b)
+            plot_validation(ax, ticks, a, b, 'Development' if development else 'Validation')
             ax.set_title(DISPLAY.get(name, name), loc='left')
             decorate(ax, total, [0, 680, 1360, 2040], unfreeze)
             axes_ranges[name] = list(ax.get_ylim())
-        fig.text(.075, .045, 'Lines only connect recorded evaluations. Validation CE is saved in JSON; these panels are not full-validation or test scores.', fontsize=9)
+        fig.text(.075, .045, 'Fixed subsets used for checkpoint selection, not full-pool scores or independent test estimates. CE is saved in JSON.', fontsize=9)
         save(fig, stems[1])
 
         fig, axes = plt.subplots(6, 3, figsize=(12, 15.5))
@@ -371,30 +384,34 @@ def main():
         macro_csv.append(dict(step=v['step'], macro_balanced_accuracy=v['macro_balanced_accuracy'],
                              macro_accuracy=float(np.mean([m['accuracy'] for m in v['datasets'].values()]))))
     write_csv(output / 'training.csv', train_csv)
-    write_csv(output / 'validation.csv', valid_csv)
-    write_csv(output / 'validation_macro.csv', macro_csv)
+    write_csv(output / f'{evaluation_stem}.csv', valid_csv)
+    write_csv(output / f'{evaluation_stem}_macro.csv', macro_csv)
     if source_hashes != {str(p): sha256(p) for p in sources}:
         raise RuntimeError('Source logs changed while rendering; rerun from a consistent snapshot')
     manifest = dict(created_utc=datetime.now(timezone.utc).isoformat(), sources_sha256=source_hashes,
         script_sha256=sha256(__file__), style_sha256=sha256(STYLE),
         versions=dict(matplotlib=matplotlib.__version__, numpy=np.__version__),
         train_updates=len(train), task_update_counts=dict(Counter(r['dataset'] for r in train)),
-        validation_steps=[v['step'] for v in validation], validation_scope=f'fixed <= {validation_cap}-window subset per dataset, NOT full validation/test',
+        evaluation_steps=[v['step'] for v in validation],
+        evaluation_split=config.get('selection_split', 'valid'),
+        evaluation_role='development' if development else 'validation_selection',
+        evaluation_scope=f'fixed <= {validation_cap}-window subset per dataset, NOT full-pool or independent test',
+        independent_test_estimate=False,
         missing_training_steps=sorted(set(x.tolist()) - {r['step'] for r in train}),
-        missing_validation_steps=sorted(set(ticks.tolist()) - {v['step'] for v in validation}),
+        missing_evaluation_steps=sorted(set(ticks.tolist()) - {v['step'] for v in validation}),
         smoothing=dict(overall=f'trailing arithmetic mean, {window} updates, requires full window; no gaps bridged',
                        per_dataset='trailing arithmetic mean, 9 task observations; raw observations retained'),
-        missing_step0_training_loss='not recorded, not fabricated', validation_loss='available in JSON, not plotted in these panels',
+        missing_step0_training_loss='not recorded, not fabricated', evaluation_loss='available in JSON, not plotted in these panels',
         axes_limits=axes_ranges, uncertainty='not estimated; one run, no confidence intervals',
         first_last_51_mean_loss=[float(np.mean(raw[:window])), float(np.mean(raw[-window:]))],
         first_last_macro_balanced_accuracy=[validation[0]['macro_balanced_accuracy'], validation[-1]['macro_balanced_accuracy']],
         selection=dict(step=int(ticks[best]), macro_balanced_accuracy=float(balanced[best] / 100)),
-        description='Recorded training CE and fixed-subset validation; no direction of change is assumed.',
+        description=f'Recorded training CE and {evaluation_label} subsets; no direction of change is assumed.',
         software_process_reference='https://doi.org/10.48550/arXiv.2609.00065',
         outputs_sha256={name: sha256(output / name) for name in names if name != 'figure_manifest.json'})
     (output / 'figure_manifest.json').write_text(json.dumps(manifest, indent=2, allow_nan=False) + '\n')
     print(json.dumps(dict(output=str(output.resolve()), train_updates=len(train),
-                         validation_steps=manifest['validation_steps'], selection=manifest['selection'])))
+                         evaluation_steps=manifest['evaluation_steps'], selection=manifest['selection'])))
 
 
 if __name__ == '__main__':

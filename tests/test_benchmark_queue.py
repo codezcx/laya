@@ -3,6 +3,7 @@ import json
 from unittest.mock import patch
 import pytest
 from eeg_align.runtime import CONFIG
+from eeg_align.evaluation_protocol import POLICY, effective_config
 from scripts.run_benchmark import training_command, verify_initialization, validate_resume, require_gpu_capacity
 
 
@@ -35,7 +36,7 @@ def test_resume_identity_and_completion_gate(tmp_path):
     arm = CONFIG['arms'][0]
     directory = tmp_path / 'train' / arm
     directory.mkdir(parents=True)
-    identity = dict(config=CONFIG, arm=arm, smoke=False, code_sha256={})
+    identity = dict(config=effective_config(CONFIG), evaluation_policy=POLICY, arm=arm, smoke=False, code_sha256={})
     (directory/'config.json').write_text(json.dumps(identity))
     for filename in ('last.pt','best.pt'):
         (directory/filename).write_bytes(b'fixture')

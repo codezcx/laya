@@ -1,16 +1,16 @@
 # LEAF Tower → 语言决策主干
 
-后续评估约定（2026-11-24）：原`train`只用于训练；原`test`用于开发过程评估、选择步数和比较方案；原`valid`待用户确定方案后再评估。划分名单和文件标签不交换，原test成绩明确标作开发/探索性结果。原valid已在历史实验中使用，不能再宣称为从未看过的盲测。约定已写入[AGENTS.md](AGENTS.md)和[协议](docs/PROTOCOL.md)；评估代码尚未切换，须在当前任务结束后、下次启动前完成。当前4B运行仍保持下面的旧协议。
+当前评估约定（2026-11-24）：原`train`只用于训练；原`test`用于开发过程评估、选择步数和比较方案；原`valid`待用户确定方案后再评估。划分名单和文件标签不交换，原test成绩明确标作开发/探索性结果。原valid已在历史实验中使用，不能再宣称为从未看过的盲测。新共享决策训练已实施此规则；已完成的4B保持原valid协议，不追溯改名。见[评估策略](configs/evaluation_policy.json)和[协议](docs/PROTOCOL.md)。
 
-当前新增同一训练流程的小语言主干对照：原生Qwen3-VL-4B-Instruct，复用InfoNCE对齐后的LEAF Tower、17库共享指令数据和原训练预算。只加载语言塔，新训练256→2560→2560连接器、语言LoRA-r32和A–P决策读出；不搬运27B JEV/ECG-R1权重，不进行教师蒸馏。该对照尚无正式准确率结果。
+当前使用同一训练流程换成原生Qwen3-VL-8B-Instruct，复用InfoNCE对齐后的LEAF Tower、17库共享指令数据和原训练预算。只加载语言塔，新训练256→4096→4096连接器、语言LoRA-r32和A–P决策读出；不搬运27B JEV/ECG-R1权重，不进行教师蒸馏。8B尚无正式准确率结果；已完成4B完整原valid九库平均BAcc为42.68%，详情见[结果页](docs/RESULTS.md)。
 
-原生模型从本地`CerebraGloss/DataEngine/models/Qwen3-VL-4B-Instruct`复制至`third_party/Qwen3-VL-4B-Instruct`，两份权重SHA256及配置/tokenizer Git blob哈希与官方仓库匹配。权重保持Git忽略，来源和固定revision见[配置](configs/language_backbones.json)。模型核验、资源检查与文档技能用于严格加载、四卡容量和记录边界，引用保留在[协议](docs/PROTOCOL.md)。
+原生8B从本地`CerebraGloss/DataEngine/models/Qwen3-VL-8B-Instruct`复制至`third_party/Qwen3-VL-8B-Instruct`，四份权重SHA256及配置/tokenizer Git blob哈希与官方仓库匹配。权重保持Git忽略，来源和固定revision见[配置](configs/language_backbones.json)。模型、资源、绘图和文档技能用于严格加载、容量检查和评估标签核对，引用保留在[协议](docs/PROTOCOL.md)。
 
 ```bash
-laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --backbone qwen3vl4b --arm leaf_infonce_mlp
+laya/.venv-eeg/bin/python scripts/run_benchmark.py --start --backbone qwen3vl8b --arm leaf_infonce_mlp
 ```
 
-输出`artifacts/benchmark/leaf_tower_qwen4b_20261124/`；先权重核验、全训练输入预检和四卡短测，再从相同初始化正式训练2040步，最后跑完整验证集。沿用九库验证选点；不读取测试集做模型前向。LR、batch、数据划分不变。此对照同时改变主干架构、初始化及接口维度，不能称为纯参数量消融。
+输出`artifacts/benchmark/leaf_tower_qwen8b_20261124/`；先权重核验、全训练输入预检和四卡短测，再从相同初始化正式训练2040步。step0和每340步用九库固定原test子集选点（每库最多512），最后跑完整原test；不执行原valid前向。LR、batch、数据划分不变。8B开发成绩与4B原valid成绩不是同一评价口径，不能直接据此声称模型更好。4B实现归档在Git `ad4c054`。
 
 ## 📋 已完成：个人联合适配对照
 

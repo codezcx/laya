@@ -1,6 +1,6 @@
 # LEAF Tower 语言决策训练与个人适配协议
 
-_2026-11-24：增加原生小Qwen共享SFT对照；后文保留已完成的个人联合适配协议。_
+_2026-11-24：原生8B共享SFT，原test作为开发集；后文保留已完成的个人联合适配协议。_
 
 ## 📋 后续实验：原 test 用作开发集
 
@@ -14,41 +14,43 @@ _2026-11-24：增加原生小Qwen共享SFT对照；后文保留已完成的个�
 
 原test承担的是模型选择中的开发/验证角色，其选中成绩标记为“原test开发集BAcc/Acc”，不作为未参与调参的独立benchmark测试结果。反复据留出集表现挑选设置也会引入选择偏差，不能因未反传就宣称其评价独立[^evaluation_roles]。本项目原valid已经在历史及当前实验中多次评估、选点，后续即使暂不使用，也不能将其描述为从未接触过的盲测；如需这样的最终评估，须另外预留未用于开发的数据并排查被试/预训练重叠。
 
-实施状态：本次只记录后续默认约定，尚未修改评估代码。当前`leaf_tower_qwen4b_20261124`已启动，训练器和控制器对源码/config有哈希保护；继续按旧valid协议完成，不中途切换、停止重跑或追溯重标旧结果。下次启动新实验前，在没有相关live job时统一调整`require_split`、评估抽样、checkpoint选择、计数/文件命名、控制器检查和绘图；补上test仅评估、valid默认禁用及train独占梯度更新的测试。不能只解除test访问门禁而保留“test_evaluations=0”等旧声明。
+实施状态：4B已完成，旧实现归档`ad4c054`后统一更新共享训练器、控制器及绘图。新策略见[配置](../configs/evaluation_policy.json)和[运行门禁](../eeg_align/evaluation_protocol.py)：test只能评估，valid禁止前向，train独占梯度。评估ledger记录完成的每库评估次数及全局样本数（包含重复评估），随checkpoint保存/恢复，不再固定写test次数为0。旧4B结果不重标。
+
+抽样沿用原512算法（固定随机128起点，再按类别/被试队列扩充），但底层只请求原test；不改原始行标签。`test_selection_ids.json`保存固定ID，后续选点前逐条核对；完整预测保存`test_*_predictions.npz`。`test_step*_subset/full.json`显式记录split、development用途和评估范围；完整原test结果同样不是独立测试。原始数据配置不变，保证InfoNCE父权重及缓存身份核验；新run的effective config明确覆盖旧selection/test_policy声明。
 
 新运行须记录`selection_split=test`、原划分ID及样本指纹、评估频率和全量/子集范围；方案未确定前不自动执行valid最终评价。该用途调整不授权改变学习率、batch、训练预算、缓存或被试划分，也不自动将个人适配query纳入support。实验设计与文档技能用于区分文件标签和统计用途、保留暴露历史，过程引用沿用文末[^skills]。
 
 [^evaluation_roles]: scikit-learn developers. Cross-validation: evaluating estimator performance. https://scikit-learn.org/stable/modules/cross_validation.html
 
-## 📋 当前控制：原生 Qwen3-VL-4B 指令微调
+## 📋 当前控制：原生 Qwen3-VL-8B 指令微调
 
-本轮“用我们的JEV微调”指沿用现有EEG指令决策训练流程，不是用27B JEV生成答案或蒸馏。模型为官方Qwen3-VL-4B-Instruct[^qwen4b]，仅加载内置`Qwen3VLTextModel`；不运行视觉encoder、ECG代码或远程Python。复制在`third_party/Qwen3-VL-4B-Instruct`，官方revision及校验值固定在[语言主干配置](../configs/language_backbones.json)。启动器检查两份权重完整SHA256和配置/tokenizer/index的Git blob哈希；源目录不修改。
+本轮“用我们的JEV微调”指沿用现有EEG指令决策训练流程，不是用27B JEV生成答案或蒸馏。模型为官方Qwen3-VL-8B-Instruct[^qwen8b]，仅加载内置`Qwen3VLTextModel`；不运行视觉encoder、ECG代码或远程Python。复制在`third_party/Qwen3-VL-8B-Instruct`，官方revision及校验值固定在[语言主干配置](../configs/language_backbones.json)。启动器检查四份权重完整SHA256和配置/tokenizer/index的Git blob哈希；源目录不修改。这不是此前测速的ECG-R1-8B派生权重。
 
 共用[训练实现](../eeg_align/train_joint.py)、[抽样/预算配置](../configs/benchmark_train.json)和[任务文本](../configs/benchmark_tasks.json)。旧JEV加载器和前向保持哈希不变；小模型只替换主干加载及连接器宽度，不新建另一套训练器。
 
 | 项目 | 本轮设置 |
 | --- | --- |
 | EEG初始化 | 已完成多正例InfoNCE的best step1700 Tower；不是JEV SFT step1360 |
-| 语言初始化 | 官方Qwen3-VL-4B-Instruct；无JEV/ECG-R1 LoRA |
-| 连接器 | 新LayerNorm(256)→Linear(256,2560)→GELU→Linear(2560,2560) |
+| 语言初始化 | 官方Qwen3-VL-8B-Instruct；无JEV/ECG-R1 LoRA |
+| 连接器 | 新LayerNorm(256)→Linear(256,4096)→GELU→Linear(4096,4096) |
 | 语言更新 | 新LoRA r32、alpha64、dropout0；Q/K/V/O及MLP gate/up/down；基础权重冻结 |
 | 决策更新 | 原生A–P词表行初始化16行读出，bias初始化0；允许训练，不是随机分类头 |
 | 损失和输出 | 随机排列候选选项的choice交叉熵；单次forward，不逐字生成，不新增对比/蒸馏损失 |
-| 数据 | 原17库训练，9库验证；缓存、QC、subject/session划分及task文本不变 |
+| 数据 | 原17库训练，9库原test开发评估；缓存、QC、subject/session划分及task文本不变 |
 | 预算 | 2040步，seed42，global batch16，micro4，四卡同步；前340步仅连接器 |
 | 学习率 | connector 1e-4、语言LoRA 5e-6、head 1e-5、Tower 1e-6；原warmup62/cosine/wd0.01 |
-| 验证 | 从step0起每340步，固定每库512上限；九库宏平均BAcc选点，最后完整验证 |
-| 测试 | 不执行test前向；后续独立授权后评价，不混入模型选择 |
+| 开发评估 | 从step0起每340步，原test固定每库512上限；九库等权BAcc选点，同分取更早步数 |
+| 最终报告 | 选中checkpoint的完整原test开发分数；不执行原valid前向 |
 
-原4B权重采用tied embedding，读出从`model.language_model.embed_tokens.weight`抽取A–P行；微调读出是独立FP32参数，不更新词嵌入。语言LoRA为标准A随机、B全零，初始不改变原生主干。Tower继续使用原eval/冻结buffers策略。17步短测逐个覆盖全部训练库，检查实际梯度、四rank一致性和保存重载；正式阶段重新初始化，不继承短测更新。每20步保存续训状态。
+8B权重有独立`lm_head.weight`，读出从该矩阵抽取A–P行；微调读出是独立FP32参数，不更新词嵌入或其余词表行。语言LoRA为标准A随机、B全零，初始不改变原生主干。Tower继续使用原eval/冻结buffers策略。17步短测逐个覆盖全部训练库，只评估train，检查实际梯度、四rank一致性和保存重载；正式阶段重新初始化，不继承短测更新。每20步保存续训状态。
 
-实际加载语言基础参数4,022,468,096；252处LoRA共66,060,288参数，connector 7,214,592、choice head 40,976、Tower 19,557,632，联合阶段总可训练92,873,488参数。不加载原视觉塔；完整原生权重在磁盘约8.88GB，语言参数量不包含视觉分支。
+实际参数量和梯度审计写入本轮`initial_state.json`及smoke记录。4B历史语言基础参数4,022,468,096、联合可训练92,873,488；8B随主干hidden size改为4096，connector及LoRA参数量相应增大，不能宣称可训练参数量不变。学习率、rank、batch和步数保持不变。
 
 这仍是类别选项监督的EEG决策SFT，不是开放式通用问答训练。与已有27B相比，参数量、架构、预训练/决策LoRA经历、tokenizer和连接器宽度都不同，属于实用替换对照，不能将差异唯一归因于模型大小。已知TUAB/TUEV候选身份重叠和LEAF上游预训练重叠风险沿用原协议。
 
-运行目录`artifacts/benchmark/leaf_tower_qwen4b_20261124/`；`native_weight_verification.json`保存官方校验，`pipeline.json`保存执行阶段，`train/leaf_infonce_mlp/`保存训练/验证曲线原始数据、transfer audit和checkpoint。尚未有本轮最终准确率。
+运行目录`artifacts/benchmark/leaf_tower_qwen8b_20261124/`；`native_weight_verification.json`保存官方校验，`pipeline.json`保存执行阶段，`train/leaf_infonce_mlp/`保存训练/原test开发曲线数据、transfer audit和checkpoint。绘图文件用`development_test`命名，轴标题也标出original test。尚未有8B最终准确率；4B完整原valid BAcc为42.68%，不可与8B原test开发分数直接作同协议模型对比。
 
-[^qwen4b]: Qwen. Qwen3-VL-4B-Instruct official model repository. https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct
+[^qwen8b]: Qwen. Qwen3-VL-8B-Instruct official model repository. https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct
 
 ## 🎯 问题与假设
 

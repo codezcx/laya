@@ -1,0 +1,13 @@
+{
+  "decision_date": "2026-11-24",
+  "selection_split": "test",
+  "selection_role": "development",
+  "deferred_split": "valid",
+  "gradient_split": "train",
+  "independent_test_estimate": false,
+  "previously_observed_deferred_split": true,
+  "selection_criterion": "Nine-dataset equal-weight mean balanced accuracy on fixed subsets; earliest step wins ties",
+  "selection_schedule": "Step 0, every validation_every updates, and the final update; same validation_per_dataset cap as the preceding run",
+  "final_evaluation": "Full original test allocation at the selected checkpoint; development score, not an independent test",
+  "membership": "Original train/valid/test IDs and manifests are unchanged"
+}
