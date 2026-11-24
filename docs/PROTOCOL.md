@@ -1,35 +1,46 @@
-# LEAF 13 库部分复现协议
+# LEAF Tower → JEV-27B：13 库验证实验协议
 
-_2026-11-24；当前实现见 leaf_repro/，固定官方提交 08ee6577ca4e9517536e73ba3053e676c028a379。_
+_2026-11-24；当前实现为jev_train/。数据来自已完成原生LEAF复现；历史JEV训练语义来自5611b49。_
 
-## 🎯 复现范围
+## 🎯 当前实验
 
-本轮复现原生 LEAF 的多任务指令训练与直接推理，不是 Tower→JEV，也不是从零复现全部无监督预训练或逐数据集监督微调。官方模型/损失来自本地固定版本的 `LEAF.py`、`b_instruct_tuning.py`；只增加本机路径、分片读取、日志、断点与检查，不修改上游仓库。[^native]
+用户确认使用原始JEV-27B，在刚完成的13库组合上训练我们的决策模型。它是LEAF信号Tower→LayerNorm→Linear(256,5120)→GELU→Linear(5120,5120)→JEV语言主干→[decision]位置choice logits；无图像输入、无LEAF文本编码器/FiLM/Q-Former，也无新对比训练阶段。
 
-初始化为官方 `leaf-v1.0-pretrain.ckpt`，SHA256 `bd5c29ddc047d0765fe72cbd4ee5e95b2bba37dd8632c2bfd31185fc010163ee`。不使用已接受下游标签训练的 instruct checkpoint。MPNet 文本缓存直接复用作者仓库；不在线更新文本编码器。
+Tower沿用历史JEV实验的发布版instruction初始化：`leaf-v1.0-instruct-mpnet-base.ckpt`，SHA256 `f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa`。只加载tower.*并移除不参与forward的重建头。不使用本轮LEAF第50/100轮或历史EEG→JEV下游权重。发布权重的下游暴露范围未独立审计，不声称干净zero-shot。
 
-## ⚙️ 联合训练
+JEV使用本地`laya/JEV-27B-VL`原始语言权重和adapter_vllm；载入现有rank32/alpha64 LoRA，choice A–P对应的16行决策权重融合发布版lm_head LoRA。大语言主干的原始参数冻结；连接器、Tower、现有LoRA和16行决策权重/偏置按阶段更新。
 
-将 13 库 train 样本合并后统一 shuffle；一份模型、一套优化器、混合 batch，不是每个库单独训练。按样本数自然采样，不额外均衡数据集。
+## ⚙️ 保持历史训练参数
 
-| 项目 | 设置 |
+| 项目 | 当前设置 |
 | --- | --- |
-| EEG 网络 | 双分支 Tower＋FiLM＋Q-Former，全量训练实际前向参数 |
-| Q-Former | 8 queries、4 layers、256 维；拼接后 Dropout(0.3)＋Linear(2048,768) |
-| 损失 | 归一化 EEG 向量与 23 个全局唯一冻结文本原型的 cosine logits，交叉熵，无额外温度 |
-| 文本条件 | 10% Default 指令；独立 90% 概率混合所有候选类别文本的归一化均值，不用真实标签构造指令 |
-| 输入 | 200 Hz、65 通道；训练随机补零/裁剪至 2000 点，验证右补零/从头裁剪 |
-| 优化器 | AdamW，weight decay 0.001 |
-| LR | tokenizer 0.001，其余 0.0002；2 epoch warmup，cosine multiplier 1→0.1 |
-| 预算 | 100 epochs，seed42，bf16-mixed |
-| Batch | 官方脚本的每卡 256，四卡总 1024；没有额外 LR scaling |
-| 验证 | 每 10 epoch，完整 valid、全局原型 CE/Acc，额外记录每库 loss/全局 Acc |
-| 保存 | 每 epoch 保存可续训状态；每 10 epoch 导出原生 state_dict；保存最低 valid loss 点 |
-| 测试 | 训练完成后，固定 final epoch 与 valid-loss 选中点；不据 test 再挑模型 |
+| 训练预算 | 2040步；四卡全局batch16、每卡microbatch4，seed42 |
+| 采样 | 每13步覆盖13库；库内按类别及被试均衡随机取样，复用历史算法 |
+| 第1–340步 | 仅更新新连接器；Tower/LoRA/decision head不更新 |
+| 第341–2040步 | 连接器＋Tower全参＋JEV已有LoRA＋choice head联合更新 |
+| 峰值LR | connector 1e-4；Tower 1e-6；JEV LoRA 5e-6；choice head 1e-5 |
+| 优化器 | AdamW，weight_decay0.01；62步warmup，cosine最低比例0.02；裁剪梯度范数1 |
+| Tower模式 | 保持历史eval/dropout/BatchNorm策略；eval模式不等于参数冻结 |
+| 损失 | 当前样本有效A–P选项的交叉熵，不使用相似度分类损失 |
+| 文本 | 任务、问题、候选选项；训练选项顺序按样本ID/step/seed置换，标签相应重映射；不输入答案或被试ID |
+| 输入 | 已归一化65通道、200Hz；保留原生4秒或10秒窗口，不再次预处理 |
+| EEG tokens | 两分支各每0.5秒一个token：4秒16个、10秒40个，均为256维 |
+| 评估并行 | 四卡按样本索引分片，汇总后核对无重复/遗漏，再计算每库Acc/BAcc |
+| 评估频率 | step0、每340步与末步；每库固定最多512个开发样本；训练监控每库128条 |
+| 选点 | 原test固定子集的13库等权BAcc最高；相同时保留更早step |
+| 完整评估 | 选中checkpoint访问原test全部53,363窗口；逐样本概率与每被试指标保存 |
+| 短测 | 13步覆盖全部任务，只访问train；与正式模型重新初始化哈希一致，短测权重不继承 |
+| 断点 | 每20步和阶段边界保存优化器/RNG/模型参数与buffers；后续用--resume恢复 |
 
-公开仓库入口默认四卡、每卡256，当前YAML warmup为2epochs；论文v3表6明确写global batch512、warmup1epoch。本轮按公开代码默认执行global1024/warmup2，二者并不完全一致，属于已记录的部分复现差异，不声称严格重现论文数值。额外最低验证 loss checkpoint 是本地记录选择，final epoch 结果同时报告，避免隐去此差异。
+本轮是沿用旧JEV预算的验证实验，2040×16共32,640次训练样本抽取（可以重复），不是完整遍历144,553条训练窗口100次。原生LEAF采用自然样本采样、100epochs、global1024，其初始化/采样/更新量均不同，不能把差值解释为只改变语言主干的因果效果。
 
-训练和验证使用全局原型分类；原生 direct inference 则限定到当前数据集候选类别。直接推理不补成10秒，按作者脚本使用原生4秒/10秒窗口，分别报告 Default、Task、Task+Target 三种指令层次。完整 test 使用单卡顺序加载，不含 DDP 补齐的重复样本。训练期分布式 valid 沿用官方 DistributedSampler，最多补齐3个样本，日志不是逐库独立测试分数。
+## 📋 评估角色与数据契约
+
+沿用用户对JEV后续实验的现行约定：只使用原train产生梯度，原test用于开发曲线/选点，原valid暂缓，不改变manifest内任何成员和split名称。原valid与原test已经在原生LEAF实验被观察过；暂缓不构成全新盲测。所有选点后的原test分数标记development、independent_test_estimate=false。
+
+manifest SHA256固定为`60647f3ae8a5fb9cd286a6958cc758d4a394a6c2f748ec8c9379e908400c9f2a`；启动审计窗口数、标签范围、划分间样本不重叠和训练信号有限值，记录源文件stat与每样本ID。signal()逐次检查源shard未改变。类别顺序逐库与固定的LEAF tasks.yaml核对，尤其OpenBMI/SHU为Right/Left，SEED各库不能互套旧标签编号。
+
+HighGamma的文本说明为实际运动；PhysioNet沿用原处理器的二分类编号，但选项如实写T1/T2 motor event，不把双拳/双脚及执行运动包装成纯左右手想象。
 
 ## 📊 数据与划分
 
@@ -64,13 +75,16 @@ _2026-11-24；当前实现见 leaf_repro/，固定官方提交 08ee6577ca4e95175
 - 13库的留出测试仍来自指令训练涉及的同名数据集，不是13个全新数据集的zero-shot；跨数据集zero-shot应额外用未参与指令训练的Dreyer2023、Weibo2014等独立数据评估。[^heldout]
 - 官方主结果还包含每库单独的Tower＋MLP监督微调；本轮未运行该阶段，不能把direct-inference结果与其最佳监督微调结果等同。
 
-## 🔧 工程与软件
 
-四卡短测从单被试/库的训练样本进行3步；正式阶段重新加载无监督预训练Tower与随机Q-Former。原作者前向与优化器保留；只将数据存储改为按被试HDF5分片，避免每个rank重复加载整库。过程有源码SHA256、模型SHA256、完整划分indices、有限值检查、梯度审计、每库CSV日志、完整模型/优化器恢复。
+## 🔧 工程与历史参照
 
-Lightning 2.6.4，PyTorch 2.11.0+cu128；依赖原有MNE 1.12.1及h5py 3.16.0。使用训练框架、资源检查、科学模型检索与文档技能辅助容量检查、原始权重核验及协议记录；这些是工程流程，不是模型创新。[^skills]
+原生LEAF13库复现已完成，完整源码与协议归档Git `73e26f9`。原生LEAF使用无监督预训练Tower、MPNet＋IQF，完整测试Task+Targets BAcc为第50轮49.59%、第100轮48.85%；其valid/test角色与本轮JEV不同。原生复现实现保留为同数据参照与公共准备工具，不与JEV同时重复训练。
 
-[^native]: LEAF官方指令训练说明及固定代码。https://leaf-bci.github.io/docs/instruction-tuning.html ; https://github.com/Jiang-Muyun/LEAF/tree/08ee6577ca4e9517536e73ba3053e676c028a379
+当前JEV训练器、权重加载、分阶段LR、选项重排、梯度同步与小checkpoint语义继承Git `5611b49`，仅恢复当前需要的模块，未恢复旧独立实验。17项单元测试已通过；四卡真实短测通过后才进入正式阶段。
+
+资源检查/Transformers技能用于本地权重与四卡容量核查，Markdown技能用于记录可复核的训练参数和数据边界；科学模型目录未检索到适用EEG条目，未引入其他模型或服务。[^skills]
+
+[^native]: LEAF固定官方代码。https://github.com/Jiang-Muyun/LEAF/tree/08ee6577ca4e9517536e73ba3053e676c028a379
 [^data]: LEAF官方数据处理与划分。https://leaf-bci.github.io/docs/datasets/instruction-tuning-datasets.html
 [^heldout]: LEAF官方独立数据集评测。https://leaf-bci.github.io/docs/datasets/held-out.html
 [^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

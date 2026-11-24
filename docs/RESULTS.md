@@ -1,8 +1,14 @@
-# LEAF 原生13库复现状态
+# LEAF 13库：JEV训练状态与原生参照
 
 _更新：2026-11-24 18:23 UTC；100 epochs 与两个 checkpoint 的13库完整测试均已完成。_
 
-## 📋 当前运行
+## 📋 当前JEV运行
+
+用户确认使用JEV-27B。运行目录：`artifacts/benchmark/leaf13_jev27b_20261124/`，代码`jev_train/`，配置[jev13_train.json](../configs/jev13_train.json)。13库预处理manifest与native LEAF完全共用；初始化、预算与评估角色差异见[协议](PROTOCOL.md)。
+
+输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。17项单元测试通过。四卡短测和正式训练准备启动；尚无本轮JEV指标。原test仅作为开发池，不视为独立测试。
+
+## 📊 已完成的原生LEAF参照
 
 运行目录：`artifacts/benchmark/leaf_native13_20261124/`。
 

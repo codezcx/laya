@@ -1,0 +1,65 @@
+{
+  "checkpoint": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/checkpoints/leaf-v1.0-instruct-mpnet-base.ckpt",
+  "checkpoint_sha256": "f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa",
+  "steps": 2040,
+  "seed": 42,
+  "global_batch": 16,
+  "microbatch": 4,
+  "eval_microbatch": 8,
+  "bridge_only_steps": 340,
+  "learning_rates": {
+    "connector": 0.0001,
+    "jev_lora": 0.000005,
+    "decision_head": 0.00001,
+    "eeg_encoder": 0.000001
+  },
+  "weight_decay": 0.01,
+  "warmup_steps": 62,
+  "min_lr_ratio": 0.02,
+  "validation_every": 340,
+  "validation_per_dataset": 512,
+  "train_monitor_per_dataset": 128,
+  "checkpoint_every": 20,
+  "gpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "minimum_free_gpu_mib": 72000,
+  "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
+  "world_size": 4,
+  "run_name": "leaf13_jev27b_20261124",
+  "output_root": "artifacts/benchmark/leaf13_jev27b_20261124",
+  "manifest": "datasets/leaf13/manifest.json",
+  "manifest_sha256": "60647f3ae8a5fb9cd286a6958cc758d4a394a6c2f748ec8c9379e908400c9f2a",
+  "datasets": [
+    "MI_BCIC_IV2a",
+    "MI_OpenBMI",
+    "MI_ShanghaiU",
+    "MI_HighGamma",
+    "MI_Cho2017",
+    "MI_Shin2017A",
+    "MI_PhysioNet",
+    "EMO_FACED",
+    "EMO_SEED_3_seg4",
+    "EMO_SEED_4_seg4",
+    "EMO_SEED_7_seg4",
+    "SSVEP_OpenBMI",
+    "Workload"
+  ],
+  "arms": [
+    "leaf_tower_mlp"
+  ],
+  "arm_settings": {
+    "leaf_tower_mlp": {
+      "encoder": "leaf_tower",
+      "encoder_trainable": true,
+      "readout": "identity"
+    }
+  },
+  "historical_recipe_commit": "5611b49",
+  "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
+  "signal_policy": "Use existing normalized 65-channel 200Hz HDF5 windows unchanged; no second filter, scale or interpolation",
+  "transfer_policy": "Released instruction-tuned LEAF Tower only; no MPNet, FiLM, Q-Former, text projection or reconstruction heads. Native JEV, new 256->5120->5120 connector."
+}

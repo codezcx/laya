@@ -1,0 +1,333 @@
+{
+  "tasks": [
+    {
+      "task_id": "MI_BCIC_IV2a",
+      "role": "benchmark",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Left",
+          "option": "Left hand motor imagery"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Right",
+          "option": "Right hand motor imagery"
+        },
+        {
+          "class_id": "2",
+          "native_label": "Foot",
+          "option": "Both feet motor imagery"
+        },
+        {
+          "class_id": "3",
+          "native_label": "Tongue",
+          "option": "Tongue motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_OpenBMI",
+      "role": "benchmark",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Right",
+          "option": "Right hand motor imagery"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Left",
+          "option": "Left hand motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_ShanghaiU",
+      "role": "benchmark",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Right",
+          "option": "Right hand motor imagery"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Left",
+          "option": "Left hand motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_HighGamma",
+      "role": "benchmark",
+      "instruction": "This is a motor execution decoding task",
+      "question": "Which movement is the participant performing?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Left",
+          "option": "Left hand movement"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Right",
+          "option": "Right hand movement"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_Cho2017",
+      "role": "benchmark",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Left",
+          "option": "Left hand motor imagery"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Right",
+          "option": "Right hand motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_Shin2017A",
+      "role": "benchmark",
+      "instruction": "This is a motor imagery decoding task",
+      "question": "Which movement is the participant imagining?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Left",
+          "option": "Left hand motor imagery"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Right",
+          "option": "Right hand motor imagery"
+        }
+      ]
+    },
+    {
+      "task_id": "MI_PhysioNet",
+      "role": "benchmark",
+      "instruction": "This is an EEG motor task decoding problem",
+      "question": "Which annotated motor-event category does this EEG belong to?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Left",
+          "option": "T1 motor event"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Right",
+          "option": "T2 motor event"
+        }
+      ]
+    },
+    {
+      "task_id": "EMO_FACED",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional state is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Anger",
+          "option": "Anger emotion"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Fear",
+          "option": "Fear emotion"
+        },
+        {
+          "class_id": "2",
+          "native_label": "Disgust",
+          "option": "Disgust emotion"
+        },
+        {
+          "class_id": "3",
+          "native_label": "Sad",
+          "option": "Sad emotion"
+        },
+        {
+          "class_id": "4",
+          "native_label": "Amusement",
+          "option": "Amusement emotion"
+        },
+        {
+          "class_id": "5",
+          "native_label": "Inspiration",
+          "option": "Inspiration emotion"
+        },
+        {
+          "class_id": "6",
+          "native_label": "Joy",
+          "option": "Joy emotion"
+        },
+        {
+          "class_id": "7",
+          "native_label": "Tenderness",
+          "option": "Tenderness emotion"
+        },
+        {
+          "class_id": "8",
+          "native_label": "Neutral",
+          "option": "Neutral emotion"
+        }
+      ]
+    },
+    {
+      "task_id": "EMO_SEED_3_seg4",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional state is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Negative",
+          "option": "Negative emotion"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Neutral",
+          "option": "Neutral emotion"
+        },
+        {
+          "class_id": "2",
+          "native_label": "Positive",
+          "option": "Positive emotion"
+        }
+      ]
+    },
+    {
+      "task_id": "EMO_SEED_4_seg4",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional state is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Neutral",
+          "option": "Neutral emotion"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Sad",
+          "option": "Sad emotion"
+        },
+        {
+          "class_id": "2",
+          "native_label": "Fear",
+          "option": "Fear emotion"
+        },
+        {
+          "class_id": "3",
+          "native_label": "Happy",
+          "option": "Happy emotion"
+        }
+      ]
+    },
+    {
+      "task_id": "EMO_SEED_7_seg4",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional state is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Happy",
+          "option": "Happy emotion"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Surprise",
+          "option": "Surprise emotion"
+        },
+        {
+          "class_id": "2",
+          "native_label": "Neutral",
+          "option": "Neutral emotion"
+        },
+        {
+          "class_id": "3",
+          "native_label": "Sad",
+          "option": "Sad emotion"
+        },
+        {
+          "class_id": "4",
+          "native_label": "Disgust",
+          "option": "Disgust emotion"
+        },
+        {
+          "class_id": "5",
+          "native_label": "Fear",
+          "option": "Fear emotion"
+        },
+        {
+          "class_id": "6",
+          "native_label": "Anger",
+          "option": "Anger emotion"
+        }
+      ]
+    },
+    {
+      "task_id": "SSVEP_OpenBMI",
+      "role": "benchmark",
+      "instruction": "This is an SSVEP frequency decoding task",
+      "question": "Which stimulus frequency is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "12.0",
+          "option": "12.0 Hz visual stimulus"
+        },
+        {
+          "class_id": "1",
+          "native_label": "8.6",
+          "option": "8.6 Hz visual stimulus"
+        },
+        {
+          "class_id": "2",
+          "native_label": "6.6",
+          "option": "6.6 Hz visual stimulus"
+        },
+        {
+          "class_id": "3",
+          "native_label": "5.4",
+          "option": "5.4 Hz visual stimulus"
+        }
+      ]
+    },
+    {
+      "task_id": "Workload",
+      "role": "benchmark",
+      "instruction": "This is a mental workload decoding task",
+      "question": "Which cognitive condition is associated with this EEG?",
+      "classes": [
+        {
+          "class_id": "0",
+          "native_label": "Resting",
+          "option": "Resting state"
+        },
+        {
+          "class_id": "1",
+          "native_label": "Workload",
+          "option": "Mental workload"
+        }
+      ]
+    }
+  ]
+}

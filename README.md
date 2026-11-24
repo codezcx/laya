@@ -1,29 +1,29 @@
-# LEAF 原生多任务指令训练复现
+# LEAF Tower → JEV-27B：13 库联合训练
 
-_当前方案：2026-11-24，13 个现有数据集的部分复现。_
+_当前方案：2026-11-24；使用已完成原生 LEAF 复现的同一份13库预处理数据和样本划分。_
 
-使用官方预训练 Tower、FiLM、8-query/4-layer Q-Former、冻结 MPNet 文本原型及原生交叉熵；不接入 JEV/Qwen，不沿用历史对齐后 Tower。训练集混合训练一个模型，验证与测试分开。
+只用 LEAF 信号 Tower，接两层 MLP 和原始 JEV-27B 的语言主干、发布版 LoRA 与 choice 决策行。训练任务文本与候选选项进入 JEV；不使用 LEAF 的 MPNet、FiLM 或 Q-Former。
 
 ## 📋 运行
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
-laya/.venv-eeg/bin/python -m leaf_repro.run --start
+laya/.venv-eeg/bin/python -m jev_train.run --start
 ```
 
-控制器有单实例锁，按顺序完成数据准备、四卡短测、100-epoch 联合训练、完整测试。意外中断后重跑入口会跳过已完成被试，并从 Lightning 的完整优化器检查点恢复。原始数据、历史权重与日志均保留。
+四卡同步数据并行；先做只访问train的13步短测，正式阶段重新初始化，再训练2040步。梯度阶段、完整checkpoint恢复、初始化一致性、源码/数据哈希、四卡评估分片均有检查。
 
-- [协议与数据边界](docs/PROTOCOL.md)
-- [当前状态](docs/RESULTS.md)
-- [运行配置](configs/leaf_reproduction.json)
-- [Git 归档](docs/ARCHIVE.md)
+- [当前协议与13库计数](docs/PROTOCOL.md)
+- [运行状态与原生LEAF参照结果](docs/RESULTS.md)
+- [训练配置](configs/jev13_train.json)、[任务选项](configs/jev13_tasks.json)、[评估角色](configs/jev13_evaluation.json)
+- [Git归档](docs/ARCHIVE.md)
 
-输出：`artifacts/benchmark/leaf_native13_20261124/`；数据与逐样本划分：`datasets/leaf13/`。当前运行的 13 库名单不会因后台新下载完成而中途改变。
+输出：`artifacts/benchmark/leaf13_jev27b_20261124/`。直接读取 `datasets/leaf13/manifest.json` 指向的HDF5，不重复滤波、归一化、插值或重分配样本。
 
-## ⚙️ 与论文复现的边界
+## ⚠️ 比较边界
 
-复用作者发布的无监督预训练 Tower，本轮不重跑六库预训练。原始指令数据组合为 16 库，本轮只使用已找到的 13 库；其中 Cho2017、HighGamma、OpenBMI-SSVEP 使用现有 MOABB 处理版，SSVEP 只有公开 train blocks。不能称作完整论文复现。
+保留历史JEV的2040步、全局batch16、学习率和分阶段更新规则。Tower从历史发布版instruction checkpoint初始化，不从本次LEAF第50轮或第100轮续接；没有额外对比学习阶段。只更新Tower、MLP、JEV已有LoRA和choice权重/偏置，不全参更新27B主干。
 
-按用户本轮“使用他们的训练范式”的要求，恢复 LEAF 的 train/valid/test 角色；不沿用历史 Qwen 原 test 开发选点的约定。历史划分文件不变，也不把历史用过的数据称作全新盲测。
+依照当前仓库JEV约定，原test用于开发评估及选点，原valid暂缓；报告开发分数，不称独立测试。原生LEAF参照运行使用valid选点、test末尾评估，且训练预算与初始化不同，不能把两者分数差归因于单一结构。
 
-旧 Qwen/JEV 与个人适配的 58 个专属代码、配置和测试已从当前树移除，完整保存在 Git `5611b49`，需要重跑时使用隔离 worktree；没有删除 ignored 数据、模型、日志、环境或第三方安装。
+原生LEAF复现已完整归档在Git `73e26f9`；`leaf_repro/`保留为本轮同数据参照与共享数据准备工具，不再自动运行。旧的独立Qwen/对比/个人适配实验仍只在历史worktree及Git中，不在当前树恢复。
