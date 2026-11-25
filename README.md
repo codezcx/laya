@@ -17,6 +17,8 @@ _2026-11-25；同一历史parent、21名用户、固定个人query，比较更�
 
 2a全部9人、HMC4人、SEED4人、Nakanishi2015四人，共168次个人适配。统一rank4、scale1、lr1e-4、100步、batch16/micro4；JEV CE监督。24⊂48⊂100，query不随样本量变化。固定step100为主结果；0/5/10/20/50/100完整记录，不按query选点。
 
+2026-11-25追加同一方法的rank对照：两层连接器rank16（Tower冻结），以及Tower rank16＋两层连接器rank4。各21人、100条support，新增42次；复用当前rank4条件作对照，不重复训练。这是固定训练配方下的rank比较，不是宣称各rank已充分调优。
+
 ## ⚙️ 运行与记录
 
 ```bash
@@ -25,6 +27,14 @@ laya/.venv-eeg/bin/python -m personal.run --start
 ```
 
 四卡每卡加载一份JEV，共42次适配/卡，12小时安全上限。先完成100条的位置对照，再完成48、24条的样本量对照。部分A05条件分到相同型号的其他GPU以消除长尾，不改变初始化或样本。
+
+追加队列使用同一`personal.worker`，不修改活跃代码或原配置：
+
+```bash
+laya/.venv-eeg/bin/python -m scripts.queue_personal_rank --start
+```
+
+先等待当前四卡队列退出、100条的配对对照全部齐全且GPU释放，再依次运行两个rank条件；预计新增3–4小时，新增训练总上限4小时，原12小时预算不变。若前序失败或用户停止，不自动继续。追加输出为`artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/`，含独立计划、状态与配对报告；所有数据/优化/冻结检查复用当前实现。
 
 - [固定协议](docs/PROTOCOL.md)
 - [进度与结果入口](docs/RESULTS.md)

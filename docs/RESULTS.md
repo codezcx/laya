@@ -18,6 +18,16 @@ _2026-11-25；本轮168个个人条件单独记录，不拿旧全参结果冒充
 
 36项单元测试通过。四卡的真实模型检查均通过：零增量恒等、有效更新、原权重及buffer不变、精确保存重载；Tower联合组确实更新Tower LoRA，第一层连接器组未更新Tower。历史baseline的逐样本预测亦通过一致性检查。完整检查记录在各`jobs/worker*/smoke_*.json`。
 
+## 🔄 追加rank16对照
+
+同日用户批准新增42次个人适配：21人分别运行两层连接器rank16，以及Tower rank16＋连接器rank4；均为同一100条support、100步。原rank4训练继续，不修改活跃配置。当前新增条件尚无训练结果，安排在原队列结束并释放GPU后自动接续，预计另需3–4小时，新增训练上限4小时。
+
+新增9项测试通过：21人及所有样本/批次配对、仅指定rank改变、配置在worker导入前绑定、完整配对后才计算均值、失败前序不启动，以及真实LEAF Tower的98个rank16目标共1,601,536参数均有有限梯度，原参数没有梯度。实际27B JEV的rank16反向检查在每卡启动训练时由现有worker自动执行，尚未执行，不把CPU检查当成完整GPU训练结果。
+
+- [追加队列状态](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/queue.json)
+- [rank4/rank16配对报告](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/report.md)
+- [追加实验配置](../configs/personal_rank_followup.json)
+
 ## 📊 自动结果入口
 
 - [自动报告](../artifacts/benchmark/leaf_personal_lora_locations_20261125/report.md)
