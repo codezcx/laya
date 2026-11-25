@@ -12,7 +12,7 @@ import torch
 
 from jev_train.checkpoint import seed_rng, tensor_fingerprint
 from jev_train.data import TrialStore, classification_metrics
-from .common import CONFIG, OUT, check_rows, identity, write_json
+from .common import CONFIG, OUT, ROOT, check_rows, identity, write_json
 from .model import PersonalServer
 from .modules import UserParameters, support_loss
 
@@ -111,8 +111,27 @@ def run_case(server, store, case, deadline, hashes, parent_sha, worker):
     check_rows(support, case, gradient=True)
     check_rows(query, case)
     task = store.tasks[case['task']]
-    tokens = server.encode(store, support + query)
-    st, qt = tokens[:len(support)], tokens[len(support):]
+    reference_baseline = None
+    if case.get('reference'):
+        reference_support = [rows_by_id[i] for i in case['reference']['support_ids']]
+        check_rows(reference_support, case, gradient=True)
+        # Preserve the old query encoding batches; batch-size rounding must not
+        # masquerade as a support-size effect in the frozen-parent baseline.
+        original_rows = reference_support + query
+        original_tokens = server.encode(store, original_rows)
+        by_id = dict(zip([r['id'] for r in original_rows], original_tokens))
+        extra = [r for r in support if r['id'] not in by_id]
+        if extra:
+            by_id.update(zip([r['id'] for r in extra], server.encode(store, extra)))
+        st = torch.stack([by_id[r['id']] for r in support])
+        qt = torch.stack([by_id[r['id']] for r in query])
+        reference_path = ROOT / case['reference']['root'] / 'cases' / case['key'] / 'baseline.pt'
+        reference_baseline = torch.load(reference_path, map_location='cpu', weights_only=False)
+        if reference_baseline['parent_sha256'] != parent_sha or reference_baseline['case']['query_ids'] != case['query_ids']:
+            raise RuntimeError('Paired baseline parent/query identity changed')
+    else:
+        tokens = server.encode(store, support + query)
+        st, qt = tokens[:len(support)], tokens[len(support):]
     target = torch.tensor([r['label'] for r in support], device='cuda')
     cache_path = directory / 'baseline.pt'
     if cache_path.exists():
@@ -126,6 +145,15 @@ def run_case(server, store, case, deadline, hashes, parent_sha, worker):
         baseline = dict(parent_sha256=parent_sha, case=case, support_logits=predictions[0],
             query_logits=server.predict(qt, query, task), teacher=teacher, teacher_correct=correct)
         atomic_save(baseline, cache_path)
+    baseline_audit = {}
+    if reference_baseline is not None:
+        old_logits = reference_baseline['query_logits']
+        new_logits = baseline['query_logits']
+        if not torch.equal(old_logits.argmax(-1), new_logits.argmax(-1)):
+            raise RuntimeError('Paired no-adaptation baseline predictions changed')
+        baseline_audit = dict(reference_baseline_predictions_identical=True,
+            reference_baseline_max_logit_difference=float((old_logits-new_logits).abs().max()),
+            reference_support_n=case['reference']['old_support_n'], current_support_n=len(support))
     teacher = baseline['teacher'].cuda()
     teacher_correct = baseline['teacher_correct'].cuda()
     base_metric = metrics(baseline['query_logits'], query, case['classes'])
@@ -144,10 +172,11 @@ def run_case(server, store, case, deadline, hashes, parent_sha, worker):
         started = time.time()
         user, optimizer, init_logits = None, None, None
         history, step = [], 0
-        info = {}
+        info = dict(baseline_audit)
         user_seed = CONFIG['seed'] + case['order'] * 101
         if arm.startswith('icl'):
-            demos, info = server.demonstrations(st, support, task, arm == 'icl_shuffled')
+            demos, demonstration_info = server.demonstrations(st, support, task, arm == 'icl_shuffled')
+            info.update(demonstration_info)
             after = server.predict(qt, query, task, demonstrations=demos)
             support_after = None
             parameter_count = 0

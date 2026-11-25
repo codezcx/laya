@@ -1,6 +1,6 @@
 # LEAF 13库：JEV训练状态与原生参照
 
-_更新：2026-11-24 20:05 UTC；原生LEAF完整结束，共享JEV在新节点恢复，个人适配队列已启动等待共享parent完成。_
+_更新：2026-11-25；原生LEAF与共享JEV已完成，旧少样本队列已停止；当前启动2a每人58条支持样本实验。_
 
 ## 📋 当前JEV运行
 
@@ -8,7 +8,9 @@ _更新：2026-11-24 20:05 UTC；原生LEAF完整结束，共享JEV在新节点�
 
 输入审计通过：144,553/47,286/53,363个原train/valid/test窗口，13库标签顺序核对无误。最初17项单元测试通过。原控制器PID1453443；13步四卡真实短测完成，训练分支梯度/四卡同步/样本分片/checkpoint重载检查全部通过，短测访问train208条，valid/test均为0。峰值已分配显存约54.57GiB/卡。
 
-节点更换后，控制器PID69498使用`--resume`从完整step1200断点继续，恢复优化器与四卡RNG，不继承断点后的未保存更新。已核验进度到step1660/2040、四组梯度正常，原共享代码/配置哈希没有改变；2040步、global batch16及学习率预算未改。正式初始化与短测起点的Tower/连接器/JEV适配参数/buffers哈希完全一致，短测权重未继承。step0原test开发子集共6,232条，13库等权BAcc为37.21%、Acc为35.47%；仅是更新前基线，不是训练后的效果，也不是完整独立测试。共享运行的原valid访问计数仍为0。
+节点更换后从完整step1200断点继续，恢复优化器与四卡RNG；共享训练已完成2040步，选中step2040，完整checkpoint重载核验通过。原共享代码/配置哈希没有改变，global batch16及学习率预算未改。正式初始化与短测起点哈希一致，短测权重未继承。step0原test开发子集共6,232条，13库等权BAcc37.21%；最终同子集56.89%，完整原test 53,363窗口的13库等权BAcc57.14%、Acc57.48%。原test参与选点，因此是开发分数而非独立测试。共享训练的原valid访问计数为0；后续个人适配访问valid不追溯改变此事实。
+
+完整结果：[step2040全量原test](../artifacts/benchmark/leaf13_jev27b_20261124/train/test_step002040_full.json)、[完成与重载核验](../artifacts/benchmark/leaf13_jev27b_20261124/train/complete.json)。57.14%与下方原生LEAF的49.59%在模型、初始化、优化与选点方式上均有差异，不能解释成单一模块带来7.55个百分点的收益。
 
 实时状态：[pipeline](../artifacts/benchmark/leaf13_jev27b_20261124/pipeline.json)、[训练进度](../artifacts/benchmark/leaf13_jev27b_20261124/train/progress.json)、[短测完成审计](../artifacts/benchmark/leaf13_jev27b_20261124/smoke/complete.json)、[step0开发基线](../artifacts/benchmark/leaf13_jev27b_20261124/train/test_step000000_subset.json)。
 
@@ -23,11 +25,11 @@ _更新：2026-11-24 20:05 UTC；原生LEAF完整结束，共享JEV在新节点�
 
 ## 👤 个人适配队列
 
-用户新授权使用原valid做个人适配。代码与[配置](../configs/personal13.json)已完成，全部25项单元测试通过。控制器PID788058于2026-11-24 20:05:22 UTC启动，预算到2026-11-25 08:05:22 UTC；先准备固定support/query清单，再等待当前共享训练结束及四卡释放，随后真实27B smoke通过才开始正式个人更新。此处“队列启动”不等于个人适配已在GPU更新，尚无本轮适配分数。
+旧队列`leaf13_personal_20261124`已按用户要求停止，未重新挂起。已保存245份方法结果与26个完整用户×数据集方法组：2a 7组、OpenBMI-MI 8组、PhysioNet 8组、SSVEP 3组；部分完成checkpoint与日志保留。旧[队列](../artifacts/benchmark/leaf13_personal_20261124/queue.json)与[汇总](../artifacts/benchmark/leaf13_personal_20261124/summary.json)保持原协议，代码/配置归档Git `d3b6616`。
 
-预审计：2a 7人、PhysioNet 80人、OpenBMI-MI 42人、OpenBMI-SSVEP 3人符合每类5条support和独立session/run query条件；SSVEP39人因support不足而跳过。四卡各常驻一份冻结parent，按用户领取全部9种方法/对照；在12小时内优先形成完整配对结果，不保证完成132个库内用户。方法、参数量、固定优化设置与见过被试的解释边界见[协议](PROTOCOL.md)。
+当前按用户“2a使用58条训练看看”于2026-11-25 06:56 UTC启动新队列，控制器PID2648675，四卡worker为2653276–2653279。27项单元测试和真实27B梯度/冻结/重载检查均通过，四卡正式residual适配均已保存step10/100、梯度有限且非零。仅A01/A02/A03/A07各有完整58条原valid T-session支持样本；每人沿用旧E-session query，数量分别58/57/57/58，不足58条的A04/A05/A06跳过。4人的不适配query logits已与原20条实验核对，最大绝对差均为0。当前设置、类别计数和固定训练参数见[协议](PROTOCOL.md)。尚无58条适配完成分数，后续进度以实时文件为准。
 
-实时文件：[队列状态](../artifacts/benchmark/leaf13_personal_20261124/queue.json)、[控制器日志](../artifacts/benchmark/leaf13_personal_20261124/controller.log)。启动后依次生成`plan.json`、`smoke.json`、每卡`progress_gpuN.json`与`summary.json`；后者分别列部分完成数据和相同用户完整方法组，不能混用人数不同的均值排名。个人support反传、query不反传且不选点，原test不用于本轮个人适配。
+实时文件：[队列状态](../artifacts/benchmark/leaf13_personal_2a58_20261125/queue.json)、[支持与评估清单](../artifacts/benchmark/leaf13_personal_2a58_20261125/plan.json)、[控制器日志](../artifacts/benchmark/leaf13_personal_2a58_20261125/controller.log)。随后生成`smoke.json`、每卡`progress_gpuN.json`与`summary.json`。新汇总包含同人、同query的不适配/20条/58条比较；方法间只比较相同用户完整组。个人support反传、query不反传且不选点，原test不用于本轮个人适配；所有结论仍是见过被试的开发探索。
 
 ## 📊 已完成的原生LEAF参照
 

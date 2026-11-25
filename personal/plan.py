@@ -12,6 +12,42 @@ from jev_train.runtime import ROOT
 from .common import CONFIG, OUT, identity, write_json
 
 
+MATCHED_CONFIG_KEYS = ('parent', 'original_split', 'seed', 'steps', 'batch_size', 'microbatch',
+    'eval_batch', 'icl_batch', 'encode_batch', 'learning_rate', 'weight_decay', 'clip_grad_norm',
+    'adapter_width', 'prompt_tokens', 'prompt_init_text', 'connector_lora_rank',
+    'connector_lora_scale', 'prefix_layers', 'prefix_tokens', 'kd_weight',
+    'kd_temperature', 'teacher_variants', 'arms')
+
+
+def paired_reference():
+    if not CONFIG.get('paired_reference'):
+        return {}
+    root = ROOT / CONFIG['paired_reference']
+    queue = json.loads((root / 'queue.json').read_text())
+    if queue['state'] not in ('stopped_by_user', 'complete', 'budget_exhausted'):
+        raise RuntimeError('Paired reference must be stopped and immutable')
+    plan = json.loads((root / 'plan.json').read_text())
+    for key in MATCHED_CONFIG_KEYS:
+        if plan['config'][key] != CONFIG[key]:
+            raise RuntimeError(f'Paired experiment silently changed {key}')
+    if plan['config'].get('shots_per_class') != 5:
+        raise RuntimeError('Expected previous 5-per-class reference')
+    return {case['key']: case for case in plan['cases']}
+
+
+def exact_total_support(pool, query, reference, total):
+    if len(pool) != total:
+        raise ValueError(f'Complete support pool has {len(pool)} trials, requires exactly {total}')
+    ids = [r['id'] for r in pool]
+    if len(set(ids)) != total or not set(reference['support_ids']).issubset(ids):
+        raise RuntimeError('Expanded support must contain every previous support trial exactly once')
+    if [r['id'] for r in query] != reference['query_ids']:
+        raise RuntimeError('Paired query IDs/order changed')
+    if set(ids) & set(reference['query_ids']):
+        raise RuntimeError('Expanded support borrowed a query trial')
+    return sorted(pool, key=lambda r: (r['label'], r['id']))
+
+
 def row_hash(ids):
     return hashlib.sha256('\n'.join(ids).encode()).hexdigest()
 
@@ -102,6 +138,7 @@ def select_support(pool, classes, shots, seed):
 
 def build(store):
     groups, skipped = defaultdict(list), []
+    references = paired_reference()
     for tid, task in enumerate(store.tasks):
         name = task['task_id']
         if name not in CONFIG['datasets']:
@@ -111,26 +148,45 @@ def build(store):
             if row['split'] == CONFIG['original_split']:
                 by_subject[row['subject']].append(row)
         for subject, rows in sorted(by_subject.items()):
+            key = f'{name}_{subject}'
+            reference = references.get(key)
+            if CONFIG.get('paired_reference') and reference is None:
+                raise RuntimeError(f'Missing paired reference for {key}')
             try:
                 origin = provenance(name, subject, rows[0]['path'])
                 pool, query = partitions(rows, name, origin)
                 classes = len(task['classes'])
                 if {r['label'] for r in query} != set(range(classes)):
                     raise ValueError('Query partition lacks at least one class')
-                support = select_support(pool, classes, CONFIG['shots_per_class'], CONFIG['seed'])
+                if CONFIG.get('support_total'):
+                    support = exact_total_support(pool, query, reference, CONFIG['support_total'])
+                else:
+                    support = select_support(pool, classes, CONFIG['shots_per_class'], CONFIG['seed'])
             except (ValueError, FileNotFoundError) as exc:
                 skipped.append(dict(dataset=name, subject=subject, reason=str(exc)))
                 continue
             sids, qids = [r['id'] for r in support], [r['id'] for r in query]
             train_subjects = {r['subject'] for r in store.rows[tid] if r['split'] == 'train'}
-            groups[name].append(dict(key=f'{name}_{subject}', dataset=name, task=tid, subject=subject,
+            case = dict(key=key, dataset=name, task=tid, subject=subject,
                 original_split='valid', support_ids=sids, query_ids=qids,
                 support_sha256=row_hash(sids), query_sha256=row_hash(qids),
                 support_records=sorted({r['record'] for r in support}),
                 query_records=sorted({r['record'] for r in query}),
                 shared_train_seen_subject=subject in train_subjects, classes=classes,
                 support_provenance=[{k: r[k] for k in ('id', 'record', 'trial')} for r in support],
-                query_provenance=[{k: r[k] for k in ('id', 'record', 'trial')} for r in query]))
+                query_provenance=[{k: r[k] for k in ('id', 'record', 'trial')} for r in query],
+                support_class_counts={str(k): sum(r['label'] == k for r in support) for k in range(classes)})
+            if reference is not None:
+                # Filtering to BCIC must NOT renumber user-specific RNG seeds.
+                case['order'] = reference['order']
+                case['reference'] = dict(root=CONFIG['paired_reference'],
+                    support_ids=reference['support_ids'], query_sha256=reference['query_sha256'],
+                    old_support_n=len(reference['support_ids']))
+                for arm in CONFIG['arms']:
+                    result = ROOT / CONFIG['paired_reference'] / 'cases' / key / arm / 'result.json'
+                    if not result.exists() or json.loads(result.read_text())['case'] != reference:
+                        raise RuntimeError(f'Missing/mismatched completed reference: {key}/{arm}')
+            groups[name].append(case)
     # Each GPU receives all tasks rather than one permanently confounded dataset.
     cases = []
     for i in range(max(map(len, groups.values()), default=0)):
@@ -138,7 +194,7 @@ def build(store):
             if i < len(groups[name]):
                 cases.append(groups[name][i])
     for index, case in enumerate(cases):
-        case['order'] = index
+        case.setdefault('order', index)
     if not cases:
         raise RuntimeError('No eligible personal cases')
     return dict(schema='personal-valid-v1', config=CONFIG, source_hashes=identity(),

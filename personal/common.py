@@ -13,6 +13,12 @@ def identity():
     files = list((ROOT / 'personal').glob('*.py')) + [CONFIG_PATH]
     files += [Path('/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF/leaf_datasets') / f'{name}.py'
               for name in ('MI_BCIC_IV2a', 'MI_PhysioNet', 'MI_OpenBMI')]
+    if CONFIG.get('paired_reference'):
+        reference = ROOT / CONFIG['paired_reference']
+        files += [reference / 'plan.json', reference / 'queue.json']
+        for dataset in CONFIG['datasets']:
+            files += list((reference / 'cases').glob(f'{dataset}_*/*/result.json'))
+            files += list((reference / 'cases').glob(f'{dataset}_*/baseline.pt'))
     return {**result, **{str(p): digest(p) for p in sorted(files)}}
 
 

@@ -5,7 +5,7 @@ import torch
 
 from personal.common import CONFIG, check_rows
 from personal.modules import ConnectorDelta, KVPrefix, PrefixAttention, ResidualAdapter, UserParameters, canonical_logits, support_loss
-from personal.plan import partitions, select_support
+from personal.plan import exact_total_support, paired_reference, partitions, select_support
 
 
 def test_personal_valid_boundary_and_no_query_gradients():
@@ -101,3 +101,41 @@ def test_personal_recipe_keeps_historical_optimization():
     assert CONFIG['steps'] == 100 and CONFIG['batch_size'] == 16 and CONFIG['microbatch'] == 4
     assert CONFIG['learning_rate'] == 1e-4 and CONFIG['seed'] == 42
     assert CONFIG['weight_decay'] == .01 and CONFIG['original_split'] == 'valid'
+
+
+def test_58_support_is_total_unique_nested_and_query_unchanged():
+    pool = [dict(id=f's{i}', label=i % 4) for i in range(58)]
+    query = [dict(id=f'q{i}', label=i % 4) for i in range(8)]
+    reference = dict(support_ids=[r['id'] for r in pool[:20]], query_ids=[r['id'] for r in query])
+    selected = exact_total_support(pool, query, reference, 58)
+    assert len(selected) == len({r['id'] for r in selected}) == 58
+    assert selected[0]['label'] == 0 and selected[-1]['label'] == 3
+    assert set(reference['support_ids']) <= {r['id'] for r in selected}
+    with pytest.raises(ValueError, match='57 trials'):
+        exact_total_support(pool[:-1], query, reference, 58)
+    with pytest.raises(RuntimeError, match='query IDs'):
+        exact_total_support(pool, query[::-1], reference, 58)
+    with pytest.raises(RuntimeError, match='every previous'):
+        exact_total_support(pool, query, dict(reference, support_ids=['not_in_pool']), 58)
+    with pytest.raises(RuntimeError, match='exactly once'):
+        exact_total_support(pool[:-1] + [pool[0]], query, reference, 58)
+
+
+def test_paired_reference_rejects_optimization_drift(tmp_path, monkeypatch):
+    import json
+    import personal.plan as module
+    root = tmp_path / 'reference'
+    root.mkdir()
+    config = copy.deepcopy(CONFIG)
+    config['paired_reference'] = 'reference'
+    old = copy.deepcopy(config)
+    old['shots_per_class'] = 5
+    case = dict(key='MI_BCIC_IV2a_A07', order=21)
+    (root / 'queue.json').write_text(json.dumps(dict(state='stopped_by_user')))
+    (root / 'plan.json').write_text(json.dumps(dict(config=old, cases=[case])))
+    monkeypatch.setattr(module, 'ROOT', tmp_path)
+    monkeypatch.setattr(module, 'CONFIG', config)
+    assert paired_reference()[case['key']]['order'] == 21
+    config['learning_rate'] *= 2
+    with pytest.raises(RuntimeError, match='learning_rate'):
+        paired_reference()

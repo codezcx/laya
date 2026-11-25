@@ -1,6 +1,6 @@
 # LEAF Tower → JEV-27B：13 库验证实验协议
 
-_2026-11-24；共享训练为jev_train/，当前个人适配匹配对照为personal/。数据来自已完成原生LEAF复现；历史JEV训练语义来自5611b49。_
+_2026-11-25；共享训练jev_train/已完成，当前personal/为2a每人58条支持样本的配对实验。数据来自已完成原生LEAF复现；历史JEV训练语义来自5611b49。_
 
 ## 🎯 当前实验
 
@@ -80,9 +80,16 @@ HighGamma的文本说明为实际运动；PhysioNet沿用原处理器的二分�
 
 2026-11-24用户明确要求“用验证集来adapter吧，反正现在也用不上验证集。先把效果跑通”。因此原valid不再在本轮个人适配中保留不用，但不改原manifest、不把全部valid混入共享训练。运行只前向该用户的valid support/query，不前向train/test信号。所有方法从共享训练结束后同一个`best.pt`初始化；该parent由原test开发分数选择，其SHA256固定到队列中。
 
-每个用户先固定每类5条support，余下指定session/run的query全部评估。2a用T支持、E评估；PhysioNet用R03–R10支持、R11–R14评估；OpenBMI-MI与SSVEP用较早session支持、较晚session评估。只使用原valid中的成员，未抽中的support侧样本不进入query。按原处理器重建trial/session来源，核对行数和标签顺序；OpenBMI-MI的session边界依据固定官方处理器和400行shard，不声称重新逐条读原MAT验证。所有ID、session/run、support/query哈希、跳过理由写入`plan.json`。
+2026-11-25用户停止原每类5条的多库队列，并要求“2a使用58条训练看看”。当前只运行A01、A02、A03、A07，每人用原valid中完整58条T-session支持样本；E-session的query ID与顺序逐项保持原实验一致。A04只有38条、A05/A06各57条T-session支持样本，跳过，不重复采样凑数、不从query或train/test借样本。所有ID、来源、类别数量、support/query哈希、跳过理由写入`plan.json`。
 
-数据审计得到2a 7名、PhysioNet 80名、OpenBMI-MI 42名、SSVEP 3名合格库内用户。SSVEP另外39名原valid在较早session里至少一类不足5条，明确跳过，不偷偷改成更小shot；这3人不能代表完整SSVEP人群。OpenBMI两个任务有被试重叠，因此132个库内用户不等于132名独立参与者。四卡按数据集轮流领取用户，每个用户优先跑完整方法组；12小时预算不保证跑完全部132组。
+- A01：58条support，类别0/1/2/3计数14/18/12/14；58条query。
+- A02：58条support，类别计数17/13/14/14；57条query。
+- A03：58条support，类别计数17/14/12/15；57条query。
+- A07：58条support，类别计数12/11/19/16；58条query。
+
+原实验每类5条、每人共20条，均包含在本轮58条中。保留原`case.order=0/4/8/21`，因此不会因筛选被试而改变个人初始化/采样随机种子。重新从同一共享parent和个人初始参数开始，不加载已经适配20条的个人权重。除支持集扩展外，配置检查强制父checkpoint、9个对照、优化器相关设置、100步、batch与模块尺寸一致。自然类别比例随支持集扩展而变化，因此不是严格保持类别比例的纯样本量消融。
+
+旧队列产物`leaf13_personal_20261124`保留，245份已完成结果、26个完整用户×数据集方法组；原方案与配置归档Git `d3b6616`。当前输出`leaf13_personal_2a58_20261125`，4卡各领取一名用户，共36份方法/对照结果，全部完成即退出。比较只取这4人的旧20条结果，不能拿旧7人均值直接比较。
 
 | 对照 | 个人更新位置 | 个人参数量 | 目标 |
 | --- | --- | ---: | --- |
@@ -99,15 +106,15 @@ HighGamma的文本说明为实际运动；PhysioNet沿用原处理器的二分�
 
 共享Tower、连接器原权重、JEV原权重/已有LoRA/choice head全部冻结；梯度允许穿过JEV到个人模块。此处connector_lora不是解冻原连接器，也不是更新JEV原LoRA。个人KV prefix位于Qwen3.5的第51/55/59/63层（从0计数），直接学习post-RoPE K/V，不改原序列position，不在linear-attention层仿造KV cache；关闭时严格调用原attention路径。
 
-沿用历史个人适配的AdamW lr=1e-4、weight_decay=0.01、batch16、microbatch4、100步、clip=1、基础seed42、残差宽64。没有按方法单独调LR，也不扫seed/shot/训练步数。每用户所有方法使用相同support抽样及选项置换；每用户重新初始化个人参数，不跨用户继承。保存第100步结果，不用query选点或早停。soft prompt与KV prefix插入本身可能改变未训练输出，所以另外保存各自step0的query logits，不能把结构插入效果算成学习收益。
+沿用历史个人适配的AdamW lr=1e-4、weight_decay=0.01、batch16、microbatch4、100步、clip=1、基础seed42、残差宽64。没有按方法单独调LR，不扫seed/训练步数；本次仅按用户要求把支持集从20扩大到58。每用户所有方法使用相同support抽样及选项置换；每用户重新初始化个人参数，不跨用户继承。保存第100步结果，不用query选点或早停。soft prompt与KV prefix插入本身可能改变未训练输出，所以另外保存各自step0的query logits，不能把结构插入效果算成学习收益。
 
 蒸馏教师是冻结parent，分别用正序/倒序选项推理support，再映射回语义类别求概率均值；仅两种教师都预测对已知support标签的样本施加KL。温度1、权重0.1固定；教师不看query。这只是本轮待检验的正则组件，不称BiomedCoOp复现。ICL未在共享SFT专门训练过，也不预设有效。
 
-记录每用户support Acc、query Acc/BAcc、不适配基线、变化百分点、负迁移、步级CE/KL/梯度、个人参数量和逐样本预测。总体比较只用`summary.json`中`matched_complete_blocks`的相同用户，不拿完成数量不同的方法均值排名。不把query预测回灌训练。
+记录每用户support Acc、query Acc/BAcc、不适配基线、变化百分点、负迁移、步级CE/KL/梯度、个人参数量和逐样本预测。额外检查本轮不适配query预测与原实验逐条相同；保留原query的Tower编码batch，避免数值舍入变化混入支持样本量效果。`summary.json`中`paired_support_size_comparison`按相同人/方法比较20与58条；总体方法比较只用`matched_complete_blocks`相同用户，不拿完成数量不同的方法均值排名。不把query预测回灌训练。
 
 这些用户全部在共享train出现过其他trial，共享训练也接触过同session的其他样本；已有预处理含组内统计。不同session/run只保证个人support与query的trial隔离，不能宣称共享模型从未见过该session。结果标记`seen_subject_personalization_development`，不是未见用户、跨数据集zero-shot或独立测试。
 
-运行入口`python -m personal.run --start`。12小时从队列启动计时，包含等待共享训练收尾和真实27B smoke；最多四张卡各一个冻结parent。smoke只用valid support，核验原无适配forward一致、每个模块非零有限梯度、共享参数不变和个人参数重载一致。任一失败停止队列。每10步保存可恢复个人checkpoint，deadline后在当前步结束处保存，评估/退出可能稍晚；不加长训练填满预算。
+运行入口`python -m personal.run --start`。共享训练已经完成；12小时是沿用的安全上限，4人完整方法组结束即退出，不为填满预算额外训练。最多四张卡各一个冻结parent。smoke只用valid support，核验原无适配forward一致、每个模块非零有限梯度、共享参数不变和个人参数重载一致。任一失败停止队列。每10步保存可恢复个人checkpoint，deadline后在当前步结束处保存，评估/退出可能稍晚。27项单元测试已通过，包括58条唯一性、旧20条嵌套、query不变和拒绝学习率变化。
 
 ## 🔧 工程与历史参照
 
