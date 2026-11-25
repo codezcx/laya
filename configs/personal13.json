@@ -1,8 +1,8 @@
 {
-  "run_name": "leaf_personal_matched_curves_20261125",
+  "run_name": "leaf_personal_tower_diagnostics_20261125",
   "parent": "artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp",
   "parent_sha256": "7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a",
-  "output_root": "artifacts/benchmark/leaf_personal_matched_curves_20261125",
+  "output_root": "artifacts/benchmark/leaf_personal_tower_diagnostics_20261125",
   "gpus": [
     0,
     1,
@@ -12,7 +12,7 @@
   "wall_hours": 6,
   "minimum_free_gpu_mib": 60000,
   "minimum_free_disk_gib": 20,
-  "authorization": "2026-11-25 user approved matched initialization seeds and personal adaptation curves at equal steps; no learning-rate/rank/encoder changes.",
+  "authorization": "2026-11-25 user authorized unfreezing LEAF Tower for personal adaptation and auditing stable support-set individual information. Compare ordinary connector LoRA with connector LoRA plus full Tower; keep all existing optimizer/sample settings.",
   "role": "exploratory_original_test_personal_adaptation",
   "independent_test_estimate": false,
   "cache_root": "datasets/multitask_seedpaper_20261101",
@@ -56,8 +56,7 @@
   "connector_lora_scale": 1,
   "arms": [
     "ordinary_lora",
-    "source_erm",
-    "fomaml"
+    "tower_full"
   ],
   "hmc_support_fraction": 0.6,
   "hmc_gap_epochs": 2,
@@ -65,7 +64,7 @@
   "sampling_policy": "Preserve historical100support/query IDs, personal batch RNG and option order; all ordinary LoRA A uses seed42, matching source initial seeds.",
   "limitations": [
     "One seed, two target users per task; exploratory original-test personal query, not independent benchmark.",
-    "Prelearned source ERM and FOMAML initializations are reused unchanged; FOMAML offline inner horizon remains5.",
+    "Full Tower gradients enabled only in tower_full. Tower eval-mode/dropout and BatchNorm running statistics remain unchanged in both arms. JEV and original connector frozen.",
     "Released LEAF pretraining exposure unresolved; HMC support epochs are not independent sessions."
   ],
   "jobs": [
@@ -87,6 +86,8 @@
     }
   ],
   "initialization_reference": "artifacts/benchmark/leaf_personal_meta_init_20261125",
+  "matched_reference": "artifacts/benchmark/leaf_personal_matched_curves_20261125",
+  "tower_learning_rate": 0.0001,
   "initialization_seed": 42,
   "eval_steps": [
     0,

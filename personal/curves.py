@@ -65,7 +65,7 @@ def plot(report, directory, arms, steps):
     import matplotlib.pyplot as plt
     import numpy as np
     directory.mkdir(parents=True, exist_ok=True)
-    labels = dict(ordinary_lora='Ordinary LoRA', source_erm='Source ERM init', fomaml='FOMAML init')
+    labels = dict(ordinary_lora='Connector LoRA only', tower_full='Connector LoRA + full Tower')
     groups = [('bcic_2a', '2a: same 2 users'), ('hmc', 'HMC: same 2 users'), ('equal_task', 'Equal-task mean: 4 users')]
     series = dict(report['matched'], equal_task=report['equal_task'])
     colors = ['#0072B2', '#D55E00', '#009E73']

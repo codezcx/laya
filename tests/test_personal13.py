@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 from personal.common import CONFIG, ROOT, check_rows
-from personal.data import TrialStore, PreparedAdapter, normalize_trials, segment, source_group, to_electrodes
+from personal.data import TrialStore, PreparedAdapter, SignalBatch, normalize_trials, segment, source_group, to_electrodes
 from personal.modules import ConnectorDelta, UserParameters, canonical_logits
 from personal.plan import build, select_support, split_person, personal_batches
 from personal.initialization import common_state, audit_initializations, load_initialization
@@ -77,7 +77,8 @@ def test_optimization_matches_completed_four_user_run():
     for name in ('parent','parent_sha256','seed','steps','batch_size','microbatch','eval_batch',
                  'encode_batch','learning_rate','weight_decay','clip_grad_norm','connector_lora_rank','connector_lora_scale'):
         assert CONFIG[name]==previous[name]
-    assert CONFIG['arms']==['ordinary_lora','source_erm','fomaml']
+    assert CONFIG['arms']==['ordinary_lora','tower_full']
+    assert CONFIG['tower_learning_rate']==CONFIG['learning_rate']
     assert CONFIG['initialization_seed']==42
     assert CONFIG['eval_steps']==[0,5,10,20,50,100]
 
@@ -103,7 +104,7 @@ def test_chunking_preserves_long_sleep_epochs():
 def test_curve_plan_exact_users_samples_batches():
     store = TrialStore()
     plan = build(store)
-    previous = json.loads((ROOT/CONFIG['initialization_reference']/'plan.json').read_text())
+    previous = json.loads((ROOT/CONFIG['matched_reference']/'plan.json').read_text())
     assert plan['cases'] == previous['cases']
     assert plan['counts'] == dict(bcic_2a=2, hmc=2)
     assert not plan['offline_retraining']
@@ -135,10 +136,9 @@ def test_all_initializations_share_seed42_origin_and_reuse_unchanged_weights():
             state = load_initialization(r)
             assert tensor_fingerprint(state) == r['final_sha']
             assert r['starting_sha'] == tensor_fingerprint(ordinary)
-            if arm != 'ordinary_lora':
-                assert state['delta.b'].count_nonzero()
-                assert not torch.equal(state['delta.a'], ordinary['delta.a'])
-                assert r['source_episodes'] == 60
+            assert not state['delta.b'].count_nonzero()
+            assert torch.equal(state['delta.a'], ordinary['delta.a'])
+            assert r['source_episodes'] == 0
 
 
 def test_seed_constructor_does_not_consume_callers_cpu_rng():
@@ -155,7 +155,7 @@ def test_paired_curves_wait_for_all_users_and_methods(tmp_path):
     points = []
     for case in cases:
         for arm in arms:
-            value = .5 if arm == 'ordinary_lora' else .6 if arm == 'source_erm' else .7
+            value = .5 if arm == 'ordinary_lora' else .7
             metric = dict(accuracy=value, balanced_accuracy=value, ce=1-value)
             points.append(dict(case=case, arm=arm, step=0, support=metric, query=metric,
                                baseline=dict(balanced_accuracy=.4)))
@@ -164,7 +164,7 @@ def test_paired_curves_wait_for_all_users_and_methods(tmp_path):
     assert not incomplete['matched']['hmc']
     assert not incomplete['equal_task']
     complete = aggregate(points, cases, arms, [0,5])
-    assert complete['equal_task']['0']['fomaml']['delta_vs_ordinary_pp'] == pytest.approx(20.)
+    assert complete['equal_task']['0']['tower_full']['delta_vs_ordinary_pp'] == pytest.approx(20.)
     assert complete['matched']['hmc']['0']['ordinary_lora']['users'] == 2
     assert '5' not in complete['equal_task']
     with pytest.raises(RuntimeError, match='Duplicate'):
@@ -181,3 +181,64 @@ def test_bcic_preprocessing_matches_historical_saved_signal():
     rows=[byid[r['id']] for r in old['rows'][:4]]
     actual=PreparedAdapter(store).batch(rows)[0][2][0]
     np.testing.assert_array_equal(actual,old['x'][:4].numpy())
+
+
+def test_signal_batch_preserves_trial_indexing_and_gradients():
+    x=torch.randn(5,3,20)
+    inputs=SignalBatch([x,x+1])
+    assert len(inputs)==5 and len(inputs[[4,1,1]])==3
+    torch.testing.assert_close(inputs[[4,1,1]].pieces[1],(x+1)[[4,1,1]])
+    encoder=torch.nn.Linear(20,4)
+    output=torch.cat([encoder(p) for p in inputs[:2].pieces],dim=1)
+    output.sum().backward()
+    assert encoder.weight.grad.abs().sum()>0
+
+
+def test_profile_diagnostics_balance_and_identity_null():
+    from personal.diagnostics import balanced_halves,compare,profile,moments,holm_adjust
+    labels=[0]*5+[1]*5
+    a,b=balanced_halves(labels,list(range(10)))
+    assert a==[0,1,5,6] and b==[3,4,8,9]
+    assert not set(a)&set(b)
+    identity=compare(np.eye(4),np.eye(4),permutation=True)
+    assert identity['matching_accuracy']==1.
+    assert identity['exact_pairing_permutation_p']==pytest.approx(1/24)
+    null=compare(np.ones((4,3)),np.ones((4,3)))
+    assert null['matching_accuracy']==.25
+    x=torch.arange(24.).reshape(3,2,4)
+    got=profile(moments(x,True),[0,2])
+    expected=torch.cat((x[[0,2]].mean((0,1)),x[[0,2]].std((0,1),correction=0))).numpy()
+    np.testing.assert_allclose(got,expected,rtol=1e-6)
+    assert holm_adjust([.01,.03,.8])==pytest.approx([.03,.06,.8])
+
+
+def test_tower_optimizer_and_freeze_guard():
+    from personal.model import PersonalServer
+    from personal.worker import optimizer_for, update
+    class Tower(torch.nn.Linear):
+        def set_adaptation_enabled(self, enabled):
+            self.requires_grad_(enabled).eval()
+    server=object.__new__(PersonalServer)
+    server.model=torch.nn.Module()
+    server.model.add_module('eeg_encoder',Tower(4,4))
+    server.model.add_module('connector',torch.nn.Linear(4,4))
+    server.model.requires_grad_(False)
+    server.tower_enabled=False
+    server.initial_tower=server.tower_state()
+    server.frozen_versions={n:p._version for n,p in server.model.named_parameters()}
+    server.frozen_buffers={}
+    user=torch.nn.Linear(4,4)
+    server.configure_arm('tower_full')
+    optimizer=optimizer_for(user,server)
+    z=user(server.model.connector(server.model.eeg_encoder(torch.ones(2,4)))).sum()
+    z.backward(); update(user,optimizer); server.assert_frozen()
+    assert server.model.eeg_encoder.weight.grad is not None
+    assert server.model.connector.weight.grad is None
+    server.configure_arm('ordinary_lora')
+    torch.testing.assert_close(server.model.eeg_encoder.weight,server.initial_tower['weight'])
+    assert not server.model.eeg_encoder.weight.requires_grad
+    optimizer_for(user,server)
+    with torch.no_grad():
+        server.model.connector.weight.add_(1)
+    with pytest.raises(RuntimeError,match='modified'):
+        server.assert_frozen()

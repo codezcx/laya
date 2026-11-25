@@ -11,7 +11,7 @@ from jev_train.online_leaf import OnlineLEAFTower, encode_batch
 from jev_train.runtime import ROOT, digest
 from jev_train.task_options import make_variant
 from .common import CONFIG, PARENT_CONFIG
-from .data import PreparedAdapter
+from .data import PreparedAdapter, SignalBatch
 from .modules import canonical_logits
 
 
@@ -42,17 +42,44 @@ class PersonalServer:
         del saved
         model.requires_grad_(False).eval()
         self.model = model
+        self.tower_enabled = False
+        self.initial_tower = self.tower_state()
         self.prompt_cache = {}
         self.frozen_versions = {name: p._version for name, p in model.named_parameters()}
         self.frozen_buffers = {name: (b._version, tuple(b.shape)) for name, b in model.named_buffers()}
 
     def assert_frozen(self):
-        if any(p.requires_grad or p.grad is not None for p in self.model.parameters()):
+        frozen = {n: p for n, p in self.model.named_parameters()
+                  if not (self.tower_enabled and n.startswith('eeg_encoder.'))}
+        if any(p.requires_grad or p.grad is not None for p in frozen.values()):
             raise RuntimeError('Shared model was made trainable or received parameter gradients')
-        if self.frozen_versions != {n: p._version for n, p in self.model.named_parameters()}:
+        if any(self.frozen_versions[n] != p._version for n, p in frozen.items()):
             raise RuntimeError('A frozen shared parameter was modified')
         if self.frozen_buffers != {n: (b._version, tuple(b.shape)) for n, b in self.model.named_buffers()}:
             raise RuntimeError('A frozen shared buffer was modified')
+
+    def tower_state(self):
+        return {n: p.detach().cpu().clone() for n, p in self.model.eeg_encoder.state_dict().items()}
+
+    def load_tower(self, state):
+        self.assert_frozen()
+        self.model.eeg_encoder.load_state_dict(state, strict=True)
+        # Only Tower snapshots may change during reset/resume; never re-baseline JEV.
+        self.frozen_versions.update({n: p._version for n, p in self.model.named_parameters()
+                                     if n.startswith('eeg_encoder.')})
+        self.frozen_buffers.update({n: (b._version, tuple(b.shape)) for n, b in self.model.named_buffers()
+                                    if n.startswith('eeg_encoder.')})
+
+    def configure_arm(self, arm):
+        self.assert_frozen()
+        self.model.eeg_encoder.zero_grad(set_to_none=True)
+        self.load_tower(self.initial_tower)
+        self.tower_enabled = arm == 'tower_full'
+        self.model.eeg_encoder.set_adaptation_enabled(self.tower_enabled)
+        self.assert_frozen()
+
+    def tower_parameters(self):
+        return list(self.model.eeg_encoder.parameters()) if self.tower_enabled else []
 
     def text(self, value):
         if value not in self.prompt_cache:
@@ -83,6 +110,10 @@ class PersonalServer:
     def forward(self, tokens, rows, task, user=None, step=0, training=False, variant=0):
         self.model.text.train(training)
         self.model.eeg_encoder.eval()
+        if isinstance(tokens, SignalBatch):
+            tokens = torch.cat([self.model.eeg_encoder(piece) for piece in tokens.pieces], dim=1)
+        elif self.tower_enabled:
+            raise RuntimeError('Trainable Tower cannot consume frozen embedding caches')
         z = self.project(tokens.cuda(), user)
         prefix = self.model.text.get_input_embeddings()(self.model.prefix_ids)
         questions = [make_variant(task, r['label'], r['id'], step, CONFIG['seed'],

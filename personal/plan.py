@@ -1,4 +1,4 @@
-"""Exact historical users and batches, plus pinned common-seed initializations."""
+"""Matched Tower freezing controls, preserving historical users and batches."""
 import hashlib
 import json
 from collections import Counter
@@ -71,7 +71,7 @@ def personal_batches(case):
 
 
 def build(store):
-    previous = json.loads((ROOT / CONFIG['initialization_reference'] / 'plan.json').read_text())
+    previous = json.loads((ROOT / CONFIG['matched_reference'] / 'plan.json').read_text())
     old = {(c['dataset'], c['subject']): c for c in previous['cases']}
     targets = []
     for tid, task in enumerate(store.tasks):
@@ -98,7 +98,7 @@ def build(store):
     schedules = {c['key']: personal_batches(c) for c in targets}
     if CONFIG['eval_steps'] != [0, 5, 10, 20, 50, 100]:
         raise RuntimeError('Unapproved evaluation schedule')
-    return dict(schema='personal-matched-curves-v1', config=CONFIG, source_hashes=identity(),
+    return dict(schema='personal-tower-controls-v1', config=CONFIG, source_hashes=identity(),
         cases=targets, schedules=schedules, initializations=audit_initializations(),
         counts={n:sum(c['dataset']==n for c in targets) for n in CONFIG['datasets']},
         inventory=store.inventory, source_indexes=store.meta, source_array_stats=store.stats,

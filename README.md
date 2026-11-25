@@ -1,35 +1,40 @@
-# LEAF Tower → JEV：同种子个人适配曲线
+# LEAF Tower → JEV：个人表征适配与支持集稳定性
 
-_2026-11-25；固定上一轮的四名用户和全部超参数，只修正随机初始化种子并补齐等步数评估。_
+_2026-11-25；检验个人更新是否受限于连接器，以及支持样本能否提供可重复的个体信息。_
 
-## 📋 当前实验
+---
 
-共享 LEAF Tower、原连接器、JEV27B 全部冻结。只更新连接器最后一层上的个人 LoRA：rank4、40,960参数，学习率1e-4，100条支持样本、100步、batch16/micro4。三组为普通个人 LoRA、source ERM 初始化、FOMAML 初始化；后两组直接读取上一轮已完成的权重，不重跑离线训练。
+## 🎯 当前实验
 
-| GPU | 目标用户 | 本卡依次运行 |
+同一个已训练的 InfoNCE＋LEAF Tower→JEV parent，同一批四名用户，每人100条支持样本。比较连接器 LoRA 与同一连接器 LoRA＋Tower 全参更新；JEV和原连接器始终冻结。Tower 全参为19,557,632参数，个人LoRA为40,960参数。不是重训共享模型或实施FedP²EFT。
+
+| GPU | 用户 | 运行顺序 |
 | --- | --- | --- |
-| 0 | 2a A08 | 普通 LoRA、source ERM、FOMAML |
-| 1 | 2a A09 | 普通 LoRA、source ERM、FOMAML |
-| 2 | HMC s2 | 普通 LoRA、source ERM、FOMAML |
-| 3 | HMC s6 | 普通 LoRA、source ERM、FOMAML |
+| 0 | 2a A08 | Tower全参＋连接器LoRA → 连接器LoRA |
+| 1 | 2a A09 | Tower全参＋连接器LoRA → 连接器LoRA |
+| 2 | HMC s2 | Tower全参＋连接器LoRA → 连接器LoRA |
+| 3 | HMC s6 | Tower全参＋连接器LoRA → 连接器LoRA |
 
-普通 LoRA 的随机 A 统一用 seed42，零 B；它必须与两种源训练的最初参数指纹一致。源训练已经学到的 A/B 不重置。每名用户的支持集、完整query、训练批次和选项排列保留历史设置。
+两组保持seed42、lr1e-4、100步、batch16/micro4、支持/query成员、文本和选项排列。Tower保持eval模式，BN运行统计与Dropout策略不变；这不妨碍计算权重梯度。完整support/query在0/5/10/20/50/100步记录，固定100步报告，不按query选点。
 
-第0、5、10、20、50、100步保存完整support/query指标、预测和个人参数。固定第100步结束，不按query选最好checkpoint。两任务各2人，只有相同步数下所有配对用户和方法齐全后才计算任务均值、两任务等权均值。
+另用冻结特征检查类别均衡的支持集前后半、随机半集及源被试跨记录匹配。源数据只用原train；目标用户只使用support，不索引目标query特征设计统计量。
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
+laya/.venv-eeg/bin/python -m personal.diagnostics
 laya/.venv-eeg/bin/python -m personal.run --start
 ```
 
+## 🔗 协议与产物
+
 - [固定协议](docs/PROTOCOL.md)
-- [进度与曲线位置](docs/RESULTS.md)
-- [方法选择依据](docs/PERSONALIZATION_METHOD_REVIEW.md)
-- [当前配置](configs/personal13.json)
+- [结果与进度](docs/RESULTS.md)
+- [当前假设及解释边界](docs/PERSONALIZATION_METHOD_REVIEW.md)
+- [配置](configs/personal13.json)
 - [历史归档](docs/ARCHIVE.md)
 
-输出：`artifacts/benchmark/leaf_personal_matched_curves_20261125/`。四卡每卡一名用户，完成即退，保留6小时安全上限；不是要求跑满6小时。上一轮完整结果及离线实现已归档Git `4a664b1`，其初始化、所有ignored数据/权重/日志均保留。
+输出：`artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/`。四卡每卡一人，完成即退，6小时安全上限。此前同种子ERM/FOMAML曲线已完成，归档于Git `1d78125`；所有ignored数据、checkpoint、日志与第三方环境保留。
 
 ## ⚠️ 结果边界
 
-原test个人query已被历史观察，本轮是开发性配对分析，不是独立测试。原valid不读取信号、不参与适配；个人梯度仅来自本人100条support。新普通LoRA换成共同seed42，不能把上一轮普通LoRA分数当本轮结果。每任务仅2人，不作总体显著性结论。
+原test个人query是已观察的开发性评估，不是独立盲测；原valid本轮不使用。每任务仅两名目标用户，不推广为总体结论。个体可识别不等于特征有益于任务，HMC同夜稳定不等于跨夜稳定。

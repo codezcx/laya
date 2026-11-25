@@ -5,8 +5,41 @@ import sys
 from collections import Counter, defaultdict
 from fractions import Fraction
 import numpy as np
+import torch
 from scipy.signal import resample_poly
 from .common import CONFIG, PARENT, PARENT_CONFIG, ROOT, digest
+
+
+class SignalBatch:
+    """CPU signal chunks with trial-indexing semantics, never cached embeddings."""
+    def __init__(self, pieces):
+        self.pieces = pieces
+        if not pieces or len({len(p) for p in pieces}) != 1:
+            raise ValueError('Inconsistent signal chunk batches')
+
+    def __len__(self):
+        return len(self.pieces[0])
+
+    def __getitem__(self, indices):
+        return SignalBatch([p[indices] for p in self.pieces])
+
+    @classmethod
+    def prepare(cls, store, rows):
+        chunks = None
+        adapter = PreparedAdapter(store)
+        for offset in range(0, len(rows), CONFIG['encode_batch']):
+            part = rows[offset:offset + CONFIG['encode_batch']]
+            groups = adapter.batch(part)
+            if len(groups) != 1 or groups[0][1] != list(range(len(part))):
+                raise ValueError('Personal pilot requires uniform ordered signal batches')
+            pieces = groups[0][2]
+            if chunks is None:
+                chunks = [[] for _ in pieces]
+            if len(chunks) != len(pieces):
+                raise ValueError('Personal signal lengths changed')
+            for destination, piece in zip(chunks, pieces):
+                destination.append(torch.from_numpy(piece))
+        return cls([torch.cat(parts) for parts in chunks])
 
 
 def trial_key(row):
