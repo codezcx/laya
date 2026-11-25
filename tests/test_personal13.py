@@ -1,40 +1,42 @@
-import copy
-
 import pytest
 import torch
 
 from personal.common import CONFIG, check_rows
 from personal.modules import ConnectorDelta, KVPrefix, PrefixAttention, ResidualAdapter, UserParameters, canonical_logits, support_loss
-from personal.plan import exact_total_support, paired_reference, partitions, select_support
+from personal.plan import build, partitions, select_support
+from personal.data import TrialStore, normalize_trials
 
 
-def test_personal_valid_boundary_and_no_query_gradients():
-    case = dict(subject='A01', task=0, support_ids=['s'], query_ids=['q'])
-    support = dict(id='s', split='valid', subject='A01', task=0)
+def test_personal_split_boundary_and_no_query_gradients():
+    case = dict(subject='6', original_split='valid', task=0, support_ids=['s'], query_ids=['q'])
+    support = dict(id='s', split='valid', subject='6', task=0, record='A06T')
     check_rows([support], case, gradient=True)
-    check_rows([dict(support, id='q')], case)
-    for row in (dict(support, id='q'), dict(support, split='test'), dict(support, subject='A02')):
+    check_rows([dict(support, id='q', record='A06E')], case)
+    for row in (dict(support, id='q'), dict(support, split='test'), dict(support, subject='7'),
+                dict(support, record='A06E')):
         with pytest.raises(RuntimeError):
             check_rows([row], case, gradient=True)
     with pytest.raises(RuntimeError, match='overlap'):
         check_rows([support], dict(case, query_ids=['s']))
 
 
-def test_session_split_uses_author_e_before_t():
-    rows = [dict(id=str(i), index=i, label=i % 2) for i in range(4)]
-    p = [dict(record=x, trial=str(i)) for i,x in enumerate(['E','E','T','T'])]
-    support, query = partitions(rows, 'MI_BCIC_IV2a', p)
-    assert [r['id'] for r in support] == ['2','3']
-    assert [r['id'] for r in query] == ['0','1']
+def synthetic_pool(session='A06T'):
+    return [dict(id=f'{session}:{i}', label=i%4, record=session, row=i, event=i%48) for i in range(288)]
 
 
-def test_paired_support_selection_and_no_silent_shot_reduction():
-    rows = [dict(id=str(i), label=i % 3) for i in range(30)]
-    selected = select_support(rows, 3, 5, 42)
-    assert selected == select_support(rows, 3, 5, 42)
-    assert len({r['id'] for r in selected}) == 15
+def test_full_sessions_and_nested_balanced_support():
+    pool, query = partitions(synthetic_pool() + synthetic_pool('A06E'))
+    assert len(query) == 288
+    small = select_support(pool, 4, 5, 42)
+    big = select_support(pool, 4, 25, 42)
+    assert len(big) == len({r['id'] for r in big}) == 100
+    assert {r['id'] for r in small} <= {r['id'] for r in big}
+    assert [sum(r['label']==c for r in big) for c in range(4)] == [25]*4
+    assert not {r['id'] for r in big} & {r['id'] for r in query}
+    with pytest.raises(ValueError, match='288'):
+        partitions(pool[:-1] + query)
     with pytest.raises(ValueError, match='needs'):
-        select_support(rows[:6], 3, 5, 42)
+        select_support(pool, 4, 73, 42)
 
 
 def test_adapter_lora_identity_and_gradients():
@@ -100,42 +102,26 @@ def test_prefix_noop_when_disabled_and_frozen_base():
 def test_personal_recipe_keeps_historical_optimization():
     assert CONFIG['steps'] == 100 and CONFIG['batch_size'] == 16 and CONFIG['microbatch'] == 4
     assert CONFIG['learning_rate'] == 1e-4 and CONFIG['seed'] == 42
-    assert CONFIG['weight_decay'] == .01 and CONFIG['original_split'] == 'valid'
+    assert CONFIG['weight_decay'] == .01 and CONFIG['support_total'] == 100
+    # Historical bf16 JEV logits depend on inference batch shape; restore 8.
+    assert CONFIG['eval_batch'] == 8 and CONFIG['encode_batch'] == 32
 
 
-def test_58_support_is_total_unique_nested_and_query_unchanged():
-    pool = [dict(id=f's{i}', label=i % 4) for i in range(58)]
-    query = [dict(id=f'q{i}', label=i % 4) for i in range(8)]
-    reference = dict(support_ids=[r['id'] for r in pool[:20]], query_ids=[r['id'] for r in query])
-    selected = exact_total_support(pool, query, reference, 58)
-    assert len(selected) == len({r['id'] for r in selected}) == 58
-    assert selected[0]['label'] == 0 and selected[-1]['label'] == 3
-    assert set(reference['support_ids']) <= {r['id'] for r in selected}
-    with pytest.raises(ValueError, match='57 trials'):
-        exact_total_support(pool[:-1], query, reference, 58)
-    with pytest.raises(RuntimeError, match='query IDs'):
-        exact_total_support(pool, query[::-1], reference, 58)
-    with pytest.raises(RuntimeError, match='every previous'):
-        exact_total_support(pool, query, dict(reference, support_ids=['not_in_pool']), 58)
-    with pytest.raises(RuntimeError, match='exactly once'):
-        exact_total_support(pool[:-1] + [pool[0]], query, reference, 58)
+
+def test_trial_normalization_does_not_use_other_trials():
+    import numpy as np
+    x = np.random.default_rng(42).normal(size=(4,22,800)).astype(np.float32)
+    one = normalize_trials(x[:1])
+    x[1:] *= 10000
+    np.testing.assert_array_equal(one, normalize_trials(x)[:1])
+    with pytest.raises(ValueError, match='constant'):
+        normalize_trials(np.zeros_like(x))
 
 
-def test_paired_reference_rejects_optimization_drift(tmp_path, monkeypatch):
-    import json
-    import personal.plan as module
-    root = tmp_path / 'reference'
-    root.mkdir()
-    config = copy.deepcopy(CONFIG)
-    config['paired_reference'] = 'reference'
-    old = copy.deepcopy(config)
-    old['shots_per_class'] = 5
-    case = dict(key='MI_BCIC_IV2a_A07', order=21)
-    (root / 'queue.json').write_text(json.dumps(dict(state='stopped_by_user')))
-    (root / 'plan.json').write_text(json.dumps(dict(config=old, cases=[case])))
-    monkeypatch.setattr(module, 'ROOT', tmp_path)
-    monkeypatch.setattr(module, 'CONFIG', config)
-    assert paired_reference()[case['key']]['order'] == 21
-    config['learning_rate'] *= 2
-    with pytest.raises(RuntimeError, match='learning_rate'):
-        paired_reference()
+def test_actual_historical_cohort_is_complete_and_subject_disjoint():
+    p = build(TrialStore())
+    assert [(c['subject'], c['original_split']) for c in p['cases']] == [('6','valid'),('7','valid'),('8','test'),('9','test')]
+    for c in p['cases']:
+        assert not c['shared_train_seen_subject']
+        assert len(c['support_ids']) == 100 and len(c['query_ids']) == 288
+        assert c['support_class_counts'] == dict.fromkeys(['0','1','2','3'],25)

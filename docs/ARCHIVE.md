@@ -1,9 +1,11 @@
 # Git 与实验产物归档
 
+2026-11-25：当前切换为旧InfoNCE＋LEAF Tower→JEV checkpoint的100条个人适配，见[当前协议](PROTOCOL.md)。13库parent的58条个人适配源码/配置归档于`9955da9`，队列按用户要求停止；其4份已完成结果、未完成断点及此前245份个人结果均保留。只在当前`personal/`中替换协议，不恢复历史独立实验框架。下文所有“当前”均指各记录当时的状态。
+
 2026-11-24：原生LEAF13库100epochs和两个checkpoint的完整测试已完成并归档于`73e26f9`。用户随后要求在同一13库训练JEV并明确选择27B，当前新增`jev_train/`，只从`5611b49`恢复必要的Tower/JEV/训练与评估公共语义；保留`leaf_repro/`作为同数据参照和数据准备，不恢复其他独立实验。全部ignored原始数据、shards、模型、日志和环境未删除。
 
 
-2026-11-24：当前工作树切换为13库原生LEAF部分复现，见[当前协议](PROTOCOL.md)。上一轮完整Qwen/JEV及个人适配实现和结果提交于 `5611b49`；58个专属代码/配置/测试从当前树移除，可通过隔离worktree恢复。所有ignored数据、检查点、日志、环境和第三方安装均保留。下文为历史阶段记录，不代表当前运行入口。
+2026-11-24：当时工作树切换为13库原生LEAF部分复现，协议见Git `73e26f9`。上一轮完整Qwen/JEV及个人适配实现和结果提交于 `5611b49`；58个专属代码/配置/测试从当前树移除，可通过隔离worktree恢复。所有ignored数据、检查点、日志、环境和第三方安装均保留。下文为历史阶段记录，不代表当前运行入口。
 
 夜间AdaBN/SSF/MEMO三组23人方法控制已于2026-11-23 20:57:10 UTC全部完成。隔离分支 `experiment/personal-method-controls`、实现 `460d31e` 及 worktree `/inspire/hdd/global_user/zhangchenxi-253108310322/eegjev-worktrees/personal-method-controls` 保留；结果在 `artifacts/benchmark/leaf_personal_methods_20261123/`，没有遗留运行队列。
 

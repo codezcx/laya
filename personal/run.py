@@ -17,7 +17,7 @@ def summary():
     grouped = {}
     for path in sorted((OUT / 'cases').glob('*/*/result.json')):
         result = json.loads(path.read_text())
-        name, arm = result['case']['dataset'], result['arm']
+        name, arm = result['case']['dataset'] + '/' + result['case']['original_split'], result['arm']
         grouped.setdefault(name, {}).setdefault(arm, []).append(result)
     data, matched = {}, {}
     for name, arms in grouped.items():
@@ -41,28 +41,9 @@ def summary():
                     adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
                     mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
                     negative_transfer_users=sum(r['delta_pp'] < 0 for r in values))
-    paired = {}
-    if CONFIG.get('paired_reference'):
-        reference_root = ROOT / CONFIG['paired_reference']
-        for name, arms in grouped.items():
-            paired[name] = {}
-            for arm, results in arms.items():
-                previous = []
-                for result in results:
-                    old = json.loads((reference_root / 'cases' / result['case']['key'] / arm / 'result.json').read_text())
-                    if old['case']['query_ids'] != result['case']['query_ids'] or old['parent_sha256'] != result['parent_sha256']:
-                        raise RuntimeError('Invalid support-size paired comparison')
-                    previous.append(old)
-                paired[name][arm] = dict(users=len(results), case_ids=[r['case']['key'] for r in results],
-                    baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in results)/len(results),
-                    support20_bacc=sum(r['adapted']['balanced_accuracy'] for r in previous)/len(previous),
-                    support58_bacc=sum(r['adapted']['balanced_accuracy'] for r in results)/len(results),
-                    delta58_vs20_pp=sum(100*(r['adapted']['balanced_accuracy']-p['adapted']['balanced_accuracy'])
-                                         for r,p in zip(results,previous))/len(results))
-    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_split='valid',
+    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_splits=['valid', 'test'],
         independent_test_estimate=False, paired_case_ids_required_for_between_arm_comparison=True,
         datasets=data, matched_complete_blocks=matched,
-        paired_support_size_comparison=paired,
         completed_results=sum(len(v) for a in grouped.values() for v in a.values())))
 
 
@@ -91,7 +72,7 @@ def main():
         state = json.loads(state_path.read_text())
         if state['source_hashes'] != hashes:
             raise RuntimeError('Queue source changed; inspect before resuming')
-        if state['state'] in ('complete', 'budget_exhausted'):
+        if state['state'] in ('complete', 'budget_exhausted', 'stopped_by_user'):
             raise RuntimeError('Queue finished; another time budget requires explicit authorization')
     else:
         state = dict(started=time.time(), deadline=time.time()+CONFIG['wall_hours']*3600,
@@ -122,10 +103,8 @@ def main():
                 raise RuntimeError('Shared parent failed; personal experiments not started')
             time.sleep(10)
         checkpoint_sha = digest(parent / 'best.pt')
-        if CONFIG.get('paired_reference'):
-            reference_queue = json.loads((ROOT / CONFIG['paired_reference'] / 'queue.json').read_text())
-            if reference_queue['parent_sha256'] != checkpoint_sha:
-                raise RuntimeError('Support-size comparison changed the shared parent checkpoint')
+        if checkpoint_sha != CONFIG['parent_sha256']:
+            raise RuntimeError('Selected historical checkpoint identity changed')
         if state['parent_sha256'] not in (None, checkpoint_sha):
             raise RuntimeError('Selected parent checkpoint changed')
         state['parent_sha256'] = checkpoint_sha

@@ -11,7 +11,8 @@ import numpy as np
 import torch
 
 from jev_train.checkpoint import seed_rng, tensor_fingerprint
-from jev_train.data import TrialStore, classification_metrics
+from jev_train.data import classification_metrics
+from .data import TrialStore
 from .common import CONFIG, OUT, ROOT, check_rows, identity, write_json
 from .model import PersonalServer
 from .modules import UserParameters, support_loss
@@ -98,7 +99,7 @@ def smoke(server, store, case, directory):
     server.activate(None)
     server.assert_frozen()
     write_json(directory / 'smoke.json', dict(passed=True, support_only=True, samples=[r['id'] for r in rows],
-               original_split='valid', base_forward_exact=True, shared_model_frozen=True, arms=reports))
+               original_split=case['original_split'], base_forward_exact=True, shared_model_frozen=True, arms=reports))
     torch.cuda.empty_cache()
 
 
@@ -111,27 +112,8 @@ def run_case(server, store, case, deadline, hashes, parent_sha, worker):
     check_rows(support, case, gradient=True)
     check_rows(query, case)
     task = store.tasks[case['task']]
-    reference_baseline = None
-    if case.get('reference'):
-        reference_support = [rows_by_id[i] for i in case['reference']['support_ids']]
-        check_rows(reference_support, case, gradient=True)
-        # Preserve the old query encoding batches; batch-size rounding must not
-        # masquerade as a support-size effect in the frozen-parent baseline.
-        original_rows = reference_support + query
-        original_tokens = server.encode(store, original_rows)
-        by_id = dict(zip([r['id'] for r in original_rows], original_tokens))
-        extra = [r for r in support if r['id'] not in by_id]
-        if extra:
-            by_id.update(zip([r['id'] for r in extra], server.encode(store, extra)))
-        st = torch.stack([by_id[r['id']] for r in support])
-        qt = torch.stack([by_id[r['id']] for r in query])
-        reference_path = ROOT / case['reference']['root'] / 'cases' / case['key'] / 'baseline.pt'
-        reference_baseline = torch.load(reference_path, map_location='cpu', weights_only=False)
-        if reference_baseline['parent_sha256'] != parent_sha or reference_baseline['case']['query_ids'] != case['query_ids']:
-            raise RuntimeError('Paired baseline parent/query identity changed')
-    else:
-        tokens = server.encode(store, support + query)
-        st, qt = tokens[:len(support)], tokens[len(support):]
+    tokens = server.encode(store, support + query)
+    st, qt = tokens[:len(support)], tokens[len(support):]
     target = torch.tensor([r['label'] for r in support], device='cuda')
     cache_path = directory / 'baseline.pt'
     if cache_path.exists():
@@ -146,14 +128,21 @@ def run_case(server, store, case, deadline, hashes, parent_sha, worker):
             query_logits=server.predict(qt, query, task), teacher=teacher, teacher_correct=correct)
         atomic_save(baseline, cache_path)
     baseline_audit = {}
-    if reference_baseline is not None:
-        old_logits = reference_baseline['query_logits']
+    if case.get('historical_prediction'):
+        old = torch.load(case['historical_prediction'], map_location='cpu', weights_only=False)
+        if old['ids'] != case['query_ids'] or old['labels'] != [r['label'] for r in query]:
+            raise RuntimeError('Historical baseline sample identity changed')
+        old_logits = torch.as_tensor(old['baseline']['jev'])
         new_logits = baseline['query_logits']
-        if not torch.equal(old_logits.argmax(-1), new_logits.argmax(-1)):
-            raise RuntimeError('Paired no-adaptation baseline predictions changed')
-        baseline_audit = dict(reference_baseline_predictions_identical=True,
-            reference_baseline_max_logit_difference=float((old_logits-new_logits).abs().max()),
-            reference_support_n=case['reference']['old_support_n'], current_support_n=len(support))
+        identical = torch.equal(old_logits.argmax(-1), new_logits.argmax(-1))
+        baseline_audit = dict(historical_baseline_predictions_identical=identical,
+            historical_baseline_logits_exact=torch.equal(old_logits, new_logits),
+            historical_baseline_max_logit_difference=float((old_logits-new_logits).abs().max()),
+            historical_baseline_mismatches=int((old_logits.argmax(-1)!=new_logits.argmax(-1)).sum()),
+            eval_batch=CONFIG['eval_batch'])
+        write_json(directory / 'baseline_audit.json', baseline_audit)
+        if not identical:
+            raise RuntimeError('Historical no-adaptation predictions not reproduced; stop before training')
     teacher = baseline['teacher'].cuda()
     teacher_correct = baseline['teacher_correct'].cuda()
     base_metric = metrics(baseline['query_logits'], query, case['classes'])
@@ -270,6 +259,7 @@ def main():
     parser.add_argument('--worker', type=int, required=True)
     args = parser.parse_args()
     torch.set_num_threads(3)
+    torch.backends.mha.set_fastpath_enabled(False)
     torch.cuda.set_device(0)
     hashes = identity()
     plan = json.loads((OUT / 'plan.json').read_text())
@@ -280,6 +270,8 @@ def main():
         time=time.time(), pid=os.getpid(), parent_sha256=queue['parent_sha256']))
     server = PersonalServer(queue['parent_sha256'])
     store = TrialStore()
+    if json.loads(json.dumps(store.stats)) != plan['source_array_stats']:
+        raise RuntimeError('Prepared signal array identities changed after planning')
     write_json(OUT / f'progress_gpu{args.worker}.json', dict(state='smoke_or_waiting_for_smoke',
         time=time.time(), pid=os.getpid(), selected_parent_step=server.parent_step))
     smoke_path = OUT / 'smoke.json'

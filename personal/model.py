@@ -7,12 +7,12 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from jev_train.checkpoint import restore_model, seed_rng
-from jev_train.data import PreparedAdapter
 from jev_train.jev import JEVBridge, choice_logits, load_jev
 from jev_train.online_leaf import OnlineLEAFTower, encode_batch
-from jev_train.runtime import CONFIG as SHARED, ROOT, digest
+from jev_train.runtime import ROOT, digest
 from jev_train.task_options import make_variant
-from .common import CONFIG
+from .common import CONFIG, PARENT_CONFIG
+from .data import PreparedAdapter
 from .modules import PrefixAttention, canonical_logits
 
 
@@ -28,11 +28,16 @@ class PersonalServer:
         saved = torch.load(checkpoint, map_location='cpu', mmap=True, weights_only=False)
         if saved['step'] != done['selected_step']:
             raise ValueError('Selected shared checkpoint mismatch')
+        metadata = json.loads((parent / 'config.json').read_text())
+        for name, expected in metadata['jev_shard_stats'].items():
+            st = (ROOT / 'laya/JEV-27B-VL' / name).stat()
+            if [st.st_size, st.st_mtime_ns] != expected:
+                raise RuntimeError('Native JEV shard differs from historical parent')
         seed_rng(CONFIG['seed'])
         text, weight, bias, self.tokenizer = load_jev('cuda:0')
         model = JEVBridge(text, weight, bias, self.tokenizer, train_lora=True,
                           train_head=True, head_choices=16, input_dim=256)
-        model.add_module('eeg_encoder', OnlineLEAFTower(SHARED).cuda())
+        model.add_module('eeg_encoder', OnlineLEAFTower(PARENT_CONFIG).cuda())
         restore_model(model, saved)
         self.parent_step = saved['step']
         del saved
