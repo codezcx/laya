@@ -15,10 +15,8 @@ def identity():
     for dataset in CONFIG['datasets']:
         files += [ROOT / CONFIG['split_root'] / dataset / n for n in ('manifest.json', 'records.csv')]
         files += [ROOT / CONFIG['cache_root'] / dataset / n for n in ('index.csv', 'complete.json')]
-    files += list((ROOT / CONFIG['historical_reference'] / 'episodes').glob('bcic_2a_*/predictions.pt'))
-    files += [ROOT / CONFIG['paired_reference'] / 'plan.json']
-    for key in ('initialization_reference', 'matched_reference'):
-        files += [ROOT / CONFIG[key] / name for name in ('plan.json', 'queue.json')]
+    for key in ('paired_reference', 'matched_reference'):
+        files += [ROOT / CONFIG[key] / name for name in ('plan.json', 'summary.json')]
     files += [Path(PARENT_CONFIG['leaf_root']) / n for n in (
         'leaf_datasets/__init__.py', 'leaf_datasets/electrode_unifier.py',
         'configs/LEAF-ch65/LEAF-ch65.json', 'configs/LEAF-ch65/LEAF-ch65.bvef')]

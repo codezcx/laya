@@ -1,4 +1,4 @@
-"""Bounded four-user matched personal curves; no source retraining."""
+"""Bounded four-GPU overnight location/support-size queue; no shared retraining."""
 import argparse
 import fcntl
 import json
@@ -107,9 +107,9 @@ def main():
             raise RuntimeError('A personal worker failed')
         summary()
         plan = json.loads((OUT / 'plan.json').read_text())
-        completed = sum((OUT / 'jobs' / j['key'] / 'complete.json').exists() for j in CONFIG['jobs'])
-        report(state='complete' if completed == len(CONFIG['jobs']) else 'budget_exhausted',
-               complete_jobs=completed, planned_jobs=len(CONFIG['jobs']))
+        completed = sum((OUT / 'jobs' / j['key'] / 'complete.json').exists() for j in plan['jobs'])
+        report(state='complete' if completed == len(plan['jobs']) else 'budget_exhausted',
+               complete_jobs=completed, planned_jobs=len(plan['jobs']))
     except BaseException as exc:
         for child in children:
             if child.poll() is None:

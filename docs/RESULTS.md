@@ -1,46 +1,29 @@
-# 个人 Tower 适配与支持统计：结果
+# 个人 LoRA 位置与样本量：进度与结果
 
-_2026-11-25；四卡全部完成，8次个人训练、48个完整评估点。_
+_2026-11-25；本轮168个个人条件单独记录，不拿旧全参结果冒充LoRA结果。_
 
 ---
 
-## 📋 当前状态
+## 📋 本轮范围
 
-固定第100步完整query：连接器LoRA与Tower全参＋LoRA的2a两人均值分别60.42%／63.37%，HMC两人均值70.21%／69.36%，两任务等权65.31%／66.36%（+1.05个百分点）。四人中两升两降；普通Acc等权65.89%降至63.58%。全参组support Acc99.75%，query CE由step20的0.824升到step100的1.336，存在过拟合迹象，不能认为稳定胜出。此轮结束后按用户要求归档，替换为21名用户的LoRA位置和支持样本量对照；下文启动描述保留为历史记录。
+21名用户：2a9、HMC4、SEED4、Nakanishi2015四人。100条support时比较first-only、last-only、both、Tower-LoRA＋both；后两组再比较48/24条。每条件独立初始化100步，精确成员见[协议](PROTOCOL.md)。
 
-实现为连接器LoRA与连接器LoRA＋Tower全参两个匹配控制；2a A08/A09、HMC s2/s6，每人100条support、100步。当前尚未报告新训练的最终分数。真实Tower独立反向检查：19,557,632参数全部收到有限梯度，2a输出为16×256。
+当前尚无完整新结果。独立Tower检查已确认98个LoRA目标、400,384新增参数均有有限梯度，原参数无梯度；零增量推理与原Tower一致。连接器参数数目21,504／40,960／62,464；联合Tower组462,848。
 
-运行源码Git `f8d8ce3`，控制器PID719374，四卡worker PID719584–719587。33项测试通过；四卡均通过完整JEV真实梯度/重载smoke（Tower确实更新、JEV/原连接器未更新），第0步完整评估通过历史未适配预测一致性检查，已进入正式个人训练。不是仅保存了配置。
+## 📊 自动结果入口
 
-当前路径：
+- [自动报告](../artifacts/benchmark/leaf_personal_lora_locations_20261125/report.md)
+- [配对与暴露分层汇总](../artifacts/benchmark/leaf_personal_lora_locations_20261125/summary.json)
+- [队列状态](../artifacts/benchmark/leaf_personal_lora_locations_20261125/queue.json)
+- [精确实验计划](../artifacts/benchmark/leaf_personal_lora_locations_20261125/plan.json)
+- [位置对照曲线](../artifacts/benchmark/leaf_personal_lora_locations_20261125/figures/location_curves.png)
+- [支持准确率和support/query loss](../artifacts/benchmark/leaf_personal_lora_locations_20261125/figures/support_query_curves.png)
+- [样本量曲线](../artifacts/benchmark/leaf_personal_lora_locations_20261125/figures/support_size_curves.png)
 
-- [队列状态](../artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/queue.json)
-- [同人配对汇总](../artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/summary.json)
-- [统计诊断原始结果](../artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/diagnostics/results.json)
-- [完整协议](PROTOCOL.md)
+仅同一步、同样本量、全部配对方法和用户齐全才填均值。原始逐用户数据随结果产生立即保存；不将未完成均值或单个用户临时分数作最终结论。
 
-## 📊 支持统计初查
+## 📚 已完成参考，不是新结果
 
-保留各特征维的均值/标准差比压成整体标量更能保留个人差异；匹配率不是任务分类准确率，不是适配增益。
+前一轮四人固定100步：只调第二层连接器LoRA的两任务等权BAcc65.31%，加Tower全参为66.36%。2a60.42%→63.37%，HMC70.21%→69.36%，四人两升两降；全参support Acc99.75%，query loss后期升高。这仅提供“限制Tower更新是否更稳”的实验动机，不能预测本轮LoRA必然更好。
 
-| 描述 | 2a源被试T→E匹配（5人，随机20%） | HMC源被试同夜前→后匹配（8人，随机12.5%） |
-| --- | ---: | ---: |
-| Tower整体均值/SD（2维） | 60% | 75% |
-| 两层连接器输入整体均值/SD（4维） | 60% | 62.5% |
-| Tower分维均值/SD（512维） | 100% | 100% |
-
-双方类别比例一致。目标四人仅support内部拆分，未索引目标query特征；详细结果及距离见原始JSON。源用户已参与共享训练，不能据5/5或8/8宣称可泛化到任意新人。HMC同夜结果不证明跨夜稳定；采集条件与montage可能解释部分可识别性。
-
-512维描述的源同人/异人距离比：2a为0.403，HMC为0.257；整人配对距离的精确置换检验经六项Holm修正后p为0.025与0.000149。此p检验的是配对距离，不是下游分类提升。目标每任务仅2人的支持集前后半匹配均为2/2（随机1/2），样本太少，不作总体推断。
-
-![类别均衡的源被试跨记录或时段特征距离矩阵](../artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/diagnostics/source_profile_transfer.png)
-
-_图1：行是支持记录的用户，列是另一记录/时段的用户；颜色为RMS距离，越小越接近。各子图颜色范围独立，不比较绝对色深。_
-
-## 📚 历史匹配参考
-
-已完成的同种子实验归档Git `1d78125`。固定100步普通连接器LoRA：2a两人均值60.42%，HMC两人均值70.21%，两任务等权65.31%；未适配等权54.34%。FOMAML等权64.67%，相对普通LoRA−0.64个百分点。
-
-这些数值仅作已完成参考；新全参组需要等待完整同人结果。不能把历史元初始化无效等同于Tower不值得更新，也不能用一名用户的临时结果代替四人的配对均值。
-
-原test query为探索性开发评估，固定第100步，不按query挑点；原valid本轮不用。
+前一轮完整记录及统计诊断保存在Git `31a36d9` 与 `leaf_personal_tower_diagnostics_20261125/`，未删除。

@@ -27,6 +27,17 @@
       ]
     },
     {
+      "task_id": "seed",
+      "role": "benchmark",
+      "instruction": "This is an emotion recognition task",
+      "question": "Which emotional valence is associated with this EEG?",
+      "classes": [
+        {"class_id": "0", "option": "Negative emotion"},
+        {"class_id": "1", "option": "Neutral emotion"},
+        {"class_id": "2", "option": "Positive emotion"}
+      ]
+    },
+    {
       "task_id": "hmc",
       "role": "benchmark",
       "instruction": "This is a sleep stage classification task",
@@ -52,6 +63,26 @@
           "class_id": "4",
           "option": "N3 sleep"
         }
+      ]
+    },
+    {
+      "task_id": "Nakanishi2015",
+      "role": "train_only",
+      "instruction": "This is an SSVEP frequency decoding task",
+      "question": "Which flicker frequency was the participant attending to?",
+      "classes": [
+        {"class_id": "0", "option": "9.25 Hz"},
+        {"class_id": "1", "option": "9.75 Hz"},
+        {"class_id": "2", "option": "10.25 Hz"},
+        {"class_id": "3", "option": "10.75 Hz"},
+        {"class_id": "4", "option": "11.25 Hz"},
+        {"class_id": "5", "option": "11.75 Hz"},
+        {"class_id": "6", "option": "12.25 Hz"},
+        {"class_id": "7", "option": "12.75 Hz"},
+        {"class_id": "8", "option": "13.25 Hz"},
+        {"class_id": "9", "option": "13.75 Hz"},
+        {"class_id": "10", "option": "14.25 Hz"},
+        {"class_id": "11", "option": "14.75 Hz"}
       ]
     }
   ]

@@ -1,6 +1,7 @@
 """The historical parent cache, with exact montage/resampling/chunk semantics."""
 import csv
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from fractions import Fraction
@@ -45,11 +46,16 @@ class SignalBatch:
 def trial_key(row):
     if row['dataset'] == 'bcic_2a':
         return row['record'], int(row['row']) // 48, int(row['event'])
+    if row['dataset'] == 'Nakanishi2015':
+        match = re.search(r'_trial-(\d+)_event-', row['record'])
+        if not match:
+            raise ValueError('SSVEP trial provenance missing')
+        return row['subject'], int(match.group(1))
     return row['record'], int(row['event']), int(row['start'])
 
 
 def source_group(row):
-    if row['dataset'] == 'bcic_2a':
+    if row['dataset'] in {'bcic_2a', 'Nakanishi2015'}:
         return trial_key(row)
     return row['record'], int(row['event'])
 
@@ -213,6 +219,8 @@ class PreparedAdapter:
             x = resample(x[:,keep],hz) if hz != 200 else x[:,keep]
             x = normalize_trials(x)
             x = np.einsum('ec,bct->bet',spatial,x).astype(np.float32)
+            if self.store.tasks[tid]['task_id'] in {'seed','seed_vii'}:
+                x = np.clip(x,-10,10)
             chunks = segment(x)
             pieces = [np.ascontiguousarray(np.pad(v,((0,0),(0,0),(0,(-v.shape[-1])%100)))) for v in chunks]
             result.append((tid,indices,pieces))

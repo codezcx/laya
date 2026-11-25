@@ -1,94 +1,84 @@
-# 个人 Tower 适配与支持统计：固定实验协议
+# 个人 LoRA 位置与支持样本量：固定协议
 
-_2026-11-25；只改变个人可训练范围，先验证机制，不默认Tower必须冻结。_
+_2026-11-25；用户授权的21人整夜验证，固定样本和优化设置，先定位再比较样本量。_
 
 ---
 
-## 🎯 问题与比较
+## 🎯 问题与可归因比较
 
-连接器-only更新可能无法修复编码器中的个人偏差；但开放更多参数也可能拟合噪声。因此直接比较同人、同样本、同预算的连接器LoRA和连接器LoRA＋Tower全参。并独立检查支持集能否稳定描述个人，不把个人识别率当成分类提升。
+要回答三个问题：个人修正应该发生在EEG→语言维度映射之前还是之后；再开放Tower内部低秩更新是否有帮助；在固定计算预算下，24/48/100条个人数据的收益如何。
 
-共享parent为 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。Tower从这个已经联合训练过的parent恢复，不重新使用裸发布权重代替。
+| 方法 | 可训练位置 | 参数量 | 样本量 |
+| --- | --- | ---: | --- |
+| last_only | 连接器第二层5120→5120的LoRA | 40,960 | 100 |
+| first_only | 连接器第一层256→5120的LoRA | 21,504 | 100 |
+| both | 两个连接器linear的LoRA | 62,464 | 100、48、24 |
+| tower_both | Tower线性权重LoRA＋两个连接器linear LoRA | 462,848 | 100、48、24 |
 
-| 对照 | 可训练参数 | 保持冻结 |
-| --- | --- | --- |
-| ordinary_lora | 连接器最后5120→5120层的rank4 LoRA，40,960参数 | Tower、原连接器、JEV |
-| tower_full | 同一LoRA＋Tower全参，共19,598,592参数 | 原连接器、JEV |
+100条时四组同人比较，额外的48/24条只比较both与tower_both。共21×(4＋2×2)=168次独立个人训练。零更新baseline每人单独计算；其query预测必须与历史21人实验逐样本一致。
 
-Tower eval模式维持历史行为：Dropout不启用，BN运行均值/方差不更新；BN可学习仿射参数属于全参梯度。损失均为个人support标签与JEV选项logits的CE，不新增对比损失、蒸馏、正则策略生成器或文本原型分类。
+这一设计隔离新增位置的作用，但并非相同参数量对照：first_only比last_only更小，tower_both比both更大。不得将收益完全归因于位置而忽略容量。固定rank避免同时扫rank、学习率和位置。
 
-## 📋 数据与隔离
+## 📋 固定数据与暴露分层
 
-下表为parent历史缓存全量成员，训／验／测顺序，不是本轮全部用于梯度的数据量。
+精确复用 `leaf_personal_multitask_20261125/plan.json` 的21名用户、100条support、完整query及原split标签；新24/48只从这100条中按类别前缀取嵌套子集，不重新抽query。
 
-| 数据集 | 处理后试次/窗口总计（训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（训／验／测） |
-| --- | --- | --- | --- | --- |
-| BCIC-IV-2a | 5,184试次（2,880／1,152／1,152） | 运动想象（4） | 固定跨被试 | 9（5／2／2） |
-| HMC | 136,925窗口（92,454／22,421／22,050） | 睡眠分期（5） | 原缓存跨被试 | 151（103／24／24） |
+- 2a：A01–A09。每人T场次100条支持池，完整E场次288条query。A01–A05及其query已在共享train池；A06/A07原valid，A08/A09原test，均未参与共享训练。
+- SEED：s1–s4。沿用原train窗口作为支持池、原test完整504窗口query，原始trial分组不重叠。用户均在共享train见过，query trial未进入共享train。
+- HMC：s7、s9、s2、s6。前60%时段选择100条，每阶段20；间隔2个epoch后，完整后段query分别411/358/340/344。s7/s9来自历史原valid，s2/s6原test，均是共享训练未见用户；只有同夜时段迁移，不是跨夜。
+- Nakanishi2015：s1–s4，12类，每人180条原始trial，历史100支持＋固定80 query。整个数据集属于历史共享train；只能作已见训练池上的机制验证。
 
-目标为2a A08/A09、HMC s2/s6，均属原test，未进入parent共享train。沿用已完成同种子实验的全部ID、排序、case order与batch计划：
+本轮明确继续使用用户指定的历史个人被试，包括原valid的A06/A07、HMC s7/s9；不新增valid成员，不改变共享训练评估角色。共享模型不再训练。原始valid/test都存在历史暴露，不能把角色交换解释成新的盲测。
 
-- 2a每人T场次100条support（每类25），完整E场次288条query。
-- HMC前60%时段选择100个support epoch（每阶段20）；间隔2个30秒epoch后，后段分别340/344条完整query。
-- 个人梯度只用本人support；query不参与梯度、学习率调整、早停或checkpoint选择。
-- 原valid不读取信号、不参与本轮；原train只用于冻结统计诊断，不额外训练共享参数。
-- 不改变原split标签或成员。原test/valid有历史暴露，本轮结果只作探索性开发结果。
+窗口与被试的完整原train/valid/test数量自动写入输出 `report.md`，取自已校验的历史缓存index，不把本轮个人support/query计数冒充基准划分。
 
-预处理、通道插值、归一化、分段与parent相同；2a为16个256维tokens，HMC完整30秒为120个tokens。全参组每批从预处理信号重新计算Tower，禁止误用冻结token缓存绕过Tower梯度。
+## ⚙️ 初始化、优化和梯度范围
 
-## ⚙️ 固定训练设置
+parent仍为 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。所有个人条件都从此parent恢复；不从全参pilot或上一个用户的终点继续训练。
 
 | 设置 | 值 |
 | --- | --- |
-| 初始化 | 共享parent完全相同；LoRA A为seed42，B为零 |
-| LoRA rank／scale | 4／1 |
-| LoRA学习率／Tower学习率 | 1e-4／1e-4，无scheduler |
-| 优化器 | AdamW，weight_decay0.01 |
-| 梯度裁剪 | 所有本组可训练参数的联合norm上限1 |
-| batch／microbatch／eval batch | 16／4／8 |
-| 每人support／训练步数 | 100／100，有放回抽样并核对全部support被使用 |
-| 评估点 | 0、5、10、20、50、100，完整support和完整query |
-| 主结果 | 固定第100步；不选query最高点 |
-| 并行 | GPU0 A08、GPU1 A09、GPU2 HMC s2、GPU3 HMC s6 |
-| 每卡顺序 | Tower全参＋LoRA → 普通LoRA，每组重置Tower、LoRA与优化器 |
-| 预算 | 8次个人适配，共800训练步，6小时安全上限，完成即退 |
+| LoRA rank／scale | 全部4／1，相当于alpha4、alpha/r1 |
+| LoRA初始化 | A为确定性seed42，B为0；共享位置在不同组初值完全相同 |
+| 个人损失 | JEV最终选项logits的交叉熵 |
+| learning rate | 连接器/Tower均1e-4，常数，不调度 |
+| optimizer | AdamW，weight_decay0.01，所有可训练参数联合clip norm1 |
+| batch／micro／eval batch | 16／4／8 |
+| 每人每条件 | 100个optimizer steps，有放回抽样；核对所有支持样本都被使用 |
+| 评估 | step0、5、10、20、50、100，完整support与固定完整query |
+| 主结果 | 固定100步，不按query选最好点或提前停止 |
+| 并行预算 | 4×H100，每卡42条件，12小时上限，完成即退出 |
 
-Tower学习率沿用LoRA的数值是为了先做固定设置的机制检查，不声称是全参最优学习率。增加Tower梯度自然会影响联合裁剪的缩放；记录grad norm，不把它误称为完全相同优化轨迹。
+每个连接器位置分别使用局部CPU seed42初始化，避免增加第一层改变第二层A的随机数。第二层初值指纹仍为 `88da1153c2e270122ff7e9af1bb9db58e5824a9fc415426022e66af5f8112542`。同一用户同样本量的batch ID和选项排列在所有方法间完全相同；同一用户不同方法顺序用固定种子随机化。A05八个条件分摊到四卡，消除21人不能整除四卡的长尾。
 
-共同LoRA初值指纹 `88da1153c2e270122ff7e9af1bb9db58e5824a9fc415426022e66af5f8112542`。每批仍使用 `SeedSequence([42,case_order,step])`；前向随机种子和选项排列沿用历史。正式训练前真实27B smoke检验恒等初始化、有效梯度、冻结JEV/原连接器、Tower是否按组更新、完整个人状态精确重载；smoke后恢复parent，不能把试更新带入训练。
+Tower LoRA覆盖98个权重：两支输入投影、两支24个Transformer层内的融合QKV、attention输出投影和两层FFN。融合QKV整体用一个rank4增量，不是Q/K/V各自rank4。通过weight parametrization接入，确保`MultiheadAttention`直接读取权重时不会绕过LoRA。
 
-## 📊 支持集稳定性诊断
+Tower仅新增400,384个LoRA参数可训练。卷积、bias、norm、位置编码、原矩阵、BN运行统计和JEV全部冻结；保持eval-mode/dropout历史策略。只保留前向Tower，不恢复重建头。没有增加原生LEAF文本编码器、Q-Former或新对比损失。
 
-事先固定三种描述，不按目标query挑选：
+tower_both每批重新从EEG计算tokens；其他组可以缓存冻结tokens。预处理逐值沿用历史：200Hz、逐trial归一化、65通道插值、长片段分段；SEED保留插值后的[-10,10]裁剪。不能因为删除旧任务代码而静默丢掉此步骤。
 
-| 描述 | 维度 | 计算 |
-| --- | ---: | --- |
-| tower_scalar | 2 | 所有token/特征合并后的均值、总体标准差 |
-| connector_scalar | 4 | 两个linear的输入分别计算整体均值、标准差 |
-| tower_featurewise | 512 | 256个特征维各自的均值、标准差 |
+## 📊 样本量与统计单位
 
-使用冻结parent特征，按选中trial/token汇总一阶、二阶矩，再计算总体SD。RMS欧氏距离，无拟合分类器、无目标query标准化。所有匹配两端保持完全相同的类别构成，以排除类别比例差异；类内反应或采集条件仍可能包含在描述里。
+24/48/100为类别尽量均衡的嵌套集。SSVEP的24/48正好每类2/4条，100为每类8或9条；2a分别每类6/12/25条。每个样本量都用相同query，不把未用的support补进query。
 
-1. 源训练被试：2a 5人、HMC 8人。每人100条support与另一记录/时段100条source-query均来自原train。2a为T→E跨场次；HMC为同一夜前后时段，不能称跨夜。
-2. 支持集内部：每类按时间排序各取前后半，2a每半48条（每类12），HMC每半50条（每类10）。另作100次随机对半，仅报告重采样敏感性，不能当100名用户或总体置信区间。
-3. 目标用户：只从memory-mapped历史特征文件索引100条support；不索引或计算query特征。目标仅各2人，单独报告，不与见过的源用户混成总体识别率。
-4. 用另一半/记录的描述匹配最近的个人描述，随机水平为1/人数；距离并列按比例计分。报告同人/异人距离及匹配率。
-5. 源记录迁移用整个人profile置换计算精确配对距离p值，六个描述×任务比较做Holm修正；用户是统计单位。识别率不是下游任务BAcc。
+固定100步×batch16，等效遍历数分别66.67、33.33、16。这回答的是固定更新预算下支持池大小的效果，不是相同epoch比较；每条样本重复程度不同会影响过拟合。尚未比较超过100条，也未测first/last-only的24/48条，不能宣称全局最优样本量。
 
-`diagnostics/protocol.json`、`results.json`记录选中ID、cache来源、parent与plan指纹、矩阵与解释边界。源数据用来判断是否值得开发条件策略，不把这些诊断自动等同于FedP²EFT证据。
+主要报告每人适配前后BAcc/Acc/CE、support Acc/CE、同人方法差值、负迁移人数、参数量与时间。先按被试平均再按任务等权平均，不把窗口当独立被试。原训练已见/未见以及query是否处于共享train池分别汇总；方法、样本量和所有配对用户齐全后才输出该组均值。
 
-## 💾 记录与解释
+支持集趋近100%而query loss升高，作为过拟合线索；不据此临时选择最高query点替换step100。单seed结果只用于探索，不能声称总体显著性。
 
-输出 `artifacts/benchmark/leaf_personal_tower_diagnostics_20261125/`：
+## 💾 检查、记录与归档
 
-- `plan.json`、`queue.json`：固定成员、batch、源码hash、时间预算与状态。
-- `jobs/<用户>/cases/<用户>/<方法>/curves/step*.json/.npz/.pt`：指标、逐样本logits、个人LoRA及全参组Tower权重。
-- `last.pt`：优化器、个人全部可训练权重、历史；重启先补完当前评估点。
-- `summary.json`、`curve_points.csv`、`figures/`：同一步、所有配对用户/方法齐全才汇总；图不填造缺失点。
-- `diagnostics/source_profile_transfer.png/pdf`：源用户跨记录/时段距离矩阵。
+每个worker实际验证零增量恒等、有限且有效的梯度、LoRA更新、原参数及buffer未变、精确保存/重载。单元测试覆盖MHA直接读weight、两个连接器位置、样本嵌套、query隔离、精确历史成员、分层汇总与缺失条件不平均。
 
-主要看同人query的增益及负迁移，support准确率只用于判断拟合。稳定个人统计可能只是montage/记录条件，不自动证明生理特性；全参收益也不自动证明该统计是因果机制。若未提升，先看支持拟合与query曲线，不能同时改lr/rank/encoder后再归因。
+输出 `artifacts/benchmark/leaf_personal_lora_locations_20261125/`：
 
-旧方法归档Git `1d78125`；不删除任何ignored数据、权重、日志、环境。实验设计/统计技能用于配对和用户级证据，资源技能用于四卡预检，Matplotlib/Markdown技能用于可复核图表与记录；属于工作流辅助，不属于算法创新。[^skills]
+- `plan.json`：168条件、精确ID、批次、GPU分配和代码hash。
+- `queue.json`、`progress_gpu*.json`、`gpu*.log`：状态和时间。
+- `jobs/worker*/cases/<用户>/<方法>_n<数量>/`：last断点、完整个人LoRA、result及每评估点参数/logits/ID。
+- `summary.json`、`curve_points.csv`、`report.md`：自动配对汇总、已见/未见分层、完整计数。
+- `figures/location_curves.*`、`support_query_curves.*`、`support_size_curves.*`：实际步数和支持量曲线，缺失点留空。
+
+前一轮全参Tower pilot已全部完成并归档Git `31a36d9`。其诊断实现移入Git历史；所有ignored数据、checkpoint、日志、缓存与环境保留。实验设计技能用于配对与重复测量结构，资源技能用于容量预检，Markdown/Matplotlib技能用于可审计报告；Hugging Science目录无EEG匹配，不替换用户已指定的模型。技能归属不作为算法有效性证据。[^skills]
 
 [^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://arxiv.org/abs/2609.00065

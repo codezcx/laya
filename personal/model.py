@@ -12,7 +12,7 @@ from jev_train.runtime import ROOT, digest
 from jev_train.task_options import make_variant
 from .common import CONFIG, PARENT_CONFIG
 from .data import PreparedAdapter, SignalBatch
-from .modules import canonical_logits
+from .modules import canonical_logits, install_tower_lora, tower_lora_parameters
 
 
 class PersonalServer:
@@ -42,44 +42,53 @@ class PersonalServer:
         del saved
         model.requires_grad_(False).eval()
         self.model = model
+        self.tower_lora_manifest = install_tower_lora(model.eeg_encoder,
+            CONFIG['tower_lora_rank'],CONFIG['tower_lora_scale'],CONFIG['tower_lora_seed'])
+        model.requires_grad_(False)
         self.tower_enabled = False
         self.initial_tower = self.tower_state()
         self.prompt_cache = {}
-        self.frozen_versions = {name: p._version for name, p in model.named_parameters()}
+        self.personal_names = {'eeg_encoder.'+name for name in tower_lora_parameters(model.eeg_encoder)}
+        self.frozen_versions = {name: p._version for name, p in model.named_parameters()
+                                if name not in self.personal_names}
         self.frozen_buffers = {name: (b._version, tuple(b.shape)) for name, b in model.named_buffers()}
 
     def assert_frozen(self):
-        frozen = {n: p for n, p in self.model.named_parameters()
-                  if not (self.tower_enabled and n.startswith('eeg_encoder.'))}
+        frozen = {n: p for n, p in self.model.named_parameters() if n not in self.personal_names}
         if any(p.requires_grad or p.grad is not None for p in frozen.values()):
             raise RuntimeError('Shared model was made trainable or received parameter gradients')
         if any(self.frozen_versions[n] != p._version for n, p in frozen.items()):
             raise RuntimeError('A frozen shared parameter was modified')
         if self.frozen_buffers != {n: (b._version, tuple(b.shape)) for n, b in self.model.named_buffers()}:
             raise RuntimeError('A frozen shared buffer was modified')
+        for p in tower_lora_parameters(self.model.eeg_encoder).values():
+            if p.requires_grad != self.tower_enabled or (not self.tower_enabled and p.grad is not None):
+                raise RuntimeError('Tower LoRA gradient ownership differs from the assigned arm')
 
     def tower_state(self):
-        return {n: p.detach().cpu().clone() for n, p in self.model.eeg_encoder.state_dict().items()}
+        return {n: p.detach().cpu().clone() for n, p in tower_lora_parameters(self.model.eeg_encoder).items()}
 
     def load_tower(self, state):
         self.assert_frozen()
-        self.model.eeg_encoder.load_state_dict(state, strict=True)
-        # Only Tower snapshots may change during reset/resume; never re-baseline JEV.
-        self.frozen_versions.update({n: p._version for n, p in self.model.named_parameters()
-                                     if n.startswith('eeg_encoder.')})
-        self.frozen_buffers.update({n: (b._version, tuple(b.shape)) for n, b in self.model.named_buffers()
-                                    if n.startswith('eeg_encoder.')})
+        parameters=tower_lora_parameters(self.model.eeg_encoder)
+        if parameters.keys()!=state.keys() or any(p.shape!=state[n].shape for n,p in parameters.items()):
+            raise RuntimeError('Tower LoRA state shape/key mismatch')
+        with torch.no_grad():
+            for name,p in parameters.items():
+                p.copy_(state[name])
 
     def configure_arm(self, arm):
         self.assert_frozen()
         self.model.eeg_encoder.zero_grad(set_to_none=True)
         self.load_tower(self.initial_tower)
-        self.tower_enabled = arm == 'tower_full'
-        self.model.eeg_encoder.set_adaptation_enabled(self.tower_enabled)
+        self.tower_enabled = arm == 'tower_both'
+        for p in tower_lora_parameters(self.model.eeg_encoder).values():
+            p.requires_grad_(self.tower_enabled)
+        self.model.eeg_encoder.eval()
         self.assert_frozen()
 
     def tower_parameters(self):
-        return list(self.model.eeg_encoder.parameters()) if self.tower_enabled else []
+        return list(tower_lora_parameters(self.model.eeg_encoder).values()) if self.tower_enabled else []
 
     def text(self, value):
         if value not in self.prompt_cache:
@@ -101,7 +110,11 @@ class PersonalServer:
 
     def project(self, tokens, user):
         c = self.model.connector
-        z = c[2](c[1](c[0](tokens.float())))
+        normalized=c[0](tokens.float())
+        z=c[1](normalized)
+        if user is not None and hasattr(user,'first'):
+            z=z+user.first(normalized)
+        z=c[2](z)
         result = c[3](z)
         if user is not None and hasattr(user, 'delta'):
             result = result + user.delta(z)
