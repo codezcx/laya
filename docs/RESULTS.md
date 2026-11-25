@@ -1,34 +1,23 @@
-# 个人 LoRA 元初始化：进度与结果
+# 个人 LoRA 元初始化：完整结果
 
-_2026-11-25；四卡机制pilot，尚无正式新分数。_
+_2026-11-25；四卡任务已结束，12份唯一个人结果齐全，重复普通LoRA对照一致。_
 
-已启动控制器PID3229469，GPU0–3的worker PID依次为3232304、3232305、3232306、3232307。运行源码Git `6b7cd69`；真实模型预检查已通过，当前阶段与最终状态以queue和各卡progress文件为准。
+## 📊 同人完整 query 的平均 BAcc
 
-## 📋 固定运行范围
+| 方法 | 2a A08/A09（%） | HMC s2/s6（%） | 两任务等权（%） |
+| --- | ---: | ---: | ---: |
+| 不适配 | 50.87 | 57.80 | 54.34 |
+| 普通个人 LoRA | 59.72 | 69.36 | 64.54 |
+| source ERM 初始化＋个人训练 | 59.38 | 68.07 | 63.72 |
+| FOMAML 初始化＋个人训练 | 60.07 | 69.27 | 64.67 |
 
-2a：源A01–A05，目标A08/A09；HMC：8名源用户，目标s2/s6。每个任务两组离线方法，各60episode；之后100条个人support适配100step。每组同时重新运行普通个人LoRA基线。完整协议见[PROTOCOL](PROTOCOL.md)。
+每人100条支持样本、100步个人训练。2a每人完整query288条，HMC为340/344条。完整数据分配及算法见[协议](PROTOCOL.md)。来源：[完整汇总](../artifacts/benchmark/leaf_personal_meta_init_20261125/summary.json)、[队列完成记录](../artifacts/benchmark/leaf_personal_meta_init_20261125/queue.json)、各 jobs 下 result.json。
 
-- [固定样本及batch清单](../artifacts/benchmark/leaf_personal_meta_init_20261125/plan.json)
-- [队列与PID](../artifacts/benchmark/leaf_personal_meta_init_20261125/queue.json)
-- [实时按任务汇总](../artifacts/benchmark/leaf_personal_meta_init_20261125/summary.json)
-- [GPU0：2a元学习日志](../artifacts/benchmark/leaf_personal_meta_init_20261125/gpu0.log)
-- [GPU1：2a普通源训练日志](../artifacts/benchmark/leaf_personal_meta_init_20261125/gpu1.log)
-- [GPU2：HMC元学习日志](../artifacts/benchmark/leaf_personal_meta_init_20261125/gpu2.log)
-- [GPU3：HMC普通源训练日志](../artifacts/benchmark/leaf_personal_meta_init_20261125/gpu3.log)
+## 🔍 解释与下一步
 
-28项单元测试通过，包括一阶meta梯度数值、原train隔离、同人配对、60×6批次预算、历史预处理逐值一致。真实模型检查与正式进度另以 `preflight/`、`jobs/*/smoke.json`、`progress_gpu*.json` 为准，不把smoke loss当正式成绩。
+FOMAML相对普通个人LoRA的两任务等权改善仅0.13个百分点，相对source ERM改善0.95个百分点；4名用户、1个种子，不能据此宣布稳定收益。原test个人query是开发探索集合，非独立盲测。
 
-2a与HMC的真实27B预检查均通过：零LoRA恒等、临时更新隔离、source-query梯度更新共同初始化、共享权重不变、精确重载。四卡运行会各自再次做检查，然后开始正式离线训练。
+排查确认权重更新与断点恢复有效、共享模型保持冻结，没有证据表明元梯度失效。尚有两个需要控制的问题：离线只优化5步内适配、最终比较100步，可能掩盖早期差异；普通个人LoRA的A用42＋用户order×101初始化，而两组源训练初始化都从seed42起步。下一轮应统一起始seed，并在相同步数上比较同人完整query曲线，不同时改变学习率、rank或encoder。
 
-## 📊 同人历史参照
-
-| 目标人群 | 支持条数/人 | 完整query条数 | 未适配BAcc | 旧普通个人LoRA BAcc |
-| --- | ---: | ---: | ---: | ---: |
-| 2a A08/A09 | 100 | 288/288 | 50.87 | 59.72 |
-| HMC s2/s6 | 100 | 340/344 | 57.80 | 69.36 |
-
-来源：[前轮42份完整结果](../artifacts/benchmark/leaf_personal_multitask_20261125/summary.json)。完整前轮实现及报告在Git `9a96ae0`；本轮不复制旧分数冒充新计算。
-
-## ⚠️ 结果解释
-
-按相同用户比较普通个人LoRA、source ERM初始化、FOMAML初始化后的完整query BAcc。共享模型全部冻结，仅40,960个人参数更新；原test是开发探索集合，非独立盲测。元学习是否有效，要看是否优于等数据和计算量的ERM，不只看是否优于未适配。
+原始权重、每步训练loss、最终预测、样本清单与运行日志全部保留：
+`artifacts/benchmark/leaf_personal_meta_init_20261125/`。本轮未保存中途个人query曲线，不能从最后一次结果倒推出早期表现。
