@@ -1,7 +1,6 @@
 """The historical parent cache, with exact montage/resampling/chunk semantics."""
 import csv
 import json
-import re
 import sys
 from collections import Counter, defaultdict
 from fractions import Fraction
@@ -13,16 +12,11 @@ from .common import CONFIG, PARENT, PARENT_CONFIG, ROOT, digest
 def trial_key(row):
     if row['dataset'] == 'bcic_2a':
         return row['record'], int(row['row']) // 48, int(row['event'])
-    if row['dataset'] == 'Nakanishi2015':
-        match = re.search(r'_trial-(\d+)_event-', row['record'])
-        if not match:
-            raise ValueError('SSVEP trial provenance missing')
-        return row['subject'], int(match.group(1))
     return row['record'], int(row['event']), int(row['start'])
 
 
 def source_group(row):
-    if row['dataset'] in {'bcic_2a', 'Nakanishi2015'}:
+    if row['dataset'] == 'bcic_2a':
         return trial_key(row)
     return row['record'], int(row['event'])
 
@@ -33,7 +27,7 @@ class TrialStore:
         catalog = json.loads((ROOT / CONFIG['catalog']).read_text())
         if catalog['source_catalog_sha256'] != metadata['code_sha256']['configs/benchmark_tasks.json']:
             raise RuntimeError('Task catalog does not originate from the shared parent')
-        self.tasks = catalog['tasks']
+        self.tasks = [t for t in catalog['tasks'] if t['task_id'] in CONFIG['datasets']]
         if [t['task_id'] for t in self.tasks] != CONFIG['datasets']:
             raise RuntimeError('Catalog/dataset order changed')
         self.rows, self.meta, self.arrays, self.stats, self.train_subjects = {}, {}, {}, {}, {}
@@ -60,7 +54,8 @@ class TrialStore:
                     subjects[row['split']].add(row['subject'])
                     if row['split'] == 'train':
                         self.train_subjects[tid].add(row['subject'])
-                    if row['subject'] not in CONFIG['cohorts'][name]['subjects']:
+                    allowed = CONFIG['cohorts'][name]['subjects'] + CONFIG['cohorts'][name]['source_subjects']
+                    if row['subject'] not in allowed:
                         continue
                     row.update(id=f'{name}:{i}', task=tid, dataset=name, label=int(row['label']),
                                samples=int(row['samples']), hz=float(row['hz']), record=row['record_id'])
@@ -185,8 +180,6 @@ class PreparedAdapter:
             x = resample(x[:,keep],hz) if hz != 200 else x[:,keep]
             x = normalize_trials(x)
             x = np.einsum('ec,bct->bet',spatial,x).astype(np.float32)
-            if self.store.tasks[tid]['task_id'] in {'seed','seed_vii'}:
-                x = np.clip(x,-10,10)
             chunks = segment(x)
             pieces = [np.ascontiguousarray(np.pad(v,((0,0),(0,0),(0,(-v.shape[-1])%100)))) for v in chunks]
             result.append((tid,indices,pieces))

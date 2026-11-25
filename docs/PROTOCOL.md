@@ -1,74 +1,85 @@
-# 两方法跨任务个人适配协议
+# 个人 LoRA 元初始化：固定机制验证协议
 
-_2026-11-25；用户要求2a全体被试，以及其他不同任务；允许从原训练池选择数据。_
+_2026-11-25；用户批准实际训练。先验证能否改善同一新用户的100条有标签适配，不增加其他模块。_
 
-## 🎯 问题与固定模型
+## 🎯 问题与假设
 
-比较同一用户100条带标签EEG的两种用法：更新连接器LoRA，或作为ICL示例前向输入；是否改善该用户固定query上的Acc/BAcc。只更新个人LoRA，不重训共享模型或Tower。
+普通个人LoRA直接从随机A、零B初始化，优化本人support的CE；它没有显式学习“少量更新后在本人另一批样本上泛化”。这里采用MAML的初始化学习思想[^maml]，只对40,960个个人参数做一阶近似，不做27B模型的二阶反传。假设是学到的初始化可提高个人适配后的query BAcc；不是预设一定优于继续训练。
 
-parent为`artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。所有方法/用户从同一parent重新开始。旧四人九方法的完整状态归档Git `8bc8e94`；当前只保留连接器LoRA、正确标签ICL及同人无适配基线。
+原已训练模型不从头重训：parent为 `artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。
 
-## 📊 数据与角色
+## 📋 数据与成员
 
-以下是原parent缓存/共享划分规模，不是本轮个人适配样本数。括号依次为原train/valid/test，标签与成员均不改写。
+以下为历史parent缓存的完整分配计数，顺序训／验／测，不是本pilot全部使用的样本。
 
-| 数据集 | 缓存试次／窗口总数（训/验/测） | 任务（分类数） | 原共享划分 | 原被试总数（训/验/测） |
+| 数据集 | 处理后试次/窗口总计（训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（训／验／测） |
 | --- | --- | --- | --- | --- |
-| BCIC-IV-2a | 5,184试次（2,880/1,152/1,152） | 运动想象（4） | A01–A05训练，A06–A07验证，A08–A09测试 | 9（5/2/2） |
-| SEED | 37,890窗口（22,455/7,875/7,560） | 情绪（3） | 每人每场次原试次9/3/3，窗口随原试次归组 | 15（15/15/15，三组被试重合） |
-| HMC | 136,925窗口（92,454/22,421/22,050） | 睡眠分期（5） | 原固定跨被试缓存划分 | 151（103/24/24） |
-| Nakanishi2015 | 1,800试次（1,800/0/0） | SSVEP（12） | 原train-only补充库 | 10（10/0/0） |
+| BCIC-IV-2a | 5,184试次（2,880／1,152／1,152） | 运动想象（4） | 固定跨被试 | 9（5／2／2） |
+| HMC | 136,925窗口（92,454／22,421／22,050） | 睡眠分期（5） | 原缓存跨被试 | 151（103／24／24） |
 
-本轮固定21个用户×任务、两个方法，共42份结果：
+实际使用：
 
-- 2a：全部A01–A09。每人T场次抽每类25条，共100条；E场次完整288条query。先运行A06–A09，保持上一轮order、支持ID和query顺序；再运行A01–A05。
-- SEED：被试1/2/3/4。只从该人的原train取100窗口，类别数量33/33/34（余数类别由seed确定）；原test全部504窗口query。按(record,event)检查原始试次不重叠；100窗口并非100个独立原始试次。不使用原valid窗口。
-- HMC：原valid被试7/9，原test被试2/6。按时间前60%形成支持池，每类抽20个30秒epoch，共100；随后排除2个epoch，剩余完整后段query分别411/358/340/344条。实际源时间至少留60秒间隔。被试按ID顺序选首两个满足支持池每类≥20、query覆盖5类者，依据样本可用性、不依据模型准确率。
-- SSVEP：被试1/2/3/4。每人180个独立原始试次，按类取100，8或9条/类；剩余80条全部query。由原文件的trial标识检查独立性。两组都在原共享train池，明确作为已见数据探索。
+- 2a源用户A01–A05：每人从T场次取100个类别平衡support，从E场次另取100个平衡source-query。两场次在历史分配中都属于train。
+- HMC源用户3、5、10、17、25、28、34、35：按数值ID取最前8名符合条件的train用户。每人前60%时间段取100个support，隔开2个30秒epoch，再从后段取100个source-query。条件是两段均至少20个每类epoch，不按模型分数选人。
+- 2a目标用户A08/A09：每人T场次100个support，完整E场次288个query。保留上一轮精确ID、排序、个人seed。
+- HMC目标用户s2/s6：每人100个support，原来的完整后段340/344个query，保留2epoch隔离和上一轮精确ID。
+- 源用户与目标用户不重合。源support/query均为原train；目标为原test的个人适配协议。原valid本轮不读取信号、不参与梯度或选点。样本成员与原split标签不改。
+- HMC100条是睡眠epoch，不是100个独立用户或场次。稀有阶段不足者不进入本pilot源池，存在选择偏差。
 
-总支持样本2,100，query总数6,381。LoRA和ICL使用完全相同的支持/query清单；不重复计算为两份独立被试。其他任务未获“所有被试”的要求，先固定每任务4人，不自动扩大人群。
+所有样本、原split、source-group及完整batch ID序列固定在 `plan.json`。数据/代码hash和array大小、mtime校验；支持源train守卫、个人support守卫两套检查。
 
-Workload每人仅35–62窗口，无法保持100支持样本及独立query；P300 BNCI2014009本地缓存缺少原始run/事件时间，无法充分验证连续事件重叠，所以本轮不加入。不能借用别人的数据补成“个人100条”。
+## ⚙️ 方法与预算
 
-## 🔒 暴露与隔离
+冻结主干：LEAF Tower → 原连接器 → JEV。个人LoRA加在连接器最后的5120→5120层，`delta(z)=B(Az)`，rank4、scale1、40,960参数。训练和推理都只输入当前EEG＋原问题/选项，不插入有标签示例，不引入类别原型。
 
-`plan.json`逐例保存原split、ID、原记录、类别数、源组数、输入数组stat、support/query哈希及：
+| 组别 | 离线阶段 | 新用户阶段 |
+| --- | --- | --- |
+| 普通个人LoRA | 无 | 按原个人seed随机A、零B；100support训练100步 |
+| source ERM | 同一LoRA连续用source-support和source-query做CE | 加载学习后的共同初始化；100support训练100步 |
+| FOMAML | 每episode克隆共同初始化；本人support更新临时LoRA，再由本人source-query梯度更新共同初始化 | 加载元初始化；100support训练100步 |
 
-- `shared_train_seen_subject`：用户是否出现在parent的共享train池。
-- `query_in_shared_train_pool`：query中来自该train池的样本数，不声称每一条实际被采样更新过。
-- `exposure_stratum`：未见被试；已见被试但query不在train池；已见被试且query在train池。
+FOMAML逐episode流程：
 
-2a A01–A05及SSVEP的query在原训练池；SEED用户已见、原test试次未用于共享梯度；HMC和2a A06–A09属于本次共享训练未见被试。三类分别汇总，禁止将其混成跨被试泛化平均值。HMC/2a的原valid有选点历史，原test已有观察历史；LEAF发布权重的预训练/指令重叠仍未完全审计。本轮不是盲测、不是纯zero-shot。
+1. 从源用户循环抽一个人；临时LoRA拷贝共同初始化，inner AdamW状态重置。
+2. 本人的support做5次batch16更新。
+3. 本人的另一批source-query做1次batch16前向/反向。将临时参数上的query梯度拷给共同初始化，省略inner更新的Jacobian，再做一次outer AdamW更新。
+4. 丢弃临时LoRA；下一episode重新从更新后的共同初始化开始。
 
-每个人仅自己的support允许梯度与ICL示例；query不参与梯度、教师、早停或选点。额外窗口保留原始成员标签，只改变本轮角色。时间/源试次隔离是当前个人阶段的隔离，不抵消parent历史训练暴露。
-
-## ⚙️ 输入和优化不变项
-
-复用旧parent的逐trial/epoch预处理：必要时最小范数双极导联转换（不能称恢复真实单极电位），去参考电极、重采样至200Hz、逐epoch百分位裁剪和median/IQR归一化、65通道插值；SEED额外clip[-10,10]。超过10秒时按原代码分成近等长片段，逐片段补零至100采样点整数倍，保留全部有序tokens，不截断HMC。
-
-输出token数：2a/SEED为16×256，HMC完整30秒为120×256，SSVEP为18×256。HMC仅4条双极导联，插值大量电极存在可靠性限制；保持parent语义以避免另改输入归因。
+source ERM按完全相同的用户次序、6个batch的样本、选项置换依次更新同一组参数。两组都是60episode、360个梯度batch、5,760次样本呈现；ERM有360次优化器step，FOMAML有300次inner＋60次outer，这是算法差异，不声称优化器状态轨迹相同。每次batch前固定随机状态，支持断点重现。
 
 | 设置 | 固定值 |
 | --- | --- |
-| Connector LoRA | 最后一个5120→5120 linear，rank4，scale1，40,960参数 |
-| 更新关系 | 原linear/bias、Tower、JEV已有LoRA与head全冻结，只更新个人A/B |
-| 损失 | JEV choice交叉熵，梯度通过冻结JEV |
-| 预算 | 100步；有效batch16，microbatch4；AdamW lr1e-4、wd0.01、clip1 |
-| 抽样/选项 | 沿用上一轮有放回采样及seeded选项置换 |
-| 推理batch | 普通8；ICL2；Tower编码32 |
-| 随机种子 | 基础42；每人order×101派生，同方法复现 |
-| ICL | 全部100个支持EEG与正确标签作为示例，固定seed置换示例顺序，不更新参数 |
-| 评估 | baseline、LoRA identity初始、固定step100/ICL；完整计划query |
-| 调度 | 四卡常驻模型，按锁领取用户，同人两方法顺序运行；完成即退，12小时上限 |
+| 共用初始LoRA | seed42、随机A/零B，ERM与FOMAML完全相同 |
+| 离线预算 | 60episode，每次1源用户、5inner＋1query |
+| 离线inner/outer学习率 | 1e-4；outer是新增参数，明确取相同值 |
+| 所有优化器 | AdamW，weight_decay0.01，grad_clip1，无scheduler |
+| batch / microbatch | 16 / 4 |
+| 每人适配 | 100support，100steps；有放回抽样，与旧个人采样ID一致，并确认全部100条被使用 |
+| 选点 | 固定离线episode60＋个人step100，禁止query挑最好checkpoint |
+| 评估 | 每名目标用户完整query，未适配、初始化后未个人训练、最终适配；另报告support Acc/BAcc |
+| 设备 | GPU0/1：2a FOMAML/ERM；GPU2/3：HMC FOMAML/ERM |
+| 范围 | 每任务2名目标用户，seed42，不扩展到所有人 |
+| 时间 | 6小时上限；完成即退；每episode与每10个人step保存 |
 
-语言任务文本来自parent的原catalog，选中四项逐字复用；来源完整catalog SHA256为`cf3d9d9e93321821f255ac1d4d541cc3af2a1592b1f1097ade994696bd2bf1c4`。不改训练学习率、不扩大更新参数，不用新文本模板。此前9方法的其余模块已从当前树移除，可从Git恢复。
+每个worker还独立重跑普通个人LoRA，两卡同用户的普通基线必须一致。基线个人A仍沿用历史用户seed，不假装与共同seed42完全相同；主要因果比较为ERM与FOMAML，二者初值与样本暴露完全一致。历史不适配预测需逐样本复现。
 
-## ✅ 验证与运行证据
+## 🔍 预处理、检查与判据
 
-28项单元测试通过，涵盖100样本独立性、原试次隔离、完整2a9人、源split与暴露、LoRA初始化/梯度、优化预算一致、HMC完整切块。四库各2个输入与SHA核对过的parent历史预处理实现逐值相同；另有A08缓存信号逐值回归。
+保持parent预处理：最小范数双极导联转换、200Hz、逐epoch裁剪及median/IQR归一化、65通道插值；2a为16个256维token，HMC保留完整30秒的120个token，不裁短。冻结Tower特征可缓存，样本ID和代码hash不符则拒绝复用。
 
-启动后先在每种任务执行真实27B smoke：共享forward对照、LoRA梯度与精确重载、全部100条支持的长上下文ICL有限值及峰值显存；未通过不进入正式队列。A08/A09需再次复现历史不适配预测。源码、配置、任务、权重与缓存均有身份检查；不静默恢复不匹配断点。
+真实模型检查包括零LoRA恒等、inner更新不改变共同初始化、非零且有限的source-query meta梯度、初始化确实更新、精确重载及共享参数/缓冲未改变。每次梯度不累积到冻结JEV参数，但允许梯度经过JEV流向个人LoRA。
 
-实验设计、资源、Transformers技能影响了同人配对、输入/模型验证与暴露分组；Markdown技能用于当前协议。保留技能文献引用，作者信息已核对。[^skills]
+主要结果按任务报告同人BAcc差值、个人support训练表现及负迁移人数。每任务2人只作机制验证，不给小样本显著性结论。必须比较FOMAML相对ERM，而不只比较相对未适配的收益。初始化本身已改变输出，因此同时报告适配前与适配后的分数。
 
-[^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065
+短inner-loop只有5步、部署适配100步，是已知近似限制；本轮固定此预算，不依据目标query追加训练。两个任务分别学习初始化，尚未证明跨任务元迁移。
+
+## ⚠️ 历史暴露与归档
+
+原test已有历史观察，原valid也曾被用过；本轮遵守当前开发角色，不称盲测。原train被试也参与过parent共享训练，LEAF发布权重的预训练暴露未完全审计。个人支持样本来自原test用户是既有、已授权的个人校准流程，不能混称普通无适配测试。
+
+前轮42份结果、ICL代码与协议归档Git `9a96ae0`；当前只保留元初始化及匹配控制。所有ignored产物保留。方法检索依据见[研究记录](PERSONALIZATION_METHOD_REVIEW.md)，后续尝试项不是本轮已执行内容。
+
+实验设计技能用于同人配对、样本隔离、预算匹配；资源及模型技能用于原环境/冻结梯度检查，Markdown技能用于协议记录。Hugging Science目录未找到EEG匹配条目，未因此更换既定模型或下载新权重。技能来源[^skills]不属于模型创新。
+
+[^maml]: Finn, C., Abbeel, P., Levine, S. (2017). Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks. ICML. https://proceedings.mlr.press/v70/finn17a.html
+[^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065

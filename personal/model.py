@@ -2,7 +2,6 @@
 import json
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
@@ -81,8 +80,7 @@ class PersonalServer:
             result = result + user.delta(z)
         return result
 
-    def forward(self, tokens, rows, task, user=None, step=0, training=False,
-                variant=0, demonstrations=None):
+    def forward(self, tokens, rows, task, user=None, step=0, training=False, variant=0):
         self.model.text.train(training)
         self.model.eeg_encoder.eval()
         z = self.project(tokens.cuda(), user)
@@ -92,8 +90,6 @@ class PersonalServer:
         sequences = []
         for x, question in zip(z, questions):
             parts = [prefix]
-            if demonstrations is not None:
-                parts.append(demonstrations)
             parts.append(x.to(prefix.dtype))
             parts.append(self.text(question['suffix']))
             sequences.append(torch.cat(parts))
@@ -108,22 +104,8 @@ class PersonalServer:
         return canonical_logits(logits, [[int(c) for c in q['option_class_ids']] for q in questions])
 
     @torch.no_grad()
-    def predict(self, tokens, rows, task, user=None, variant=0, demonstrations=None):
-        batch = CONFIG['icl_batch'] if demonstrations is not None else CONFIG['eval_batch']
+    def predict(self, tokens, rows, task, user=None, variant=0):
+        batch = CONFIG['eval_batch']
         return torch.cat([self.forward(tokens[i:i + batch], rows[i:i + batch], task, user,
-                                      variant=variant, demonstrations=demonstrations).cpu()
+                                      variant=variant).cpu()
                           for i in range(0, len(rows), batch)])
-
-    @torch.no_grad()
-    def demonstrations(self, tokens, rows, task):
-        projected = self.project(tokens.cuda(), None)
-        rng = np.random.default_rng(CONFIG['seed'])
-        order = rng.permutation(len(rows)).tolist()
-        labels = [r['label'] for r in rows]
-        parts = [self.text('\nLabeled calibration examples from this participant:\n')]
-        for i in order:
-            parts += [self.text('\n[example EEG]\n'), projected[i].to(parts[0].dtype),
-                      self.text('\n[example label] ' + task['classes'][labels[i]]['option'] + '\n')]
-        parts.append(self.text('\n[query EEG]\n'))
-        return torch.cat(parts), dict(order=[rows[i]['id'] for i in order], labels=[labels[i] for i in order],
-                                      label_shuffle=False)

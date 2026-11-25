@@ -1,12 +1,19 @@
-# LEAF Tower → JEV：跨任务个人适配
+# LEAF Tower → JEV：个人 LoRA 元初始化
 
-_2026-11-25；只比较连接器LoRA与正确标签ICL，复用旧InfoNCE parent，不重训共享模型。_
+_2026-11-25；当前只有 first-order MAML 初始化方案及必要的普通训练、普通个人 LoRA 对照。_
 
 ## 📋 当前实验
 
-2a全部9人；SEED、HMC、Nakanishi SSVEP各4人。每人100条支持样本、两个配对方法，共21个用户×任务、42份结果。2a和SSVEP按试次，SEED/HMC按窗口，不能混称100个独立试次。
+共享 LEAF Tower、原连接器、JEV27B及其原有LoRA/决策头全部冻结。只训练连接器最后一层上的个人LoRA：rank4、40,960参数。先从源用户学习易于适配的初始化，再给目标用户用自己的100条支持样本训练100步。
 
-四卡各常驻一份冻结JEV，动态领取独立用户；同一用户依次跑两个方法，每次重新初始化个人参数。LoRA保持rank4、100步、batch16/micro4、lr1e-4；ICL只做前向。不修改共享Tower、原连接器权重或JEV，不合并不同人的support。
+| GPU | 离线方法 | 任务 | 目标用户 |
+| --- | --- | --- | --- |
+| 0 | FOMAML | 2a | A08、A09 |
+| 1 | 等计算量 source ERM | 2a | A08、A09 |
+| 2 | FOMAML | HMC | s2、s6 |
+| 3 | 等计算量 source ERM | HMC | s2、s6 |
+
+每个worker另重跑普通个人LoRA基线；重复基线应一致。每个数据集分别学习初始化，不是把两个任务混成一次元训练。60个源用户episode，5个support梯度批次＋1个query梯度批次，共360批次；源query也是原train，不是目标测试集。个人参数lr1e-4、AdamW、100步、batch16/micro4保持不变。
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
@@ -14,18 +21,18 @@ laya/.venv-eeg/bin/python -m personal.plan
 laya/.venv-eeg/bin/python -m personal.run --start
 ```
 
-- [当前协议及样本隔离](docs/PROTOCOL.md)
-- [运行与结果](docs/RESULTS.md)
-- [配置](configs/personal13.json)
-- [任务文本](configs/personal_tasks.json)
+- [协议与隔离规则](docs/PROTOCOL.md)
+- [进度与结果](docs/RESULTS.md)
+- [方法选择依据](docs/PERSONALIZATION_METHOD_REVIEW.md)
+- [当前配置](configs/personal13.json)
 - [历史归档](docs/ARCHIVE.md)
 
-输出：`artifacts/benchmark/leaf_personal_multitask_20261125/`。`plan.json`固定support/query ID、原split、源试次/时间隔离及共享训练暴露；`summary.json`按数据集、暴露组、原split分别汇总，不把已见与未见被试混成泛化分数。12小时是上限，有限队列完成即退出。
+输出：`artifacts/benchmark/leaf_personal_meta_init_20261125/`。四卡各常驻一个冻结服务器模型；完成即退，6小时上限，checkpoint支持同代码同预算恢复。不自动扩大用户数或扫seed。
 
-## ⚠️ 结果解释
+## ⚠️ 解释边界
 
-2a A01–A05及SSVEP的query来自原共享训练池，是用户授权的探索，不是独立测试。SEED的人已见，但query是原test试次。HMC和2a A06–A09未进入本次共享训练池；历史选点/评估和LEAF发布权重暴露仍需披露。
+这是两任务、每任务两名用户的机制pilot。目标用户都是原test，被历史观察过；原valid本轮不用。只用原train学习公共初始化；目标用户的100条support用于其个人梯度，独立query仅在适配前后完整评估，不选点。不能称盲测、zero-shot或已证明普遍有效。
 
-上一轮四人九方法36份结果完整归档Git `8bc8e94`；所有原结果和权重保持不变。当前删除已淘汰的其他个人模块实现，仅保留两种方法与必要控制/测试。共享`jev_train/`和数据基础依赖保留；不恢复历史独立训练框架。
+前一轮42份LoRA/ICL结果及研究评审已归档Git `9a96ae0`；当前移除ICL执行分支和无关任务专属配置，所有原数据、权重、环境、日志及用户未提交文件保留。共享 `jev_train/` 与 `leaf_repro/` 仅保留依赖和可复现参照。
 
-实验设计检查用于同人配对、源试次/时间隔离和暴露分组；资源及Transformers检查用于同环境加载和长上下文实测；Markdown技能用于协议与结果记录。相关技能引用见协议。
+实验设计技能用于同人配对与计算预算，资源技能用于四卡实测，模型/文档技能用于冻结梯度检查及协议记录；技能引用见协议。

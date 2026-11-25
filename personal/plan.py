@@ -1,11 +1,11 @@
-"""Two matched methods, fixed per-user support/query, explicit shared-data exposure."""
+"""Audited source-train episodes and historically matched target-user partitions."""
 import hashlib
 import json
 from collections import Counter
 import numpy as np
-from .common import CONFIG, OUT, ROOT, identity, write_json
+from .common import CONFIG, OUT, ROOT, identity, write_json, check_rows, check_source_rows
 from .data import TrialStore, source_group, trial_key
-
+from .meta import episode_schedule
 
 def row_hash(ids):
     return hashlib.sha256('\n'.join(ids).encode()).hexdigest()
@@ -36,10 +36,6 @@ def split_person(rows, name, classes):
             if [sum(r['label']==c for r in part) for c in range(classes)]!=[72]*4:
                 raise ValueError('Unexpected BCIC class counts')
         details['scope']='full_E_session'
-    elif name == 'seed':
-        pool = sorted([r for r in rows if r['split']=='train'],key=trial_key)
-        query = sorted([r for r in rows if r['split']=='test'],key=trial_key)
-        details['scope']='full_original_test_windows'
     elif name == 'hmc':
         ordered = sorted(rows,key=lambda r:(r['record'],int(r['start'])))
         if len({r['record'] for r in ordered})!=1:
@@ -51,11 +47,6 @@ def split_person(rows, name, classes):
                        purge_ids=[r['id'] for r in ordered[cut:cut+gap]])
         if min(int(r['start']) for r in query)-max(int(r['start'])+r['samples'] for r in pool)<gap*6000:
             raise ValueError('Sleep support/query time gap is too short')
-    elif name == 'Nakanishi2015':
-        if len(rows)!=180 or len({source_group(r) for r in rows})!=180:
-            raise ValueError('Expected180 unique SSVEP trials')
-        pool,query = sorted(rows,key=trial_key),None
-        details['scope']='all_remaining_trials_in_original_train_pool'
     else:
         raise ValueError('Dataset lacks an audited personal split')
     support = select_support(pool,classes,CONFIG['support_total'],CONFIG['seed'])
@@ -69,60 +60,67 @@ def split_person(rows, name, classes):
     return support,query,details
 
 
+
 def build(store):
-    cases = []
-    prior = json.loads((ROOT / CONFIG['paired_reference'] / 'plan.json').read_text())
-    old_cases = {c['subject']:c for c in prior['cases']}
-    for tid,task in enumerate(store.tasks):
-        name = task['task_id']
-        for subject in CONFIG['cohorts'][name]['subjects']:
-            rows = [r for r in store.rows[tid] if r['subject']==subject]
-            support,query,details = split_person(rows,name,len(task['classes']))
-            sids,qids = [r['id'] for r in support],[r['id'] for r in query]
-            if len(sids)!=100 or len(set(sids))!=100 or set(sids)&set(qids):
-                raise ValueError('Support/query identity violation')
-            original = sorted({r['split'] for r in rows})
-            seen = subject in store.train_subjects[tid]
-            query_seen = sum(r['split']=='train' for r in query)
-            strata = ('shared_subject_unseen' if not seen else
-                      'shared_subject_seen_query_in_train_pool' if query_seen else
-                      'shared_subject_seen_query_not_in_train_pool')
-            key = f'bcic_2a_A{int(subject):02d}' if name=='bcic_2a' else f'{name}_s{subject}'
-            reference = ROOT/CONFIG['historical_reference']/'episodes'/f'bcic_2a_s{subject}_residual_frozen_k5_seed42'
-            case = dict(key=key,dataset=name,task=tid,subject=subject,original_split=original[0] if len(original)==1 else 'train_valid_test',
-                original_splits=original,order=len(cases),classes=len(task['classes']),
-                support_ids=sids,query_ids=qids,support_sha256=row_hash(sids),query_sha256=row_hash(qids),
-                row_splits={r['id']:r['split'] for r in support+query},
-                support_records=sorted({r['record'] for r in support}),query_records=sorted({r['record'] for r in query}),
+    previous = json.loads((ROOT / CONFIG['paired_reference'] / 'plan.json').read_text())
+    old = {(c['dataset'], c['subject']): c for c in previous['cases']}
+    targets, sources, schedules = [], [], {}
+    for tid, task in enumerate(store.tasks):
+        name, classes = task['task_id'], len(task['classes'])
+        cohort = CONFIG['cohorts'][name]
+        if set(cohort['subjects']) & set(cohort['source_subjects']):
+            raise RuntimeError('Source and target subjects overlap')
+        for subject in cohort['subjects']:
+            rows = [r for r in store.rows[tid] if r['subject'] == subject]
+            support, query, _ = split_person(rows, name, classes)
+            prior = old[name, subject]
+            for field, selected in [('support_ids', support), ('query_ids', query)]:
+                if [r['id'] for r in selected] != prior[field]:
+                    raise RuntimeError('Historical target pairing changed')
+            case = dict(prior, task=tid)
+            if case['original_split'] != 'test' or case['shared_train_seen_subject']:
+                raise RuntimeError('Pilot targets must be original-test, shared-train-unseen users')
+            check_rows(support, case, gradient=True)
+            check_rows(query, case)
+            targets.append(case)
+        for subject in cohort['source_subjects']:
+            rows = [r for r in store.rows[tid] if r['subject'] == subject]
+            if not rows or {r['split'] for r in rows} != {'train'}:
+                raise RuntimeError('Source subject must belong exclusively to original train')
+            support, query_pool, details = split_person(rows, name, classes)
+            query = select_support(query_pool, classes, CONFIG['offline']['query_total'], CONFIG['seed'] + 1)
+            case = dict(key=f'{name}_source_s{subject}', dataset=name, task=tid, subject=subject,
+                classes=classes, support_ids=[r['id'] for r in support], query_ids=[r['id'] for r in query],
+                original_split='train', support_records=sorted({r['record'] for r in support}),
+                query_records=sorted({r['record'] for r in query}),
                 support_class_counts=dict(Counter(str(r['label']) for r in support)),
-                query_class_counts=dict(Counter(str(r['label']) for r in query)),
-                support_original_groups=len({source_group(r) for r in support}),
-                query_original_groups=len({source_group(r) for r in query}),
-                shared_train_seen_subject=seen,query_in_shared_train_pool=query_seen,exposure_stratum=strata,
-                unit=CONFIG['cohorts'][name]['unit'],split_policy=CONFIG['cohorts'][name]['policy'],**details,
-                historical_prediction=str(reference/'predictions.pt') if name=='bcic_2a' and (reference/'predictions.pt').exists() else None)
-            if name=='bcic_2a' and subject in old_cases:
-                old = old_cases[subject]
-                for field in ('support_ids','query_ids','order'):
-                    if case[field]!=old[field]:
-                        raise RuntimeError(f'Prior four-user pairing changed: {field}')
-            cases.append(case)
-    return dict(schema='personal-multitask-exposure-v1',config=CONFIG,source_hashes=identity(),cases=cases,
-        counts={n:sum(c['dataset']==n for c in cases) for n in CONFIG['datasets']},
-        inventory=store.inventory,source_indexes=store.meta,source_array_stats=store.stats,
-        original_splits_modified=False,query_used_for_selection=False,independent_test_estimate=False)
+                query_class_counts=dict(Counter(str(r['label']) for r in query)), **details)
+            for part, values in [('support', support), ('query', query)]:
+                check_source_rows(values, case, part)
+                case[part + '_sha256'] = row_hash(case[part + '_ids'])
+            if {source_group(r) for r in support} & {source_group(r) for r in query}:
+                raise RuntimeError('Source meta-support/query original group overlap')
+            sources.append(case)
+        schedules[name] = episode_schedule([s for s in sources if s['dataset'] == name], CONFIG)
+    return dict(schema='personal-fomaml-init-v1', config=CONFIG, source_hashes=identity(),
+        cases=targets, sources=sources, schedules=schedules,
+        counts={n:sum(c['dataset']==n for c in targets) for n in CONFIG['datasets']},
+        source_counts={n:sum(c['dataset']==n for c in sources) for n in CONFIG['datasets']},
+        inventory=store.inventory, source_indexes=store.meta, source_array_stats=store.stats,
+        original_splits_modified=False, offline_gradients_original_train_only=True,
+        original_valid_touched=False, query_used_for_selection=False, independent_test_estimate=False)
 
 
 def main():
-    plan=build(TrialStore())
-    OUT.mkdir(parents=True,exist_ok=True)
-    path=OUT/'plan.json'
-    if path.exists() and json.loads(path.read_text())!=json.loads(json.dumps(plan)):
+    plan = build(TrialStore())
+    OUT.mkdir(parents=True, exist_ok=True)
+    path = OUT / 'plan.json'
+    if path.exists() and json.loads(path.read_text()) != json.loads(json.dumps(plan)):
         raise RuntimeError('Existing plan differs; refusing overwrite')
-    write_json(path,plan)
-    print(json.dumps(dict(counts=plan['counts'],cases=[dict(key=c['key'],support=len(c['support_ids']),
-        query=len(c['query_ids']),exposure=c['exposure_stratum']) for c in plan['cases']])),flush=True)
+    write_json(path, plan)
+    print(json.dumps(dict(targets=plan['counts'], sources=plan['source_counts'],
+        cases=[dict(key=c['key'], support=len(c['support_ids']), query=len(c['query_ids'])) for c in plan['cases']])), flush=True)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()

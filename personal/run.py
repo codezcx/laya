@@ -1,4 +1,4 @@
-"""Bounded overnight controller: wait for shared completion, smoke, four workers."""
+"""Bounded four-GPU meta-initialization pilot with matched source exposure."""
 import argparse
 import fcntl
 import json
@@ -15,39 +15,31 @@ from .common import CONFIG, OUT, identity, write_json
 
 def summary():
     grouped = {}
-    for path in sorted((OUT / 'cases').glob('*/*/result.json')):
-        result = json.loads(path.read_text())
-        name = '/'.join((result['case']['dataset'], result['case']['exposure_stratum'], result['case']['original_split']))
-        arm = result['arm']
-        grouped.setdefault(name, {}).setdefault(arm, []).append(result)
-    data, matched = {}, {}
+    for path in sorted((OUT / 'jobs').glob('*/cases/*/*/result.json')):
+        r = json.loads(path.read_text())
+        block = grouped.setdefault(r['case']['dataset'], {}).setdefault(r['arm'], {})
+        key = r['case']['key']
+        if key in block:
+            other = block[key]
+            if other['case'] != r['case'] or abs(other['adapted']['balanced_accuracy'] - r['adapted']['balanced_accuracy']) > 1e-10:
+                raise RuntimeError('Repeated ordinary-LoRA matched control differs across workers')
+        block[key] = r
+    report = {}
     for name, arms in grouped.items():
-        data[name] = {}
-        for arm, values in arms.items():
-            data[name][arm] = dict(users=len(values),
-                case_ids=[r['case']['key'] for r in values],
-                baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
+        expected = CONFIG['cohorts'][name]['subjects']
+        report[name] = {}
+        for arm, keyed in arms.items():
+            values = list(keyed.values())
+            report[name][arm] = dict(users=len(values), planned_users=len(expected),
+                case_ids=list(keyed), baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
+                initial_bacc=sum(r['initial']['balanced_accuracy'] for r in values)/len(values),
                 adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
                 mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
-                negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values),
-                support_windows=sum(r['support_n'] for r in values), query_windows=sum(r['query_n'] for r in values))
-        by_arm = {arm: {r['case']['key']: r for r in arms.get(arm, [])} for arm in CONFIG['arms']}
-        common = sorted(set.intersection(*(set(v) for v in by_arm.values())))
-        matched[name] = dict(case_ids=common, users=len(common), arms={})
-        if common:
-            for arm, results in by_arm.items():
-                values = [results[k] for k in common]
-                matched[name]['arms'][arm] = dict(
-                    baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
-                    adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
-                    mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
-                    negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values))
-    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_splits=['train', 'valid', 'test'],
-        pooled_seen_unseen_average_prohibited=True,
-        independent_test_estimate=False, paired_case_ids_required_for_between_arm_comparison=True,
-        datasets=data, matched_complete_blocks=matched,
-        completed_results=sum(len(v) for a in grouped.values() for v in a.values())))
-
+                negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values))
+    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_evaluation_allocation='test',
+        query_selection=False, independent_test_estimate=False, datasets=report,
+        completed_unique_results=sum(len(v) for a in grouped.values() for v in a.values()),
+        expected_unique_results=12, paired_case_ids_required=True))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -141,9 +133,9 @@ def main():
             raise RuntimeError('A personal worker failed')
         summary()
         plan = json.loads((OUT / 'plan.json').read_text())
-        completed = sum((OUT / 'cases' / c['key'] / 'complete.json').exists() for c in plan['cases'])
-        report(state='complete' if completed == len(plan['cases']) else 'budget_exhausted',
-               complete_users=completed, planned_users=len(plan['cases']))
+        completed = sum((OUT / 'jobs' / f"{j['dataset']}_{j['arm']}" / 'complete.json').exists() for j in CONFIG['jobs'])
+        report(state='complete' if completed == len(CONFIG['jobs']) else 'budget_exhausted',
+               complete_jobs=completed, planned_jobs=len(CONFIG['jobs']))
     except BaseException as exc:
         for child in children:
             if child.poll() is None:

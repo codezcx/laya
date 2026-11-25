@@ -2,21 +2,22 @@ import json
 import numpy as np
 import pytest
 import torch
-from personal.common import CONFIG, ROOT, check_rows
+from personal.common import CONFIG, ROOT, check_rows, check_source_rows
 from personal.data import TrialStore, PreparedAdapter, normalize_trials, segment, source_group, to_electrodes
 from personal.modules import ConnectorDelta, UserParameters, canonical_logits
 from personal.plan import build, select_support, split_person
+from personal.meta import clone_initialization, first_order_gradients, episode_schedule
 
 
-def row(i,session='A06T',label=None):
-    return dict(id=f'{session}:{i}',dataset='bcic_2a',subject='6',task=0,split='valid',
+def row(i,session='A08T',label=None):
+    return dict(id=f'{session}:{i}',dataset='bcic_2a',subject='8',task=0,split='test',
                 record=session,row=i,event=i%48,start=i*1000,samples=800,label=i%4 if label is None else label)
 
 
 def test_authorized_rows_and_split_identity():
-    s,q=row(0),row(1,'A06E')
-    case=dict(dataset='bcic_2a',subject='6',task=0,support_ids=[s['id']],query_ids=[q['id']],
-              row_splits={s['id']:'valid',q['id']:'valid'})
+    s,q=row(0),row(1,'A08E')
+    case=dict(dataset='bcic_2a',subject='8',task=0,support_ids=[s['id']],query_ids=[q['id']],
+              row_splits={s['id']:'test',q['id']:'test'})
     check_rows([s],case,gradient=True)
     check_rows([q],case)
     with pytest.raises(RuntimeError):
@@ -30,7 +31,7 @@ def test_authorized_rows_and_split_identity():
 
 
 def test_complete_bcic_sessions_and_same_seeded_support():
-    rows=[row(i) for i in range(288)]+[row(i,'A06E') for i in range(288)]
+    rows=[row(i) for i in range(288)]+[row(i,'A08E') for i in range(288)]
     support,query,details=split_person(rows,'bcic_2a',4)
     assert len(support)==100 and len(query)==288
     assert len({r['id'] for r in support})==100
@@ -49,14 +50,6 @@ def test_balanced_remainder_does_not_duplicate_trials():
     assert sorted(sum(r['label']==c for r in selected) for c in range(3))==[33,33,34]
     with pytest.raises(ValueError,match='needs'):
         select_support(rows[:9],3,100,42)
-
-
-def test_seed_never_splits_one_original_trial_between_support_and_query():
-    rows=[]
-    for i in range(180):
-        rows.append(dict(row(i),dataset='seed',label=i%3,record='1_1',event=i%3,split='train' if i<120 else 'test'))
-    with pytest.raises(ValueError,match='original trial'):
-        split_person(rows,'seed',3)
 
 
 def test_connector_lora_identity_and_gradient():
@@ -79,10 +72,10 @@ def test_semantic_option_reordering():
 
 def test_optimization_matches_completed_four_user_run():
     previous=json.loads((ROOT/CONFIG['paired_reference']/'plan.json').read_text())['config']
-    for name in ('parent','parent_sha256','seed','steps','batch_size','microbatch','eval_batch','icl_batch',
+    for name in ('parent','parent_sha256','seed','steps','batch_size','microbatch','eval_batch',
                  'encode_batch','learning_rate','weight_decay','clip_grad_norm','connector_lora_rank','connector_lora_scale'):
         assert CONFIG[name]==previous[name]
-    assert CONFIG['arms']==['connector_lora','icl']
+    assert CONFIG['arms']==['source_erm','fomaml']
 
 
 def test_trial_normalization_independence_and_montage():
@@ -103,26 +96,57 @@ def test_chunking_preserves_long_sleep_epochs():
     np.testing.assert_array_equal(np.concatenate(pieces,axis=-1),x)
 
 
-def test_full_plan_has_all_users_and_explicit_shared_exposure():
-    store=TrialStore(); p=build(store)
-    assert p['counts']==dict(bcic_2a=9,seed=4,hmc=4,Nakanishi2015=4)
-    assert len(p['cases'])==21
+def test_meta_plan_has_unseen_targets_and_train_only_sources():
+    store = TrialStore()
+    p = build(store)
+    assert p['counts'] == dict(bcic_2a=2, hmc=2)
+    assert p['source_counts'] == dict(bcic_2a=5, hmc=8)
     for case in p['cases']:
-        assert len(case['support_ids'])==100 and len(set(case['support_ids']))==100
-        assert not set(case['support_ids'])&set(case['query_ids'])
-        if case['dataset']=='bcic_2a':
-            assert len(case['query_ids'])==288
-            assert case['shared_train_seen_subject']==(int(case['subject'])<=5)
-        elif case['dataset']=='seed':
-            assert len(case['query_ids'])==504 and case['shared_train_seen_subject']
-            assert case['query_in_shared_train_pool']==0
-        elif case['dataset']=='hmc':
-            assert not case['shared_train_seen_subject']
-            assert len(case['purge_ids'])==2
-        else:
-            assert case['shared_train_seen_subject'] and case['query_in_shared_train_pool']==80
-            assert len(case['query_ids'])==80
-        assert len(case['query_class_counts'])==case['classes']
+        assert len(case['support_ids']) == 100
+        assert not set(case['support_ids']) & set(case['query_ids'])
+        assert case['original_split'] == 'test'
+        assert not case['shared_train_seen_subject']
+        assert case['query_in_shared_train_pool'] == 0
+        assert len(case['query_ids']) == (288 if case['dataset']=='bcic_2a' else 340 if case['subject']=='2' else 344)
+    for case in p['sources']:
+        assert len(case['support_ids']) == len(case['query_ids']) == 100
+        assert not set(case['support_ids']) & set(case['query_ids'])
+        index = {r['id']: r for r in store.rows[case['task']]}
+        for part in ['support','query']:
+            rows = [index[i] for i in case[part+'_ids']]
+            check_source_rows(rows, case, part)
+            assert {r['split'] for r in rows} == {'train'}
+            with pytest.raises(RuntimeError):
+                check_source_rows([dict(rows[0], split='test')], case, part)
+        with pytest.raises(RuntimeError):
+            check_source_rows([index[case['query_ids'][0]]], case, 'support')
+    assert not set(i for c in p['sources'] for part in ['support','query'] for i in c[part+'_ids']) & set(
+        i for c in p['cases'] for part in ['support','query'] for i in c[part+'_ids'])
+    for name, episodes in p['schedules'].items():
+        assert len(episodes) == 60
+        assert sum(len(e['batches']) for e in episodes) == 360
+        assert sum(len(b['ids']) for e in episodes for b in e['batches']) == 5760
+        assert episodes == episode_schedule([c for c in p['sources'] if c['dataset']==name], CONFIG)
+        assert all([b['part'] for b in e['batches']] == ['support']*5+['query'] for e in episodes)
+
+
+def test_first_order_meta_gradient_is_query_gradient_at_adapted_weights():
+    initial = torch.nn.Linear(1,1,bias=False)
+    with torch.no_grad():
+        initial.weight.fill_(1.)
+    adapted = clone_initialization(initial)
+    inner = torch.optim.SGD(adapted.parameters(), lr=.1)
+    (.5*(adapted.weight-2).square().sum()).backward()
+    inner.step()
+    assert initial.weight.item() == 1.
+    adapted.zero_grad()
+    (.5*(adapted.weight-4).square().sum()).backward()
+    first_order_gradients(initial, adapted)
+    torch.testing.assert_close(initial.weight.grad, torch.tensor([[-2.9]]))
+    torch.optim.SGD(initial.parameters(), lr=.1).step()
+    torch.testing.assert_close(initial.weight, torch.tensor([[1.29]]))
+    with pytest.raises(RuntimeError):
+        first_order_gradients(initial, initial)
 
 
 def test_bcic_preprocessing_matches_historical_saved_signal():

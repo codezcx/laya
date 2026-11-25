@@ -32,3 +32,16 @@ def check_rows(rows, case, gradient=False):
     if not rows or any(r['subject'] != case['subject'] or r['task'] != case['task']
                       or r['id'] not in allowed or r['split'] != case['row_splits'][r['id']] for r in rows):
         raise RuntimeError('Personal forward/gradient crossed its support/query boundary')
+
+
+def check_source_rows(rows, case, part):
+    """Meta-query is source TRAIN data, never an evaluation allocation."""
+    cohort = CONFIG['cohorts'][case['dataset']]
+    if case['subject'] not in cohort['source_subjects'] or case['subject'] in cohort['subjects']:
+        raise RuntimeError('Source/target subject boundary violated')
+    if part not in ('support', 'query') or set(case['support_ids']) & set(case['query_ids']):
+        raise RuntimeError('Invalid source episode partition')
+    allowed = set(case[part + '_ids'])
+    if not rows or any(r['split'] != 'train' or r['subject'] != case['subject'] or
+                       r['task'] != case['task'] or r['id'] not in allowed for r in rows):
+        raise RuntimeError('Offline gradients must use the declared source train partition')
