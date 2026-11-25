@@ -1,11 +1,11 @@
-"""Audited source-train episodes and historically matched target-user partitions."""
+"""Exact historical users and batches, plus pinned common-seed initializations."""
 import hashlib
 import json
 from collections import Counter
 import numpy as np
-from .common import CONFIG, OUT, ROOT, identity, write_json, check_rows, check_source_rows
+from .common import CONFIG, OUT, ROOT, identity, write_json, check_rows
 from .data import TrialStore, source_group, trial_key
-from .meta import episode_schedule
+from .initialization import audit_initializations
 
 def row_hash(ids):
     return hashlib.sha256('\n'.join(ids).encode()).hexdigest()
@@ -61,53 +61,48 @@ def split_person(rows, name, classes):
 
 
 
+def personal_batches(case):
+    batches = []
+    for step in range(1, CONFIG['steps'] + 1):
+        rng = np.random.default_rng(np.random.SeedSequence([CONFIG['seed'], case['order'], step]))
+        ix = rng.integers(len(case['support_ids']), size=CONFIG['batch_size']).tolist()
+        batches.append(dict(step=step, indices=ix, ids=[case['support_ids'][i] for i in ix]))
+    return batches
+
+
 def build(store):
-    previous = json.loads((ROOT / CONFIG['paired_reference'] / 'plan.json').read_text())
+    previous = json.loads((ROOT / CONFIG['initialization_reference'] / 'plan.json').read_text())
     old = {(c['dataset'], c['subject']): c for c in previous['cases']}
-    targets, sources, schedules = [], [], {}
+    targets = []
     for tid, task in enumerate(store.tasks):
         name, classes = task['task_id'], len(task['classes'])
-        cohort = CONFIG['cohorts'][name]
-        if set(cohort['subjects']) & set(cohort['source_subjects']):
-            raise RuntimeError('Source and target subjects overlap')
-        for subject in cohort['subjects']:
+        for subject in CONFIG['cohorts'][name]['subjects']:
             rows = [r for r in store.rows[tid] if r['subject'] == subject]
             support, query, _ = split_person(rows, name, classes)
-            prior = old[name, subject]
+            case = old[name, subject]
+            if tid != case['task'] or classes != case['classes']:
+                raise RuntimeError('Task interpretation changed')
             for field, selected in [('support_ids', support), ('query_ids', query)]:
-                if [r['id'] for r in selected] != prior[field]:
+                if [r['id'] for r in selected] != case[field]:
                     raise RuntimeError('Historical target pairing changed')
-            case = dict(prior, task=tid)
             if case['original_split'] != 'test' or case['shared_train_seen_subject']:
-                raise RuntimeError('Pilot targets must be original-test, shared-train-unseen users')
+                raise RuntimeError('Targets must remain the same original-test users')
             check_rows(support, case, gradient=True)
             check_rows(query, case)
             targets.append(case)
-        for subject in cohort['source_subjects']:
-            rows = [r for r in store.rows[tid] if r['subject'] == subject]
-            if not rows or {r['split'] for r in rows} != {'train'}:
-                raise RuntimeError('Source subject must belong exclusively to original train')
-            support, query_pool, details = split_person(rows, name, classes)
-            query = select_support(query_pool, classes, CONFIG['offline']['query_total'], CONFIG['seed'] + 1)
-            case = dict(key=f'{name}_source_s{subject}', dataset=name, task=tid, subject=subject,
-                classes=classes, support_ids=[r['id'] for r in support], query_ids=[r['id'] for r in query],
-                original_split='train', support_records=sorted({r['record'] for r in support}),
-                query_records=sorted({r['record'] for r in query}),
-                support_class_counts=dict(Counter(str(r['label']) for r in support)),
-                query_class_counts=dict(Counter(str(r['label']) for r in query)), **details)
-            for part, values in [('support', support), ('query', query)]:
-                check_source_rows(values, case, part)
-                case[part + '_sha256'] = row_hash(case[part + '_ids'])
-            if {source_group(r) for r in support} & {source_group(r) for r in query}:
-                raise RuntimeError('Source meta-support/query original group overlap')
-            sources.append(case)
-        schedules[name] = episode_schedule([s for s in sources if s['dataset'] == name], CONFIG)
-    return dict(schema='personal-fomaml-init-v1', config=CONFIG, source_hashes=identity(),
-        cases=targets, sources=sources, schedules=schedules,
+    if {j['key'] for j in CONFIG['jobs']} != {c['key'] for c in targets}:
+        raise RuntimeError('GPU jobs do not match the planned users')
+    for path, stat in store.stats.items():
+        if list(stat) != previous['source_array_stats'][path]:
+            raise RuntimeError('Historical target EEG array changed')
+    schedules = {c['key']: personal_batches(c) for c in targets}
+    if CONFIG['eval_steps'] != [0, 5, 10, 20, 50, 100]:
+        raise RuntimeError('Unapproved evaluation schedule')
+    return dict(schema='personal-matched-curves-v1', config=CONFIG, source_hashes=identity(),
+        cases=targets, schedules=schedules, initializations=audit_initializations(),
         counts={n:sum(c['dataset']==n for c in targets) for n in CONFIG['datasets']},
-        source_counts={n:sum(c['dataset']==n for c in sources) for n in CONFIG['datasets']},
         inventory=store.inventory, source_indexes=store.meta, source_array_stats=store.stats,
-        original_splits_modified=False, offline_gradients_original_train_only=True,
+        original_splits_modified=False, offline_retraining=False,
         original_valid_touched=False, query_used_for_selection=False, independent_test_estimate=False)
 
 
@@ -118,7 +113,7 @@ def main():
     if path.exists() and json.loads(path.read_text()) != json.loads(json.dumps(plan)):
         raise RuntimeError('Existing plan differs; refusing overwrite')
     write_json(path, plan)
-    print(json.dumps(dict(targets=plan['counts'], sources=plan['source_counts'],
+    print(json.dumps(dict(targets=plan['counts'], eval_steps=CONFIG['eval_steps'],
         cases=[dict(key=c['key'], support=len(c['support_ids']), query=len(c['query_ids'])) for c in plan['cases']])), flush=True)
 
 

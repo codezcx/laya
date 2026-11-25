@@ -54,7 +54,7 @@ class TrialStore:
                     subjects[row['split']].add(row['subject'])
                     if row['split'] == 'train':
                         self.train_subjects[tid].add(row['subject'])
-                    allowed = CONFIG['cohorts'][name]['subjects'] + CONFIG['cohorts'][name]['source_subjects']
+                    allowed = CONFIG['cohorts'][name]['subjects']
                     if row['subject'] not in allowed:
                         continue
                     row.update(id=f'{name}:{i}', task=tid, dataset=name, label=int(row['label']),

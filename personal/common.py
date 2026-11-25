@@ -17,6 +17,13 @@ def identity():
         files += [ROOT / CONFIG['cache_root'] / dataset / n for n in ('index.csv', 'complete.json')]
     files += list((ROOT / CONFIG['historical_reference'] / 'episodes').glob('bcic_2a_*/predictions.pt'))
     files += [ROOT / CONFIG['paired_reference'] / 'plan.json']
+    ref = ROOT / CONFIG['initialization_reference']
+    files += [ref / name for name in ('plan.json', 'queue.json')]
+    for dataset in CONFIG['datasets']:
+        for arm in CONFIG['arms']:
+            if arm != 'ordinary_lora':
+                files += [ref / 'jobs' / f'{dataset}_{arm}' / n
+                          for n in ('initialization.pt', 'offline_complete.json', 'complete.json')]
     files += [Path(PARENT_CONFIG['leaf_root']) / n for n in (
         'leaf_datasets/__init__.py', 'leaf_datasets/electrode_unifier.py',
         'configs/LEAF-ch65/LEAF-ch65.json', 'configs/LEAF-ch65/LEAF-ch65.bvef')]
@@ -32,16 +39,3 @@ def check_rows(rows, case, gradient=False):
     if not rows or any(r['subject'] != case['subject'] or r['task'] != case['task']
                       or r['id'] not in allowed or r['split'] != case['row_splits'][r['id']] for r in rows):
         raise RuntimeError('Personal forward/gradient crossed its support/query boundary')
-
-
-def check_source_rows(rows, case, part):
-    """Meta-query is source TRAIN data, never an evaluation allocation."""
-    cohort = CONFIG['cohorts'][case['dataset']]
-    if case['subject'] not in cohort['source_subjects'] or case['subject'] in cohort['subjects']:
-        raise RuntimeError('Source/target subject boundary violated')
-    if part not in ('support', 'query') or set(case['support_ids']) & set(case['query_ids']):
-        raise RuntimeError('Invalid source episode partition')
-    allowed = set(case[part + '_ids'])
-    if not rows or any(r['split'] != 'train' or r['subject'] != case['subject'] or
-                       r['task'] != case['task'] or r['id'] not in allowed for r in rows):
-        raise RuntimeError('Offline gradients must use the declared source train partition')

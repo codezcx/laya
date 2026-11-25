@@ -1,8 +1,8 @@
 {
-  "run_name": "leaf_personal_meta_init_20261125",
+  "run_name": "leaf_personal_matched_curves_20261125",
   "parent": "artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp",
   "parent_sha256": "7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a",
-  "output_root": "artifacts/benchmark/leaf_personal_meta_init_20261125",
+  "output_root": "artifacts/benchmark/leaf_personal_matched_curves_20261125",
   "gpus": [
     0,
     1,
@@ -12,7 +12,7 @@
   "wall_hours": 6,
   "minimum_free_gpu_mib": 60000,
   "minimum_free_disk_gib": 20,
-  "authorization": "2026-11-25 user approved a pilot of optimization-based meta-learning for personal adaptation. Source original train only for offline gradients; authorized100support samples per target user.",
+  "authorization": "2026-11-25 user approved matched initialization seeds and personal adaptation curves at equal steps; no learning-rate/rank/encoder changes.",
   "role": "exploratory_original_test_personal_adaptation",
   "independent_test_estimate": false,
   "cache_root": "datasets/multitask_seedpaper_20261101",
@@ -30,13 +30,6 @@
         "8",
         "9"
       ],
-      "source_subjects": [
-        "1",
-        "2",
-        "3",
-        "4",
-        "5"
-      ],
       "policy": "T_support_E_query",
       "unit": "independent_trial"
     },
@@ -44,16 +37,6 @@
       "subjects": [
         "2",
         "6"
-      ],
-      "source_subjects": [
-        "3",
-        "5",
-        "10",
-        "17",
-        "25",
-        "28",
-        "34",
-        "35"
       ],
       "policy": "chronological_60pct_support_2epoch_gap_remaining_query",
       "unit": "30s_sleep_epoch"
@@ -72,50 +55,45 @@
   "connector_lora_rank": 4,
   "connector_lora_scale": 1,
   "arms": [
+    "ordinary_lora",
     "source_erm",
     "fomaml"
   ],
   "hmc_support_fraction": 0.6,
   "hmc_gap_epochs": 2,
-  "selection_policy": "Fixed offline episode60 and personal step100; full target query before/after only, no target query gradients or selection.",
-  "sampling_policy": "Identical source pools, batch IDs and option orders across offline arms. Personal uniform replacement batch16, preserved historical subject seeds and100support IDs.",
+  "selection_policy": "Fixed personal step100; full support/query at steps0,5,10,20,50,100; no query gradients, selection, scheduler or early stopping.",
+  "sampling_policy": "Preserve historical100support/query IDs, personal batch RNG and option order; all ordinary LoRA A uses seed42, matching source initial seeds.",
   "limitations": [
-    "Pilot: one seed, two target users per task; not an independent benchmark estimate.",
-    "HMC sources require all five stages in both chronological pools; source eligibility changes the population.",
-    "FOMAML five inner steps versus100target steps: first-order short-inner-loop approximation, not exact MAML.",
-    "Parent/personal query historically evaluated; original valid unused this run.",
-    "Released LEAF pretraining exposure remains unresolved.",
-    "HMC100support epochs are not100independent sessions."
+    "One seed, two target users per task; exploratory original-test personal query, not independent benchmark.",
+    "Prelearned source ERM and FOMAML initializations are reused unchanged; FOMAML offline inner horizon remains5.",
+    "Released LEAF pretraining exposure unresolved; HMC support epochs are not independent sessions."
   ],
-  "offline": {
-    "episodes": 60,
-    "inner_steps": 5,
-    "support_total": 100,
-    "query_total": 100,
-    "learning_rate": 0.0001,
-    "meta_batch_users": 1,
-    "checkpoint_every": 1
-  },
   "jobs": [
     {
-      "dataset": "bcic_2a",
-      "arm": "fomaml",
+      "key": "bcic_2a_A08",
       "gpu": 0
     },
     {
-      "dataset": "bcic_2a",
-      "arm": "source_erm",
+      "key": "bcic_2a_A09",
       "gpu": 1
     },
     {
-      "dataset": "hmc",
-      "arm": "fomaml",
+      "key": "hmc_s2",
       "gpu": 2
     },
     {
-      "dataset": "hmc",
-      "arm": "source_erm",
+      "key": "hmc_s6",
       "gpu": 3
     }
+  ],
+  "initialization_reference": "artifacts/benchmark/leaf_personal_meta_init_20261125",
+  "initialization_seed": 42,
+  "eval_steps": [
+    0,
+    5,
+    10,
+    20,
+    50,
+    100
   ]
 }

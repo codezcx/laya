@@ -2,11 +2,13 @@ import json
 import numpy as np
 import pytest
 import torch
-from personal.common import CONFIG, ROOT, check_rows, check_source_rows
+from personal.common import CONFIG, ROOT, check_rows
 from personal.data import TrialStore, PreparedAdapter, normalize_trials, segment, source_group, to_electrodes
 from personal.modules import ConnectorDelta, UserParameters, canonical_logits
-from personal.plan import build, select_support, split_person
-from personal.meta import clone_initialization, first_order_gradients, episode_schedule
+from personal.plan import build, select_support, split_person, personal_batches
+from personal.initialization import common_state, audit_initializations, load_initialization
+from personal.curves import aggregate, plot
+from jev_train.checkpoint import tensor_fingerprint, capture_rng, restore_rng
 
 
 def row(i,session='A08T',label=None):
@@ -75,7 +77,9 @@ def test_optimization_matches_completed_four_user_run():
     for name in ('parent','parent_sha256','seed','steps','batch_size','microbatch','eval_batch',
                  'encode_batch','learning_rate','weight_decay','clip_grad_norm','connector_lora_rank','connector_lora_scale'):
         assert CONFIG[name]==previous[name]
-    assert CONFIG['arms']==['source_erm','fomaml']
+    assert CONFIG['arms']==['ordinary_lora','source_erm','fomaml']
+    assert CONFIG['initialization_seed']==42
+    assert CONFIG['eval_steps']==[0,5,10,20,50,100]
 
 
 def test_trial_normalization_independence_and_montage():
@@ -96,57 +100,78 @@ def test_chunking_preserves_long_sleep_epochs():
     np.testing.assert_array_equal(np.concatenate(pieces,axis=-1),x)
 
 
-def test_meta_plan_has_unseen_targets_and_train_only_sources():
+def test_curve_plan_exact_users_samples_batches():
     store = TrialStore()
-    p = build(store)
-    assert p['counts'] == dict(bcic_2a=2, hmc=2)
-    assert p['source_counts'] == dict(bcic_2a=5, hmc=8)
-    for case in p['cases']:
+    plan = build(store)
+    previous = json.loads((ROOT/CONFIG['initialization_reference']/'plan.json').read_text())
+    assert plan['cases'] == previous['cases']
+    assert plan['counts'] == dict(bcic_2a=2, hmc=2)
+    assert not plan['offline_retraining']
+    for case in plan['cases']:
         assert len(case['support_ids']) == 100
         assert not set(case['support_ids']) & set(case['query_ids'])
         assert case['original_split'] == 'test'
         assert not case['shared_train_seen_subject']
         assert case['query_in_shared_train_pool'] == 0
         assert len(case['query_ids']) == (288 if case['dataset']=='bcic_2a' else 340 if case['subject']=='2' else 344)
-    for case in p['sources']:
-        assert len(case['support_ids']) == len(case['query_ids']) == 100
-        assert not set(case['support_ids']) & set(case['query_ids'])
-        index = {r['id']: r for r in store.rows[case['task']]}
-        for part in ['support','query']:
-            rows = [index[i] for i in case[part+'_ids']]
-            check_source_rows(rows, case, part)
-            assert {r['split'] for r in rows} == {'train'}
-            with pytest.raises(RuntimeError):
-                check_source_rows([dict(rows[0], split='test')], case, part)
-        with pytest.raises(RuntimeError):
-            check_source_rows([index[case['query_ids'][0]]], case, 'support')
-    assert not set(i for c in p['sources'] for part in ['support','query'] for i in c[part+'_ids']) & set(
-        i for c in p['cases'] for part in ['support','query'] for i in c[part+'_ids'])
-    for name, episodes in p['schedules'].items():
-        assert len(episodes) == 60
-        assert sum(len(e['batches']) for e in episodes) == 360
-        assert sum(len(b['ids']) for e in episodes for b in e['batches']) == 5760
-        assert episodes == episode_schedule([c for c in p['sources'] if c['dataset']==name], CONFIG)
-        assert all([b['part'] for b in e['batches']] == ['support']*5+['query'] for e in episodes)
+        schedule = plan['schedules'][case['key']]
+        assert schedule == personal_batches(case)
+        assert {i for b in schedule for i in b['indices']} == set(range(100))
+        for batch in schedule:
+            # Reproduce the previous personal trainer's exact sampling rule.
+            rng = np.random.default_rng(np.random.SeedSequence([42, case['order'], batch['step']]))
+            assert batch['indices'] == rng.integers(100, size=16).tolist()
+    assert not any(r['split'] == 'valid' for rows in store.rows.values() for r in rows)
 
 
-def test_first_order_meta_gradient_is_query_gradient_at_adapted_weights():
-    initial = torch.nn.Linear(1,1,bias=False)
-    with torch.no_grad():
-        initial.weight.fill_(1.)
-    adapted = clone_initialization(initial)
-    inner = torch.optim.SGD(adapted.parameters(), lr=.1)
-    (.5*(adapted.weight-2).square().sum()).backward()
-    inner.step()
-    assert initial.weight.item() == 1.
-    adapted.zero_grad()
-    (.5*(adapted.weight-4).square().sum()).backward()
-    first_order_gradients(initial, adapted)
-    torch.testing.assert_close(initial.weight.grad, torch.tensor([[-2.9]]))
-    torch.optim.SGD(initial.parameters(), lr=.1).step()
-    torch.testing.assert_close(initial.weight, torch.tensor([[1.29]]))
-    with pytest.raises(RuntimeError):
-        first_order_gradients(initial, initial)
+def test_all_initializations_share_seed42_origin_and_reuse_unchanged_weights():
+    records = audit_initializations()
+    ordinary = common_state()
+    assert tensor_fingerprint(ordinary) == '88da1153c2e270122ff7e9af1bb9db58e5824a9fc415426022e66af5f8112542'
+    assert not ordinary['delta.b'].count_nonzero()
+    for name in CONFIG['datasets']:
+        for arm in CONFIG['arms']:
+            r = records[name][arm]
+            state = load_initialization(r)
+            assert tensor_fingerprint(state) == r['final_sha']
+            assert r['starting_sha'] == tensor_fingerprint(ordinary)
+            if arm != 'ordinary_lora':
+                assert state['delta.b'].count_nonzero()
+                assert not torch.equal(state['delta.a'], ordinary['delta.a'])
+                assert r['source_episodes'] == 60
+
+
+def test_seed_constructor_does_not_consume_callers_cpu_rng():
+    before = torch.get_rng_state()
+    first = common_state()
+    assert torch.equal(before, torch.get_rng_state())
+    second = common_state()
+    assert tensor_fingerprint(first) == tensor_fingerprint(second)
+
+
+def test_paired_curves_wait_for_all_users_and_methods(tmp_path):
+    cases = [dict(key=f'{d}{i}', dataset=d) for d in ['bcic_2a','hmc'] for i in [1,2]]
+    arms = CONFIG['arms']
+    points = []
+    for case in cases:
+        for arm in arms:
+            value = .5 if arm == 'ordinary_lora' else .6 if arm == 'source_erm' else .7
+            metric = dict(accuracy=value, balanced_accuracy=value, ce=1-value)
+            points.append(dict(case=case, arm=arm, step=0, support=metric, query=metric,
+                               baseline=dict(balanced_accuracy=.4)))
+    incomplete = aggregate(points[:-1], cases, arms, [0,5])
+    assert '0' in incomplete['matched']['bcic_2a']
+    assert not incomplete['matched']['hmc']
+    assert not incomplete['equal_task']
+    complete = aggregate(points, cases, arms, [0,5])
+    assert complete['equal_task']['0']['fomaml']['delta_vs_ordinary_pp'] == pytest.approx(20.)
+    assert complete['matched']['hmc']['0']['ordinary_lora']['users'] == 2
+    assert '5' not in complete['equal_task']
+    with pytest.raises(RuntimeError, match='Duplicate'):
+        aggregate(points + points[:1], cases, arms, [0,5])
+    plot(complete, tmp_path, arms, [0,5])
+    assert (tmp_path/'adaptation_curves.png').stat().st_size > 1000
+    assert (tmp_path/'support_query_curves.pdf').exists()
 
 
 def test_bcic_preprocessing_matches_historical_saved_signal():

@@ -1,85 +1,81 @@
-# 个人 LoRA 元初始化：固定机制验证协议
+# 同种子个人适配曲线：固定实验协议
 
-_2026-11-25；用户批准实际训练。先验证能否改善同一新用户的100条有标签适配，不增加其他模块。_
+_2026-11-25；只统一初始化种子并补齐等步数曲线，不改变学习率、rank、encoder或个人训练预算。_
 
-## 🎯 问题与假设
+## 🎯 目的与比较
 
-普通个人LoRA直接从随机A、零B初始化，优化本人support的CE；它没有显式学习“少量更新后在本人另一批样本上泛化”。这里采用MAML的初始化学习思想[^maml]，只对40,960个个人参数做一阶近似，不做27B模型的二阶反传。假设是学到的初始化可提高个人适配后的query BAcc；不是预设一定优于继续训练。
+上一轮FOMAML相对普通个人LoRA的两任务均值只提高0.13个百分点。先检查它是否在适配早期有收益、但100步时差异消失；不先用新超参数解释或修复结果。此前普通LoRA按用户seed初始化，而源训练统一从seed42开始；这轮消除该差异。
 
-原已训练模型不从头重训：parent为 `artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。
+冻结的parent仍为 `leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360，SHA256 `7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a`。原始结构、损失（支持集CE）和优化器不变。
 
-## 📋 数据与成员
+| 对照 | 个人适配开始时的参数 | 本轮更新 |
+| --- | --- | --- |
+| 普通 LoRA | seed42随机A、零B | 本人support，100步 |
+| source ERM | 上轮60episode完成的初始化 | 本人support，100步 |
+| FOMAML | 上轮60episode完成的元初始化 | 本人support，100步 |
 
-以下为历史parent缓存的完整分配计数，顺序训／验／测，不是本pilot全部使用的样本。
+所有组最初随机参数的共同指纹为 `88da1153c2e270122ff7e9af1bb9db58e5824a9fc415426022e66af5f8112542`。两种已学习初始化直接复用，不重新置零A/B，不重跑离线阶段。源权重、完成记录、原plan的hash纳入新运行守卫；完整旧实现与结果在Git `4a664b1`。
+
+## 📋 数据与人员
+
+下表是parent历史缓存的完整成员数量，训／验／测顺序；不是本轮全部参与梯度的数据量。
 
 | 数据集 | 处理后试次/窗口总计（训／验／测） | 任务种类（分类数） | 划分协议 | 被试总计（训／验／测） |
 | --- | --- | --- | --- | --- |
 | BCIC-IV-2a | 5,184试次（2,880／1,152／1,152） | 运动想象（4） | 固定跨被试 | 9（5／2／2） |
 | HMC | 136,925窗口（92,454／22,421／22,050） | 睡眠分期（5） | 原缓存跨被试 | 151（103／24／24） |
 
-实际使用：
+实际仍为2a A08/A09、HMC s2/s6，所有人都是原test被试，未进入parent共享train。严格复用上轮support/query ID、排序、原split标签和case order：
 
-- 2a源用户A01–A05：每人从T场次取100个类别平衡support，从E场次另取100个平衡source-query。两场次在历史分配中都属于train。
-- HMC源用户3、5、10、17、25、28、34、35：按数值ID取最前8名符合条件的train用户。每人前60%时间段取100个support，隔开2个30秒epoch，再从后段取100个source-query。条件是两段均至少20个每类epoch，不按模型分数选人。
-- 2a目标用户A08/A09：每人T场次100个support，完整E场次288个query。保留上一轮精确ID、排序、个人seed。
-- HMC目标用户s2/s6：每人100个support，原来的完整后段340/344个query，保留2epoch隔离和上一轮精确ID。
-- 源用户与目标用户不重合。源support/query均为原train；目标为原test的个人适配协议。原valid本轮不读取信号、不参与梯度或选点。样本成员与原split标签不改。
-- HMC100条是睡眠epoch，不是100个独立用户或场次。稀有阶段不足者不进入本pilot源池，存在选择偏差。
+- 2a：每人T场次100条类别平衡support（每类25），完整E场次288条query。
+- HMC：每人前60%时间段中取100个support epoch（每阶段20）；间隔2个30秒epoch后，完整后段分别340/344条query。
+- 原valid本轮不读取信号、不用于梯度或选点；原train也不重跑梯度。
+- 支持与query不重叠原试次/epoch；个人梯度守卫拒绝query。HMC相邻睡眠epoch并非独立用户或场次。
 
-所有样本、原split、source-group及完整batch ID序列固定在 `plan.json`。数据/代码hash和array大小、mtime校验；支持源train守卫、个人support守卫两套检查。
+`plan.json` 固化全部成员及100步的batch ID。每名用户原batch RNG为 `SeedSequence([42, case_order, step])`，保留不变；唯一更正是普通LoRA的A不再用42＋case_order×101，而统一42。模型内每个训练batch的随机状态和选项排列也沿用原规则。
 
-## ⚙️ 方法与预算
+## ⚙️ 固定设置
 
-冻结主干：LEAF Tower → 原连接器 → JEV。个人LoRA加在连接器最后的5120→5120层，`delta(z)=B(Az)`，rank4、scale1、40,960参数。训练和推理都只输入当前EEG＋原问题/选项，不插入有标签示例，不引入类别原型。
-
-| 组别 | 离线阶段 | 新用户阶段 |
-| --- | --- | --- |
-| 普通个人LoRA | 无 | 按原个人seed随机A、零B；100support训练100步 |
-| source ERM | 同一LoRA连续用source-support和source-query做CE | 加载学习后的共同初始化；100support训练100步 |
-| FOMAML | 每episode克隆共同初始化；本人support更新临时LoRA，再由本人source-query梯度更新共同初始化 | 加载元初始化；100support训练100步 |
-
-FOMAML逐episode流程：
-
-1. 从源用户循环抽一个人；临时LoRA拷贝共同初始化，inner AdamW状态重置。
-2. 本人的support做5次batch16更新。
-3. 本人的另一批source-query做1次batch16前向/反向。将临时参数上的query梯度拷给共同初始化，省略inner更新的Jacobian，再做一次outer AdamW更新。
-4. 丢弃临时LoRA；下一episode重新从更新后的共同初始化开始。
-
-source ERM按完全相同的用户次序、6个batch的样本、选项置换依次更新同一组参数。两组都是60episode、360个梯度batch、5,760次样本呈现；ERM有360次优化器step，FOMAML有300次inner＋60次outer，这是算法差异，不声称优化器状态轨迹相同。每次batch前固定随机状态，支持断点重现。
-
-| 设置 | 固定值 |
+| 设置 | 本轮值 |
 | --- | --- |
-| 共用初始LoRA | seed42、随机A/零B，ERM与FOMAML完全相同 |
-| 离线预算 | 60episode，每次1源用户、5inner＋1query |
-| 离线inner/outer学习率 | 1e-4；outer是新增参数，明确取相同值 |
-| 所有优化器 | AdamW，weight_decay0.01，grad_clip1，无scheduler |
-| batch / microbatch | 16 / 4 |
-| 每人适配 | 100support，100steps；有放回抽样，与旧个人采样ID一致，并确认全部100条被使用 |
-| 选点 | 固定离线episode60＋个人step100，禁止query挑最好checkpoint |
-| 评估 | 每名目标用户完整query，未适配、初始化后未个人训练、最终适配；另报告support Acc/BAcc |
-| 设备 | GPU0/1：2a FOMAML/ERM；GPU2/3：HMC FOMAML/ERM |
-| 范围 | 每任务2名目标用户，seed42，不扩展到所有人 |
-| 时间 | 6小时上限；完成即退；每episode与每10个人step保存 |
+| 可训练参数 | 连接器最后5120→5120层的LoRA A/B，40,960参数 |
+| encoder／原连接器／JEV | 全冻结；梯度经过JEV流向个人LoRA |
+| rank／scale | 4／1 |
+| learning rate | 1e-4，无scheduler |
+| optimizer | AdamW，weight_decay0.01，grad_clip1 |
+| batch／microbatch／eval batch | 16／4／8 |
+| 每人support／训练步数 | 100／100；有放回抽样，确认100条均被使用 |
+| 评估步数 | 0、5、10、20、50、100 |
+| 选点 | 固定100步；不早停、不按query取最好点 |
+| 并行 | GPU0 A08、GPU1 A09、GPU2 HMC s2、GPU3 HMC s6 |
+| 每卡顺序 | 普通LoRA→source ERM→FOMAML，每组重置优化器 |
+| 预算 | 12次个人适配，共1200个训练step；完成即退，6小时安全上限 |
 
-每个worker还独立重跑普通个人LoRA，两卡同用户的普通基线必须一致。基线个人A仍沿用历史用户seed，不假装与共同seed42完全相同；主要因果比较为ERM与FOMAML，二者初值与样本暴露完全一致。历史不适配预测需逐样本复现。
+预处理保持parent：最小范数双极导联转换、200Hz、逐epoch裁剪及median/IQR归一化、65通道插值；2a保留16个256维token，HMC完整30秒保留120个token。没有更换encoder、特征选择、损失或任务文本。
 
-## 🔍 预处理、检查与判据
+FOMAML源训练仍是5步inner-loop、60个episode；此轮不解决其与100步个人适配之间的预算差异，只测量差异何时出现。两个任务使用各自的源初始化，不能称为跨任务元学习。
 
-保持parent预处理：最小范数双极导联转换、200Hz、逐epoch裁剪及median/IQR归一化、65通道插值；2a为16个256维token，HMC保留完整30秒的120个token，不裁短。冻结Tower特征可缓存，样本ID和代码hash不符则拒绝复用。
+## 📊 记录与汇总
 
-真实模型检查包括零LoRA恒等、inner更新不改变共同初始化、非零且有限的source-query meta梯度、初始化确实更新、精确重载及共享参数/缓冲未改变。每次梯度不累积到冻结JEV参数，但允许梯度经过JEV流向个人LoRA。
+每个评估点保存完整support的Acc/BAcc/CE、完整query的Acc/BAcc/CE、逐样本logits与ID、个人参数指纹及权重。训练loss逐步保存。评估用no_grad并恢复随机状态，不更改优化器、参数或下一批训练样本。
 
-主要结果按任务报告同人BAcc差值、个人support训练表现及负迁移人数。每任务2人只作机制验证，不给小样本显著性结论。必须比较FOMAML相对ERM，而不只比较相对未适配的收益。初始化本身已改变输出，因此同时报告适配前与适配后的分数。
+断点在评估前保存；若中断，恢复后先补当前步评估，禁止跳过应有的较早曲线点。所有组初始优化器状态都是空的。真实27B检查验证零LoRA恒等、支持集梯度确实更新、共享参数/缓冲不变及精确重载。
 
-短inner-loop只有5步、部署适配100步，是已知近似限制；本轮固定此预算，不依据目标query追加训练。两个任务分别学习初始化，尚未证明跨任务元迁移。
+同一步数的所有三组、两名用户齐全后，才输出该任务的配对均值；两任务都齐全后才输出等权平均。主比较为FOMAML与普通LoRA、FOMAML与source ERM的同人差值，不混用不同用户的临时均值。最终仍以固定100步作主结果，前几步曲线作机制诊断，不因观察曲线重新选择训练预算。
 
-## ⚠️ 历史暴露与归档
+输出目录 `artifacts/benchmark/leaf_personal_matched_curves_20261125/`：
 
-原test已有历史观察，原valid也曾被用过；本轮遵守当前开发角色，不称盲测。原train被试也参与过parent共享训练，LEAF发布权重的预训练暴露未完全审计。个人支持样本来自原test用户是既有、已授权的个人校准流程，不能混称普通无适配测试。
+- `summary.json`：完整配对的均值、差值、未齐全的组合。
+- `curve_points.csv`：逐用户、逐方法、逐步指标。
+- `figures/adaptation_curves.png/pdf`：完整query BAcc与相对普通LoRA增益。
+- `figures/support_query_curves.png/pdf`：完整support Acc、support CE、query CE。
+- `jobs/<用户>/cases/<用户>/<方法>/curves/step*.json/.npz/.pt`：指标、预测及个人权重。
+- `last.pt`：可恢复的参数、优化器、历史；`result.json`：固定100步结果。
 
-前轮42份结果、ICL代码与协议归档Git `9a96ae0`；当前只保留元初始化及匹配控制。所有ignored产物保留。方法检索依据见[研究记录](PERSONALIZATION_METHOD_REVIEW.md)，后续尝试项不是本轮已执行内容。
+图使用实际step间距，无平滑、无插值填补缺失结果。尚未齐全的均值位置留空；本轮不从2名用户推断总体显著性。
 
-实验设计技能用于同人配对、样本隔离、预算匹配；资源及模型技能用于原环境/冻结梯度检查，Markdown技能用于协议记录。Hugging Science目录未找到EEG匹配条目，未因此更换既定模型或下载新权重。技能来源[^skills]不属于模型创新。
+## ⚠️ 限制与归档
 
-[^maml]: Finn, C., Abbeel, P., Levine, S. (2017). Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks. ICML. https://proceedings.mlr.press/v70/finn17a.html
-[^skills]: Kassis, T., Agarwal, V., He, Y., Patel, D., Brueckner, A. M. (2026). Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents. https://doi.org/10.48550/arXiv.2609.00065
+这是单seed、每任务2人的探索性诊断，不是独立盲测。原test和原valid都有历史暴露；本轮不使用valid不意味着它重新成为未观察集。LEAF发布权重预训练暴露未完全审计。新普通LoRA初值已修正，旧59.72%／69.36%不可充当本轮新基线。
+
+实验设计技能用于固定同人配对与变量，资源技能用于确认四卡可用，Matplotlib技能用于实际数值曲线，Markdown技能用于协议记录；这些工程辅助不属于方法创新。方法背景与已核验引用保留在[研究记录](PERSONALIZATION_METHOD_REVIEW.md)。所有ignored数据、checkpoint、日志、缓存和第三方环境保留，旧离线训练代码在Git归档，可用隔离worktree复跑。

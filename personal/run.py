@@ -1,4 +1,4 @@
-"""Bounded four-GPU meta-initialization pilot with matched source exposure."""
+"""Bounded four-user matched personal curves; no source retraining."""
 import argparse
 import fcntl
 import json
@@ -13,33 +13,7 @@ from jev_train.runtime import ROOT, digest
 from .common import CONFIG, OUT, identity, write_json
 
 
-def summary():
-    grouped = {}
-    for path in sorted((OUT / 'jobs').glob('*/cases/*/*/result.json')):
-        r = json.loads(path.read_text())
-        block = grouped.setdefault(r['case']['dataset'], {}).setdefault(r['arm'], {})
-        key = r['case']['key']
-        if key in block:
-            other = block[key]
-            if other['case'] != r['case'] or abs(other['adapted']['balanced_accuracy'] - r['adapted']['balanced_accuracy']) > 1e-10:
-                raise RuntimeError('Repeated ordinary-LoRA matched control differs across workers')
-        block[key] = r
-    report = {}
-    for name, arms in grouped.items():
-        expected = CONFIG['cohorts'][name]['subjects']
-        report[name] = {}
-        for arm, keyed in arms.items():
-            values = list(keyed.values())
-            report[name][arm] = dict(users=len(values), planned_users=len(expected),
-                case_ids=list(keyed), baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
-                initial_bacc=sum(r['initial']['balanced_accuracy'] for r in values)/len(values),
-                adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
-                mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
-                negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values))
-    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_evaluation_allocation='test',
-        query_selection=False, independent_test_estimate=False, datasets=report,
-        completed_unique_results=sum(len(v) for a in grouped.values() for v in a.values()),
-        expected_unique_results=12, paired_case_ids_required=True))
+from .curves import summary
 
 def main():
     parser = argparse.ArgumentParser()
@@ -133,7 +107,7 @@ def main():
             raise RuntimeError('A personal worker failed')
         summary()
         plan = json.loads((OUT / 'plan.json').read_text())
-        completed = sum((OUT / 'jobs' / f"{j['dataset']}_{j['arm']}" / 'complete.json').exists() for j in CONFIG['jobs'])
+        completed = sum((OUT / 'jobs' / j['key'] / 'complete.json').exists() for j in CONFIG['jobs'])
         report(state='complete' if completed == len(CONFIG['jobs']) else 'budget_exhausted',
                complete_jobs=completed, planned_jobs=len(CONFIG['jobs']))
     except BaseException as exc:

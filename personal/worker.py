@@ -1,4 +1,4 @@
-"""One frozen server per GPU: source initialization learning, then matched users."""
+"""One user per GPU, three common-seed initializations and fixed-step curves."""
 import argparse
 import json
 import os
@@ -8,11 +8,11 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from jev_train.checkpoint import seed_rng, tensor_fingerprint
+from jev_train.checkpoint import seed_rng, tensor_fingerprint, capture_rng, restore_rng
 from jev_train.data import classification_metrics
-from .common import CONFIG, OUT, ROOT, check_rows, check_source_rows, identity, write_json
+from .common import CONFIG, OUT, ROOT, check_rows, identity, write_json
 from .data import TrialStore
-from .meta import clone_initialization, first_order_gradients
+from .initialization import load_initialization
 from .model import PersonalServer
 from .modules import UserParameters
 
@@ -30,7 +30,9 @@ def cpu_state(user):
 
 
 def metrics(logits, rows, classes):
-    return classification_metrics([r['label'] for r in rows], logits.softmax(-1).numpy(), classes)
+    result = classification_metrics([r['label'] for r in rows], logits.softmax(-1).numpy(), classes)
+    result['ce'] = float(F.cross_entropy(logits.float(), torch.tensor([r['label'] for r in rows])))
+    return result
 
 
 def make_user(server, seed):
@@ -38,8 +40,8 @@ def make_user(server, seed):
     return UserParameters(CONFIG, server.model.text.config.hidden_size).cuda()
 
 
-def optimizer_for(user, server, offline=False):
-    lr = CONFIG['offline']['learning_rate'] if offline else CONFIG['learning_rate']
+def optimizer_for(user, server):
+    lr = CONFIG['learning_rate']
     optimizer = torch.optim.AdamW(user.parameters(), lr=lr, weight_decay=CONFIG['weight_decay'])
     ids = {id(p) for p in user.parameters()}
     if ids != {id(p) for g in optimizer.param_groups for p in g['params']}:
@@ -87,127 +89,30 @@ def encoded(server, store, rows, directory, stamp):
     return tokens
 
 
-def smoke(server, store, case, directory):
-    byid = {r['id']: r for r in store.rows[case['task']]}
-    rows = [byid[i] for i in case['support_ids'][:2]]
-    check_source_rows(rows, case, 'support')
-    tokens = server.encode(store, rows)
-    task = store.tasks[case['task']]
-    baseline = server.predict(tokens, rows, task)
-    initial = make_user(server, CONFIG['seed'])
-    torch.testing.assert_close(server.predict(tokens, rows, task, initial), baseline, rtol=0, atol=0)
-    original = tensor_fingerprint(initial.state_dict())
-    adapted = clone_initialization(initial)
-    inner = optimizer_for(adapted, server)
-    loss = backward_batch(server, adapted, tokens, rows, task, 1)
-    norm = update(adapted, inner)
-    if norm <= 0 or tensor_fingerprint(adapted.state_dict()) == original:
+def smoke(server, tokens, support, case, task, directory):
+    rows = support[:2]
+    check_rows(rows, case, gradient=True)
+    baseline = server.predict(tokens[:2], rows, task)
+    user = make_user(server, CONFIG['initialization_seed'])
+    torch.testing.assert_close(server.predict(tokens[:2], rows, task, user), baseline, rtol=0, atol=0)
+    original = tensor_fingerprint(user.state_dict())
+    optimizer = optimizer_for(user, server)
+    loss = backward_batch(server, user, tokens[:2], rows, task, 1)
+    norm = update(user, optimizer)
+    if norm <= 0 or tensor_fingerprint(user.state_dict()) == original:
         raise RuntimeError('No real personal update')
-    if tensor_fingerprint(initial.state_dict()) != original:
-        raise RuntimeError('Inner loop mutated meta initialization')
-    # Real outer gradient must use a disjoint source-train query batch.
-    qrows = [byid[i] for i in case['query_ids'][:2]]
-    check_source_rows(qrows, case, 'query')
-    qt = server.encode(store, qrows)
-    qloss = backward_batch(server, adapted, qt, qrows, task, 2)
-    outer = optimizer_for(initial, server, offline=True)
-    first_order_gradients(initial, adapted)
-    update(initial, outer)
-    if tensor_fingerprint(initial.state_dict()) == original:
-        raise RuntimeError('No meta-initialization update')
-    before = server.predict(tokens, rows, task, initial)
-    restored = make_user(server, CONFIG['seed'] + 1)
-    restored.load_state_dict(cpu_state(initial), strict=True)
-    torch.testing.assert_close(before, server.predict(tokens, rows, task, restored), rtol=0, atol=0)
+    before = server.predict(tokens[:2], rows, task, user)
+    restored = make_user(server, CONFIG['initialization_seed'])
+    restored.load_state_dict(cpu_state(user), strict=True)
+    torch.testing.assert_close(before, server.predict(tokens[:2], rows, task, restored), rtol=0, atol=0)
     server.assert_frozen()
-    write_json(directory / 'smoke.json', dict(passed=True, source_train_only=True, identity_exact=True,
-        inner_isolated=True, real_outer_query_gradient=True, frozen_shared_weights=True, reload_exact=True,
-        signal_tokens=tokens.shape[1], trainable_parameters=sum(p.numel() for p in initial.parameters()),
-        support_ce=loss, query_ce=qloss, peak_allocated_gib=torch.cuda.max_memory_allocated()/1024**3))
+    write_json(directory / 'smoke.json', dict(passed=True, support_only=True,
+        identity_exact=True, real_update=True, frozen_shared_weights=True, reload_exact=True,
+        signal_tokens=tokens.shape[1], trainable_parameters=sum(p.numel() for p in user.parameters()),
+        support_ce=loss, peak_allocated_gib=torch.cuda.max_memory_allocated()/1024**3))
 
 
-def offline_train(server, store, plan, job, directory, deadline, stamp, progress):
-    sources = {c['key']: c for c in plan['sources'] if c['dataset'] == job['dataset']}
-    packs = {}
-    for key, case in sources.items():
-        progress('encoding_source', source=key)
-        byid = {r['id']: r for r in store.rows[case['task']]}
-        s = [byid[i] for i in case['support_ids']]
-        q = [byid[i] for i in case['query_ids']]
-        check_source_rows(s, case, 'support')
-        check_source_rows(q, case, 'query')
-        tokens = encoded(server, store, s + q, directory / 'sources' / key, stamp)
-        packs[key] = dict(case=case, support=s, query=q, support_tokens=tokens[:len(s)], query_tokens=tokens[len(s):])
-    initial = make_user(server, CONFIG['seed'])
-    starting_sha = tensor_fingerprint(initial.state_dict())
-    outer = optimizer_for(initial, server, offline=True)
-    state_path = directory / 'offline_last.pt'
-    done, history = 0, []
-    if state_path.exists():
-        saved = torch.load(state_path, map_location='cpu', weights_only=False)
-        if saved['stamp'] != stamp or saved['job'] != job:
-            raise RuntimeError('Offline resume identity mismatch')
-        initial.load_state_dict(saved['user'], strict=True)
-        outer.load_state_dict(saved['optimizer'])
-        done, history = saved['episode'], saved['history']
-
-    def save():
-        server.assert_frozen()
-        atomic_save(dict(stamp=stamp, job=job, user=cpu_state(initial), optimizer=outer.state_dict(),
-                         episode=done, history=history, starting_sha=starting_sha), state_path)
-
-    for episode in plan['schedules'][job['dataset']][done:]:
-        if time.time() >= deadline:
-            save()
-            return None
-        started = time.time()
-        if identity() != stamp['source_hashes']:
-            raise RuntimeError('Live source changed')
-        pack = packs[episode['source']]
-        case = pack['case']
-        task = store.tasks[case['task']]
-        if job['arm'] == 'fomaml':
-            adapted = clone_initialization(initial)
-            inner = optimizer_for(adapted, server)
-            pre_inner_sha = tensor_fingerprint(initial.state_dict())
-        else:
-            adapted, inner = initial, outer
-        losses, norms = [], []
-        for batch in episode['batches']:
-            part, ix = batch['part'], batch['indices']
-            rows = [pack[part][i] for i in ix]
-            if [r['id'] for r in rows] != batch['ids']:
-                raise RuntimeError('Matched source batch changed')
-            check_source_rows(rows, case, part)
-            loss = backward_batch(server, adapted, pack[part + '_tokens'][ix], rows, task, batch['prompt_step'])
-            if job['arm'] == 'fomaml' and part == 'query':
-                if tensor_fingerprint(initial.state_dict()) != pre_inner_sha:
-                    raise RuntimeError('Inner loop changed meta initialization')
-                outer.zero_grad(set_to_none=True)
-                first_order_gradients(initial, adapted)
-                norm = update(initial, outer)
-            else:
-                norm = update(adapted, inner)
-            losses.append(loss)
-            norms.append(norm)
-        done = episode['episode']
-        history.append(dict(episode=done, source=case['key'], support_ce=float(np.mean(losses[:-1])),
-            query_ce=losses[-1], batch_losses=losses, grad_norms=norms, seconds=time.time()-started,
-            gradient_batches=done*(CONFIG['offline']['inner_steps']+1),
-            sample_presentations=done*(CONFIG['offline']['inner_steps']+1)*CONFIG['batch_size']))
-        save()
-        progress('offline_training', **history[-1])
-        del adapted, inner
-    atomic_save(cpu_state(initial), directory / 'initialization.pt')
-    write_json(directory / 'offline_complete.json', dict(episodes=done, job=job, stamp=stamp,
-        trainable_parameters=sum(p.numel() for p in initial.parameters()), history=history,
-        starting_sha=starting_sha, final_sha=tensor_fingerprint(initial.state_dict()),
-        query_means_source_train=True, target_users_used=False,
-        outer_optimizer_steps=done if job['arm']=='fomaml' else done*(CONFIG['offline']['inner_steps']+1)))
-    return cpu_state(initial)
-
-
-def run_person(server, store, case, initialization, job, directory, deadline, stamp, progress):
+def run_person(server, store, plan, case, job, directory, deadline, stamp, progress):
     byid = {r['id']: r for r in store.rows[case['task']]}
     support = [byid[i] for i in case['support_ids']]
     query = [byid[i] for i in case['query_ids']]
@@ -226,21 +131,24 @@ def run_person(server, store, case, initialization, job, directory, deadline, st
         historical = torch.from_numpy(prior['baseline_logits'])
         if not torch.equal(historical.argmax(-1), baseline.argmax(-1)):
             raise RuntimeError('Historical no-adaptation baseline not reproduced')
-    # Run a fresh ordinary personal LoRA as the no-offline control, not copied old scores.
-    for arm in ('ordinary_lora', job['arm']):
+    progress('real_gradient_smoke', case=case['key'])
+    smoke(server, st, support, case, task, directory)
+    base_metric = metrics(baseline, query, case['classes'])
+    for arm in CONFIG['arms']:
         arm_dir = directory / arm
         arm_dir.mkdir(parents=True, exist_ok=True)
+        curve_dir = arm_dir / 'curves'
+        curve_dir.mkdir(exist_ok=True)
         result_path = arm_dir / 'result.json'
         if result_path.exists():
             result = json.loads(result_path.read_text())
             if result['stamp'] != stamp or result['case'] != case:
                 raise RuntimeError('Completed result identity mismatch')
             continue
-        user = make_user(server, CONFIG['seed'] + case['order'] * 101)
-        if arm != 'ordinary_lora':
-            user.load_state_dict(initialization, strict=True)
+        init_record = plan['initializations'][case['dataset']][arm]
+        user = make_user(server, CONFIG['initialization_seed'])
+        user.load_state_dict(load_initialization(init_record), strict=True)
         optimizer = optimizer_for(user, server)
-        initial_logits = server.predict(qt, query, task, user)
         step, history = 0, []
         state_path = arm_dir / 'last.pt'
         if state_path.exists():
@@ -249,50 +157,100 @@ def run_person(server, store, case, initialization, job, directory, deadline, st
                 raise RuntimeError('Personal resume identity mismatch')
             user.load_state_dict(saved['user'], strict=True)
             optimizer.load_state_dict(saved['optimizer'])
-            step, history, initial_logits = saved['step'], saved['history'], saved['initial_logits']
+            step, history = saved['step'], saved['history']
 
         def save():
             server.assert_frozen()
             atomic_save(dict(stamp=stamp, case=case, arm=arm, user=cpu_state(user),
-                optimizer=optimizer.state_dict(), step=step, history=history, initial_logits=initial_logits), state_path)
+                optimizer=optimizer.state_dict(), step=step, history=history,
+                initialization=init_record), state_path)
 
-        for next_step in range(step + 1, CONFIG['steps'] + 1):
+        def evaluate():
+            if step not in CONFIG['eval_steps']:
+                return
+            path = curve_dir / f'step{step:06d}.json'
+            state_sha = tensor_fingerprint(user.state_dict())
+            if path.exists():
+                point = json.loads(path.read_text())
+                if (point['stamp'] != stamp or point['case'] != case or point['arm'] != arm or
+                        point['step'] != step or point['user_sha256'] != state_sha):
+                    raise RuntimeError('Saved curve point differs from resumed state')
+                return
+            progress('evaluating_curve', case=case['key'], personal_arm=arm, step=step)
+            started = time.time()
+            rng = capture_rng()
+            try:
+                after = server.predict(qt, query, task, user)
+                support_logits = server.predict(st, support, task, user)
+            finally:
+                restore_rng(rng)
+            if tensor_fingerprint(user.state_dict()) != state_sha:
+                raise RuntimeError('Evaluation changed personal parameters')
+            server.assert_frozen()
+            if step == 0 and arm == 'ordinary_lora':
+                torch.testing.assert_close(after, baseline, rtol=0, atol=0)
+            weight_path = curve_dir / f'step{step:06d}.pt'
+            atomic_save(cpu_state(user), weight_path)
+            pred_path = curve_dir / f'step{step:06d}.npz'
+            tmp = pred_path.with_suffix('.npz.tmp')
+            with tmp.open('wb') as handle:
+                np.savez_compressed(handle, query_ids=np.asarray(case['query_ids']),
+                    support_ids=np.asarray(case['support_ids']),
+                    labels=np.asarray([r['label'] for r in query]),
+                    support_labels=np.asarray([r['label'] for r in support]),
+                    baseline_logits=baseline.numpy(), logits=after.numpy(), support_logits=support_logits.numpy())
+            tmp.replace(pred_path)
+            metric = metrics(after, query, case['classes'])
+            seen = {i for b in plan['schedules'][case['key']][:step] for i in b['indices']}
+            point = dict(arm=arm, case=case, stamp=stamp, step=step, baseline=base_metric, query=metric,
+                support=metrics(support_logits, support, case['classes']),
+                support_samples_used=len(seen), user_sha256=state_sha, initialization=init_record,
+                seconds=time.time()-started, query_used_for_gradients=False,
+                query_used_for_selection=False, independent_test_estimate=False)
+            # JSON is the commit marker: weights and predictions are already durable.
+            write_json(path, point)
+            progress('curve_complete', case=case['key'], personal_arm=arm, step=step,
+                query_bacc=metric['balanced_accuracy'], eval_seconds=point['seconds'])
+
+        for earlier in CONFIG['eval_steps']:
+            if earlier < step and not (curve_dir / f'step{earlier:06d}.json').exists():
+                raise RuntimeError('Resume would skip a prescribed earlier curve point')
+        save()
+        evaluate()  # completes a point interrupted after its training checkpoint
+        for batch in plan['schedules'][case['key']][step:]:
             if time.time() >= deadline:
                 save()
                 return False
+            if batch['step'] % 10 == 1 and identity() != stamp['source_hashes']:
+                raise RuntimeError('Live personal source changed')
             started = time.time()
-            rng = np.random.default_rng(np.random.SeedSequence([CONFIG['seed'], case['order'], next_step]))
-            ix = rng.integers(len(support), size=CONFIG['batch_size']).tolist()
+            ix = batch['indices']
             rows = [support[i] for i in ix]
+            if [r['id'] for r in rows] != batch['ids'] or batch['step'] != step + 1:
+                raise RuntimeError('Matched personal training schedule changed')
             check_rows(rows, case, gradient=True)
-            loss = backward_batch(server, user, st[ix], rows, task, next_step)
+            loss = backward_batch(server, user, st[ix], rows, task, batch['step'])
             norm = update(user, optimizer)
-            step = next_step
-            history.append(dict(step=step, ce=loss, grad_norm=norm, lr=CONFIG['learning_rate'], seconds=time.time()-started))
-            if step % 10 == 0 or step == CONFIG['steps']:
-                save()
-                progress('personal_adaptation', case=case['key'], personal_arm=arm, **history[-1])
-        progress('evaluating_personal', case=case['key'], personal_arm=arm)
-        after = server.predict(qt, query, task, user)
-        support_logits = server.predict(st, support, task, user)
-        seen = set()
-        for s in range(1, step + 1):
-            rng = np.random.default_rng(np.random.SeedSequence([CONFIG['seed'], case['order'], s]))
-            seen.update(rng.integers(len(support), size=CONFIG['batch_size']).tolist())
-        if len(seen) != len(support):
+            step = batch['step']
+            history.append(dict(step=step, ce=loss, grad_norm=norm, lr=CONFIG['learning_rate'],
+                seconds=time.time()-started, sample_ids=batch['ids']))
+            if step % 10 == 0 or step in CONFIG['eval_steps']:
+                save()  # before evaluation, so interruption cannot skip a point
+                progress('personal_adaptation', case=case['key'], personal_arm=arm,
+                         **{k:v for k,v in history[-1].items() if k != 'sample_ids'})
+            evaluate()
+        points = [json.loads((curve_dir / f'step{s:06d}.json').read_text()) for s in CONFIG['eval_steps']]
+        if points[-1]['support_samples_used'] != len(support):
             raise RuntimeError('Not all personal support samples were used')
         server.assert_frozen()
         atomic_save(cpu_state(user), arm_dir / 'user.pt')
-        np.savez_compressed(arm_dir / 'predictions.npz', query_ids=np.asarray(case['query_ids']),
-            labels=np.asarray([r['label'] for r in query]), baseline_logits=baseline.numpy(),
-            initial_logits=initial_logits.numpy(), logits=after.numpy())
-        base_metric, metric = metrics(baseline, query, case['classes']), metrics(after, query, case['classes'])
+        metric = points[-1]['query']
         write_json(result_path, dict(status='complete', arm=arm, job=job, case=case, stamp=stamp,
-            support_n=len(support), support_samples_used=len(seen), query_n=len(query), baseline=base_metric, adapted=metric,
-            initial=metrics(initial_logits, query, case['classes']),
-            support=metrics(support_logits, support, case['classes']),
-            delta_pp=100*(metric['balanced_accuracy']-base_metric['balanced_accuracy']),
-            steps=step, history=history, trainable_parameters=sum(p.numel() for p in user.parameters()),
+            support_n=len(support), support_samples_used=points[-1]['support_samples_used'],
+            query_n=len(query), baseline=base_metric, adapted=metric, initial=points[0]['query'],
+            support=points[-1]['support'], delta_pp=100*(metric['balanced_accuracy']-base_metric['balanced_accuracy']),
+            steps=step, eval_steps=CONFIG['eval_steps'], history=history, initialization=init_record,
+            trainable_parameters=sum(p.numel() for p in user.parameters()),
             shared_weights_frozen=True, query_used_for_gradients=False, query_used_for_selection=False,
             independent_test_estimate=False, historical_baseline_predictions_identical=True))
         progress('personal_complete', case=case['key'], personal_arm=arm, bacc=metric['balanced_accuracy'])
@@ -308,7 +266,7 @@ def main():
     torch.backends.mha.set_fastpath_enabled(False)
     torch.cuda.set_device(0)
     job = CONFIG['jobs'][args.worker]
-    directory = OUT / 'jobs' / f"{job['dataset']}_{job['arm']}"
+    directory = OUT / 'jobs' / job['key']
     directory.mkdir(parents=True, exist_ok=True)
     hashes = identity()
     plan = json.loads((OUT / 'plan.json').read_text())
@@ -325,18 +283,10 @@ def main():
     store = TrialStore()
     if json.loads(json.dumps(store.stats)) != plan['source_array_stats']:
         raise RuntimeError('Input array identities changed')
-    source = next(c for c in plan['sources'] if c['dataset'] == job['dataset'])
-    progress('real_gradient_smoke')
-    smoke(server, store, source, directory)
-    initialization = offline_train(server, store, plan, job, directory, queue['deadline'], stamp, progress)
-    if initialization is None:
+    case = next(c for c in plan['cases'] if c['key'] == job['key'])
+    if not run_person(server, store, plan, case, job, directory, queue['deadline'], stamp, progress):
         progress('budget_exhausted')
         return
-    for case in plan['cases']:
-        if case['dataset'] == job['dataset']:
-            if not run_person(server, store, case, initialization, job, directory, queue['deadline'], stamp, progress):
-                progress('budget_exhausted')
-                return
     write_json(directory / 'complete.json', dict(job=job, stamp=stamp, time=time.time()))
     progress('worker_done')
 
