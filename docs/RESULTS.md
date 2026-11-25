@@ -24,6 +24,8 @@ _2026-11-25；本轮168个个人条件单独记录，不拿旧全参结果冒充
 
 新增9项测试通过：21人及所有样本/批次配对、仅指定rank改变、配置在worker导入前绑定、完整配对后才计算均值、失败前序不启动，以及真实LEAF Tower的98个rank16目标共1,601,536参数均有有限梯度，原参数没有梯度。实际27B JEV的rank16反向检查在每卡启动训练时由现有worker自动执行，尚未执行，不把CPU检查当成完整GPU训练结果。
 
+全套45项测试已通过。追加代码提交`6a6ee06`；19:42 UTC排队控制器PID2870072已启动，状态`waiting_for_rank4`，未占用GPU。两个追加计划共42条件已落盘，追加与原队列的源hash检查均通过。原队列首批已有条件完成100步、进入下一条件；已完成2a条件的纯训练约12分钟，加评估后约14分钟。当前估计原队列还需约10–12小时，追加两组约3–4小时；不是完成时间保证。
+
 - [追加队列状态](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/queue.json)
 - [rank4/rank16配对报告](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/report.md)
 - [追加实验配置](../configs/personal_rank_followup.json)
