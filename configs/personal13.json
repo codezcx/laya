@@ -1,7 +1,8 @@
 {
-  "run_name": "leaf_infonce_personal_2a100_20261125",
+  "run_name": "leaf_personal_multitask_20261125",
   "parent": "artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp",
-  "output_root": "artifacts/benchmark/leaf_infonce_personal_2a100_20261125",
+  "parent_sha256": "7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a",
+  "output_root": "artifacts/benchmark/leaf_personal_multitask_20261125",
   "gpus": [
     0,
     1,
@@ -11,14 +12,68 @@
   "wall_hours": 12,
   "minimum_free_gpu_mib": 60000,
   "minimum_free_disk_gib": 20,
-  "datasets": [
-    "bcic_2a"
-  ],
-  "authorization": "2026-11-25 user explicitly selected the preceding InfoNCE + LEAF Tower -> JEV checkpoint and 100 individual fine-tuning trials. Subjects 6-9: 100 T-session trials for gradients, complete 288 E-session trials for evaluation.",
-  "role": "held_out_subject_personalization_development",
+  "authorization": "2026-11-25 user requested connector LoRA and correct-label ICL on all nine BCIC-2a subjects and several other tasks, allowing original training data when needed. Each person's support/query remain disjoint.",
+  "role": "exploratory_personal_adaptation_seen_and_unseen",
   "independent_test_estimate": false,
+  "cache_root": "datasets/multitask_seedpaper_20261101",
+  "split_root": "artifacts/benchmark/multitask_splits_seedpaper_20261101",
+  "catalog": "configs/personal_tasks.json",
+  "historical_reference": "artifacts/benchmark/leaf_personal_ce_alltest_20261123",
+  "paired_reference": "artifacts/benchmark/leaf_infonce_personal_2a100_20261125",
+  "datasets": [
+    "bcic_2a",
+    "seed",
+    "hmc",
+    "Nakanishi2015"
+  ],
+  "cohorts": {
+    "bcic_2a": {
+      "subjects": [
+        "6",
+        "7",
+        "8",
+        "9",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "policy": "T_support_E_query",
+      "unit": "independent_trial"
+    },
+    "seed": {
+      "subjects": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "policy": "original_train_support_original_test_query",
+      "unit": "4s_window_grouped_by_source_trial"
+    },
+    "hmc": {
+      "subjects": [
+        "7",
+        "9",
+        "2",
+        "6"
+      ],
+      "policy": "chronological_60pct_support_2epoch_gap_remaining_query",
+      "unit": "30s_sleep_epoch"
+    },
+    "Nakanishi2015": {
+      "subjects": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "policy": "stratified_support_remaining_trials_query",
+      "unit": "independent_trial"
+    }
+  },
   "support_total": 100,
-  "support_policy": "25 unique trials/class from complete T-session, seeded and nested in historical support sampling. E-session is query-only.",
   "seed": 42,
   "steps": 100,
   "batch_size": 16,
@@ -29,53 +84,25 @@
   "learning_rate": 0.0001,
   "weight_decay": 0.01,
   "clip_grad_norm": 1,
-  "adapter_width": 64,
-  "prompt_tokens": 8,
-  "prompt_init_text": "Interpret this EEG recording for this individual user.",
   "connector_lora_rank": 4,
   "connector_lora_scale": 1,
-  "prefix_layers": [
-    51,
-    55,
-    59,
-    63
-  ],
-  "prefix_tokens": 5,
-  "kd_weight": 0.1,
-  "kd_temperature": 1,
-  "teacher_variants": [
-    0,
-    1
-  ],
-  "teacher_policy": "Frozen parent canonical/reversed options, remapped to class IDs and averaged. KD only on support trials where both teacher variants predict the known support label correctly; no query information. Not a BiomedCoOp reproduction.",
   "arms": [
-    "residual",
-    "soft_prompt",
     "connector_lora",
-    "kv_prefix",
-    "soft_prompt_kd",
-    "residual_kd",
-    "soft_prompt_residual",
-    "icl",
-    "icl_shuffled"
+    "icl"
   ],
-  "budget_policy": "Finite four-user nine-arm queue. Finish on completion; existing 12-hour ceiling only a safeguard.",
-  "selection_policy": "Fixed step100, no query selection. Report original valid and test cohorts separately; all have historical evaluation exposure.",
-  "signal_policy": "Restore original 22-channel, 200Hz cache and historical per-trial percentile/median/IQR normalization then 65-channel interpolation. Do not use native13 HDF5.",
-  "limitations": [
-    "Target subjects 6-9 are excluded from this parent shared train; released LEAF pretraining/instruction exposure unresolved.",
-    "Subjects6/7 participated in parent selection; subjects8/9 evaluated historically. No blind-holdout claim."
-  ],
-  "parent_sha256": "7c58002990c707e8f42c6de411eec61fb2d2b55d21406ab4024975708dba7a6a",
-  "cache_root": "datasets/multitask_seedpaper_20261101/bcic_2a",
-  "split_manifest": "artifacts/benchmark/multitask_splits_seedpaper_20261101/bcic_2a/manifest.json",
-  "historical_reference": "artifacts/benchmark/leaf_personal_ce_alltest_20261123",
-  "subjects": {
-    "6": "valid",
-    "7": "valid",
-    "8": "test",
-    "9": "test"
+  "hmc_support_fraction": 0.6,
+  "hmc_gap_epochs": 2,
+  "selection_policy": "Fixed step100; full planned query at baseline and end, no query gradients/stopping/selection. Subject and query shared-training exposure reported separately.",
+  "sampling_policy": "Same uniform replacement batch16 and seeded option permutations as the completed four-user run; preserve A06-A09 personal seeds. Exactly100 support rows, balanced as evenly as class count permits.",
+  "excluded_datasets": {
+    "workload": "Only35-62 windows per person, insufficient for100support plusquery",
+    "BNCI2014009": "Cached rows lack raw run/event timestamps; purge/overlap cannot be fully audited"
   },
-  "shots_per_class": 25,
-  "comparison_policy": "Keep the current nine-arm sampler and option shuffling. Historical20 CE used balanced minibatches and canonical options, so historical20 versus new100 is not a pure sample-size ablation. Primary comparison is same-user no-adaptation versus adapted."
+  "limitations": [
+    "A01-A05 shared-train subjects; their E queries also in shared training pool.",
+    "All selected SEED subjects seen in shared train, but original test query groups excluded from shared train.",
+    "Nakanishi2015 is entirely original train: query estimates are training-pool exploratory, not unseen-data generalization.",
+    "Released LEAF pretraining/instruction exposure remains unresolved.",
+    "100 rows in SEED/HMC are windows, not100independent sessions/trials."
+  ]
 }

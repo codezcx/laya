@@ -17,7 +17,8 @@ def summary():
     grouped = {}
     for path in sorted((OUT / 'cases').glob('*/*/result.json')):
         result = json.loads(path.read_text())
-        name, arm = result['case']['dataset'] + '/' + result['case']['original_split'], result['arm']
+        name = '/'.join((result['case']['dataset'], result['case']['exposure_stratum'], result['case']['original_split']))
+        arm = result['arm']
         grouped.setdefault(name, {}).setdefault(arm, []).append(result)
     data, matched = {}, {}
     for name, arms in grouped.items():
@@ -28,7 +29,7 @@ def summary():
                 baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
                 adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
                 mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
-                negative_transfer_users=sum(r['delta_pp'] < 0 for r in values),
+                negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values),
                 support_windows=sum(r['support_n'] for r in values), query_windows=sum(r['query_n'] for r in values))
         by_arm = {arm: {r['case']['key']: r for r in arms.get(arm, [])} for arm in CONFIG['arms']}
         common = sorted(set.intersection(*(set(v) for v in by_arm.values())))
@@ -40,8 +41,9 @@ def summary():
                     baseline_bacc=sum(r['baseline']['balanced_accuracy'] for r in values)/len(values),
                     adapted_bacc=sum(r['adapted']['balanced_accuracy'] for r in values)/len(values),
                     mean_delta_pp=sum(r['delta_pp'] for r in values)/len(values),
-                    negative_transfer_users=sum(r['delta_pp'] < 0 for r in values))
-    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_splits=['valid', 'test'],
+                    negative_transfer_users=sum(r['delta_pp'] < -1e-9 for r in values))
+    write_json(OUT / 'summary.json', dict(role=CONFIG['role'], original_splits=['train', 'valid', 'test'],
+        pooled_seen_unseen_average_prohibited=True,
         independent_test_estimate=False, paired_case_ids_required_for_between_arm_comparison=True,
         datasets=data, matched_complete_blocks=matched,
         completed_results=sum(len(v) for a in grouped.values() for v in a.values())))

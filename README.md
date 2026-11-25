@@ -1,10 +1,12 @@
-# LEAF Tower → JEV：每人100条个人适配
+# LEAF Tower → JEV：跨任务个人适配
 
-_2026-11-25；用户确认复用旧InfoNCE＋LEAF Tower→JEV checkpoint，不再使用13库混合场次的共享权重。_
+_2026-11-25；只比较连接器LoRA与正确标签ICL，复用旧InfoNCE parent，不重训共享模型。_
 
-## 📋 当前运行
+## 📋 当前实验
 
-A06–A09每人从完整T场次取100条（每类25条）做个人适配，E场次完整288条仅评估。原共享训练仅使用A01–A05，A06/A07为原valid，A08/A09为原test。保留原split成员和名称，两组结果分开汇总；历史验证选点及测试观察不构成新的盲测。
+2a全部9人；SEED、HMC、Nakanishi SSVEP各4人。每人100条支持样本、两个配对方法，共21个用户×任务、42份结果。2a和SSVEP按试次，SEED/HMC按窗口，不能混称100个独立试次。
+
+四卡各常驻一份冻结JEV，动态领取独立用户；同一用户依次跑两个方法，每次重新初始化个人参数。LoRA保持rank4、100步、batch16/micro4、lr1e-4；ICL只做前向。不修改共享Tower、原连接器权重或JEV，不合并不同人的support。
 
 ```bash
 laya/.venv-eeg/bin/python -m pytest tests -q
@@ -12,23 +14,18 @@ laya/.venv-eeg/bin/python -m personal.plan
 laya/.venv-eeg/bin/python -m personal.run --start
 ```
 
-当前parent：`artifacts/benchmark/leaf_tower_contrastive_20261123/train/leaf_infonce_mlp/best.pt`，step1360。个人输出：`artifacts/benchmark/leaf_infonce_personal_2a100_20261125/`。四卡各常驻一个冻结模型，每人优先跑完整9种方法/对照；完成即退出，12小时仅为上限。
-
-- [当前协议与边界](docs/PROTOCOL.md)
-- [运行状态与结果](docs/RESULTS.md)
-- [当前配置](configs/personal13.json)
+- [当前协议及样本隔离](docs/PROTOCOL.md)
+- [运行与结果](docs/RESULTS.md)
+- [配置](configs/personal13.json)
+- [任务文本](configs/personal_tasks.json)
 - [历史归档](docs/ARCHIVE.md)
 
-## ⚙️ 不变的训练关系
+输出：`artifacts/benchmark/leaf_personal_multitask_20261125/`。`plan.json`固定support/query ID、原split、源试次/时间隔离及共享训练暴露；`summary.json`按数据集、暴露组、原split分别汇总，不把已见与未见被试混成泛化分数。12小时是上限，有限队列完成即退出。
 
-LEAF信号Tower、原连接器、JEV全部共享参数冻结；只更新每人的残差adapter、soft prompt、连接器增量LoRA或KV prefix。保留CE、KD/组合及两种ICL对照。100步、batch16/micro4、lr1e-4、seed42不变；未额外对比训练、未重训共享模型。固定step100评估，不用个人query选点。
+## ⚠️ 结果解释
 
-恢复旧22通道200Hz缓存、逐trial裁剪/median-IQR归一化、65通道插值和旧任务文本；不读13库已归一化HDF5。A08/A09强制检查不适配预测复现旧基线，失败则停止。代码`personal/`只保留本轮协议；`jev_train/`用于已有模型加载/决策等共享实现，13库共享训练不再启动。
+2a A01–A05及SSVEP的query来自原共享训练池，是用户授权的探索，不是独立测试。SEED的人已见，但query是原test试次。HMC和2a A06–A09未进入本次共享训练池；历史选点/评估和LEAF发布权重暴露仍需披露。
 
-## ⚠️ 比较边界与归档
+上一轮四人九方法36份结果完整归档Git `8bc8e94`；所有原结果和权重保持不变。当前删除已淘汰的其他个人模块实现，仅保留两种方法与必要控制/测试。共享`jev_train/`和数据基础依赖保留；不恢复历史独立训练框架。
 
-主要比较同一人的同一批288条query上，不适配与适配后的Acc/BAcc。旧20条CE实验使用类别均衡batch和固定选项，本轮沿用最近9方法框架的随机抽样和选项重排，不能把旧20条与本轮100条的差值全部归因于样本量。
-
-原58条队列已按用户要求停止，4份residual结果和未完成断点保留，不自动恢复；其源码/配置归档Git `9955da9`。13库57.14%是不同协议的共享开发分数，不作为本轮个人适配基线。数据、权重、日志和环境未删除。
-
-实验设计技能用于按被试/场次隔离及同人配对，资源和Transformers技能用于四卡与旧权重加载检查，Markdown技能用于记录当前协议和实际运行状态。
+实验设计检查用于同人配对、源试次/时间隔离和暴露分组；资源及Transformers检查用于同环境加载和长上下文实测；Markdown技能用于协议与结果记录。相关技能引用见协议。

@@ -13,7 +13,7 @@ from jev_train.runtime import ROOT, digest
 from jev_train.task_options import make_variant
 from .common import CONFIG, PARENT_CONFIG
 from .data import PreparedAdapter
-from .modules import PrefixAttention, canonical_logits
+from .modules import canonical_logits
 
 
 class PersonalServer:
@@ -43,19 +43,7 @@ class PersonalServer:
         del saved
         model.requires_grad_(False).eval()
         self.model = model
-        self.patches = []
-        for layer_id in CONFIG['prefix_layers']:
-            layer = model.text.layers[layer_id]
-            if layer.block_type != 'full_attention':
-                raise ValueError('KV prefixes cannot be attached to linear attention')
-            wrapper = PrefixAttention(layer.self_attn, layer_id)
-            layer.self_attn = wrapper
-            self.patches.append(wrapper)
         self.prompt_cache = {}
-        ids = self.tokenizer.encode(CONFIG['prompt_init_text'], add_special_tokens=False)
-        n = CONFIG['prompt_tokens']
-        ids = (ids * (n // len(ids) + 1))[:n]
-        self.prompt_init = model.text.get_input_embeddings()(torch.tensor(ids, device='cuda')).detach().float()
         self.frozen_versions = {name: p._version for name, p in model.named_parameters()}
         self.frozen_buffers = {name: (b._version, tuple(b.shape)) for name, b in model.named_buffers()}
 
@@ -66,10 +54,6 @@ class PersonalServer:
             raise RuntimeError('A frozen shared parameter was modified')
         if self.frozen_buffers != {n: (b._version, tuple(b.shape)) for n, b in self.model.named_buffers()}:
             raise RuntimeError('A frozen shared buffer was modified')
-
-    def activate(self, user):
-        for patch in self.patches:
-            object.__setattr__(patch, 'active_prefix', getattr(user, 'prefix', None))
 
     def text(self, value):
         if value not in self.prompt_cache:
@@ -90,8 +74,6 @@ class PersonalServer:
         return torch.cat(output)
 
     def project(self, tokens, user):
-        if user is not None and hasattr(user, 'residual'):
-            tokens = user.residual(tokens.float())
         c = self.model.connector
         z = c[2](c[1](c[0](tokens.float())))
         result = c[3](z)
@@ -101,7 +83,6 @@ class PersonalServer:
 
     def forward(self, tokens, rows, task, user=None, step=0, training=False,
                 variant=0, demonstrations=None):
-        self.activate(user)
         self.model.text.train(training)
         self.model.eeg_encoder.eval()
         z = self.project(tokens.cuda(), user)
@@ -114,8 +95,6 @@ class PersonalServer:
             if demonstrations is not None:
                 parts.append(demonstrations)
             parts.append(x.to(prefix.dtype))
-            if user is not None and hasattr(user, 'prompt'):
-                parts.append(user.prompt.to(prefix.dtype))
             parts.append(self.text(question['suffix']))
             sequences.append(torch.cat(parts))
         lengths = torch.tensor([len(s) for s in sequences], device='cuda')
@@ -136,24 +115,15 @@ class PersonalServer:
                           for i in range(0, len(rows), batch)])
 
     @torch.no_grad()
-    def demonstrations(self, tokens, rows, task, shuffled=False):
-        self.activate(None)
+    def demonstrations(self, tokens, rows, task):
         projected = self.project(tokens.cuda(), None)
         rng = np.random.default_rng(CONFIG['seed'])
         order = rng.permutation(len(rows)).tolist()
         labels = [r['label'] for r in rows]
-        if shuffled:
-            original = labels[:]
-            for _ in range(100):
-                labels = rng.permutation(original).tolist()
-                if labels != original:
-                    break
-            if labels == original:
-                raise ValueError('Shuffled demonstration labels did not change')
         parts = [self.text('\nLabeled calibration examples from this participant:\n')]
         for i in order:
             parts += [self.text('\n[example EEG]\n'), projected[i].to(parts[0].dtype),
                       self.text('\n[example label] ' + task['classes'][labels[i]]['option'] + '\n')]
         parts.append(self.text('\n[query EEG]\n'))
         return torch.cat(parts), dict(order=[rows[i]['id'] for i in order], labels=[labels[i] for i in order],
-                                      label_shuffle=shuffled)
+                                      label_shuffle=False)
