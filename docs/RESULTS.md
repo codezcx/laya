@@ -15,6 +15,8 @@ _2026-11-25；复用旧InfoNCE＋LEAF Tower→JEV step1360，原13库parent已�
 
 重启后的[真实模型检查](../artifacts/benchmark/leaf_infonce_personal_2a100_20261125/smoke.json)已通过：原共享forward逐值一致、所有个人训练模块均有非零有限梯度、参数确实更新、个人权重重载逐值一致、共享模型权重保持冻结。ICL两种前向也通过有限值检查。
 
+正式从信号重新编码后的A08/A09基线检查同样通过，576条logits最大差均为0，见各自`baseline_audit.json`。07:39:49 UTC已确认A06残差adapter进入正式step10/100，CE=2.3343、梯度范数0.8527，队列无错误；其余进度以`progress_gpu*.json`为准。
+
 首次启动的保护检查发现，沿用近期框架的推理batch=4会因bf16批形状带来细微logit差异，A08有3/288条、A09有2/288条预测与历史不同，因此自动停止。只恢复历史推理batch=8后，两人logits最大差均为0，训练batch/学习率/步数均未改。失败启动的日志、基线和任何部分状态保留在`leaf_infonce_personal_2a100_20261125_startup_audit/`，本轮重新初始化、不继承其个人状态。详见[诊断记录](../artifacts/benchmark/leaf_infonce_personal_2a100_20261125_startup_audit/diagnosis.json)。
 
 ## 📊 已有参照与比较限制
