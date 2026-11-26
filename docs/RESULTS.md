@@ -160,4 +160,8 @@ rank对照已完成，不再追加重复训练。下一轮用户指定只更新�
 ## 🔄 MAML追加实验入口
 
 - 前四卡：末层LoRA，FOMAML inner100／同计算量ERM，2a A08/A09和HMC s2/s6；[当前队列](../artifacts/benchmark/leaf_personal_fomaml100_20261126/queue.json)。尚未完成，不能填最终BAcc。
-- 后四卡新请求：只更新两层linear，全参与LoRA；一阶／二阶MAML，inner5/20/100；目标个人适配保存0/5/10/20/50/100完整曲线，匹配终点另列。实现及可行性检查在隔离worktree `../eegjev-worktrees/personal-maml-order/`；启动状态待真实检查通过后更新。
+- 后四卡新矩阵：只更新两层linear，全参与LoRA；一阶／二阶MAML，inner5/20/100；每人100条support、个人适配100步，保存0/5/10/20/50/100完整曲线，匹配终点另列。学习率1e-4、有效batch16、rank4固定；因二阶HMC显存要求，新组统一microbatch1＋累积16次，Tower/JEV冻结。
+- 新矩阵统一5轮外循环作短预算机制验证，与前四卡原60轮末层LoRA实验分开记录。24个元学习组合＋4个普通基线，共56次个人适配，72小时墙钟保护；不挑query最好点、不自动追加预算。
+- 2026-11-26 09:07 UTC核验：GPU4/5分别2a两层LoRA一阶/二阶，GPU6/7分别2a两层全参一阶/二阶，先跑inner5，均已完成真实首步更新，初始同batch CE一致为1.541914。36项测试及四种真实HVP检查已通过；目前尚未完成首个二阶outer episode，不能据此宣称二阶元训练有效。
+- [新矩阵队列](../artifacts/benchmark/leaf_personal_maml_order_20261126/queue.json)、[完整配对汇总](../artifacts/benchmark/leaf_personal_maml_order_20261126/summary.json)、[真实二阶检查](../artifacts/benchmark/leaf_personal_maml_order_20261126/preflight_vectorized_micro1/)。隔离worktree：`../eegjev-worktrees/personal-maml-order/`。
+- 二阶后端改用math attention和等价向量化DeltaNet；bf16下不是逐bit相同，检查样本出现小logit变化及个别argmax翻转，因此本轮所有方法/普通基线使用同后端重算，不直接拿历史原生后端分数归因。

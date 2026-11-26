@@ -45,7 +45,9 @@ laya/.venv-eeg/bin/python -m scripts.queue_personal_rank --start
 
 `execution.json`保存独立的执行分配及来源审计；不改写旧checkpoint。继续沿用原追加队列09:56 UTC截止时间，不重新计时。实际启动状态见[进度记录](docs/RESULTS.md)。
 
-[结果文档](docs/RESULTS.md)已记录2026-11-26 07:05 UTC快照：rank4的168条件完整结果，以及已完成12人的连接器rank4→16配对结果。包含位置、支持量、逐用户support/query、共享未见用户分层和未完成项目，不把阶段性结果写成最终结论。
+[结果文档](docs/RESULTS.md)已更新为完整结果：rank4的168条件、rank16的42条件均完成，旧rank队列已结束。上面的迁移命令和时间是历史执行记录，不需重新运行。
+
+2026-11-26新增MAML实验放在隔离worktree，不修改本工作树训练代码：前四卡为`personal-fomaml100`的60轮末层LoRA实验；后四卡为`personal-maml-order`的5轮两层linear机制矩阵，比较全参/LoRA、一阶/二阶、inner5/20/100。后者lr1e-4、有效batch16、100support、rank4、个人100步不变，仅microbatch改为1以运行二阶，全部新组相同。当前队列及检查见[结果文档末节](docs/RESULTS.md#maml追加实验入口)。不要用这两个不同范围/预算的运行直接作同条件比较。
 
 - [固定协议](docs/PROTOCOL.md)
 - [进度与结果入口](docs/RESULTS.md)
