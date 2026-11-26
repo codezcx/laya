@@ -40,6 +40,8 @@ _2026-11-25；本轮168个个人条件单独记录，不拿旧全参结果冒充
 
 两层连接器rank16剩余13个条件，随后自动执行Tower rank16＋连接器rank4的21个条件。按配对rank4实测时间分配后的关键路径合计约75分钟，尚需模型加载、实际rank16速度及调度开销；启动时保守预计1.5–2小时，不是完成承诺。每卡一次独立训练一个用户，不将八卡合成更大的batch。
 
+06:58 UTC已确认八卡均发生实际训练更新：A05及SEED s1/s3由90推进到100步，SEED s2由80推进到90步；其他四卡新条件已完成至少5步。A05最终评估和保存完成，GPU3已进入下一个HMC用户。当前每步约8–9秒，控制器与来源校验正常。
+
 - [八卡分配及迁移审计](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/execution.json)
 - [八卡真实更新检查](../artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/executions/eight_gpu/connector16/)
 
