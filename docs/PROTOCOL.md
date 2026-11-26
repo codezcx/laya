@@ -86,6 +86,16 @@ tower_both每批重新从EEG计算tokens；其他组可以缓存冻结tokens。�
 
 输出`artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/`：顶层`queue.json`/`report.md`/`summary.json`；`connector16/`、`tower16/`各自保存plan、GPU日志和逐人所有曲线与个人LoRA。自动报告仅在同一任务所有配对被试齐全时填均值。原始数据集窗口/被试计数沿用rank4计划，继续披露共享训练暴露。
 
+### 2026-11-26八卡断点迁移
+
+用户更换节点并要求续跑。已核对8×H100 80GB、CUDA可用、原控制器共享锁释放且本节点无旧worker。原rank4的168条件完成；rank16已完成8个，剩余34个，包括A05及SEED s1/s2/s3的90/90/80/90步断点。
+
+只修改追加入口的调度：每卡一个独立worker，按配对rank4的实测耗时分配剩余条件，每卡优先恢复中断条件。保持两个rank阶段顺序、原episode ID和输出目录；不改`personal/*.py`、配置、样本/批次、初值、学习率、batch或步数。恢复原checkpoint的个人权重和优化器，原四小时截止时间仍为09:56 UTC。
+
+旧计划及checkpoint的来源stamp保留；新`execution.json`记录物理分配、恢复步数及checkpoint摘要，旧队列快照保存在`executions/prior_4gpu/`。兼容检查仅允许追加调度脚本及执行清单的hash变化，并继续严格验证所有训练代码、配置、数据身份及新调度hash；不是关闭hash检查。各条件新增`execution_provenance.json`记录执行来源。已完成条件所有文件的摘要在迁移前、队列结束时分别验证，禁止重写已完成结果。每个个人条件另设独占写锁，GPU运行检查存入独立lane目录。
+
+新增4项测试覆盖8卡分配无遗漏/重复、训练代码或配置变化拒绝迁移、新执行hash保护仍生效、原episode目录身份不变；全套49项通过。GPU实际恢复进度另记于[结果记录](RESULTS.md)。
+
 ## 💾 检查、记录与归档
 
 每个worker实际验证零增量恒等、有限且有效的梯度、LoRA更新、原参数及buffer未变、精确保存/重载。单元测试覆盖MHA直接读weight、两个连接器位置、样本嵌套、query隔离、精确历史成员、分层汇总与缺失条件不平均。

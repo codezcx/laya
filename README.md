@@ -36,6 +36,15 @@ laya/.venv-eeg/bin/python -m scripts.queue_personal_rank --start
 
 先等待当前四卡队列退出、100条的配对对照全部齐全且GPU释放，再依次运行两个rank条件；预计新增3–4小时，新增训练总上限4小时，原12小时预算不变。若前序失败或用户停止，不自动继续。追加输出为`artifacts/benchmark/leaf_personal_lora_rank_followup_20261125/`，含独立计划、状态与配对报告；所有数据/优化/冻结检查复用当前实现。
 
+2026-11-26迁移到8卡节点：原rank4的168条件全部完成，不重跑。rank16已完成8/42，剩余34条件重新分配到8卡，其中4个从80/90步断点恢复。仅改变物理GPU分配；原计划、样本、初始化、优化器和训练配方不变。迁移前首次执行以下命令，之后仍用`--start`续跑：
+
+```bash
+laya/.venv-eeg/bin/python -m scripts.queue_personal_rank --resume-gpus 0 1 2 3 4 5 6 7
+laya/.venv-eeg/bin/python -m scripts.queue_personal_rank --start
+```
+
+`execution.json`保存独立的执行分配及来源审计；不改写旧checkpoint。继续沿用原追加队列09:56 UTC截止时间，不重新计时。实际启动状态见[进度记录](docs/RESULTS.md)。
+
 - [固定协议](docs/PROTOCOL.md)
 - [进度与结果入口](docs/RESULTS.md)
 - [假设与结论边界](docs/PERSONALIZATION_METHOD_REVIEW.md)

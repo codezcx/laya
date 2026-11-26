@@ -118,3 +118,44 @@ def test_real_tower_rank16_count_and_base_freeze():
     tower(x).square().mean().backward()
     assert all(p.grad is not None and p.grad.isfinite().all() for p in parameters.values())
     assert all(p.grad is None for n,p in tower.named_parameters() if n not in parameters)
+
+
+def test_resume_allocation_has_no_duplicate_or_omitted_condition():
+    entries=[dict(episode=f'case{i}',resume_step=90 if i<4 else 0,
+                  estimated_seconds=100 if i<4 else 900) for i in range(13)]
+    lanes=rank.assign_lanes(entries,list(range(8)))
+    assert [x['gpu'] for x in lanes]==list(range(8))
+    assigned=[x for lane in lanes for x in lane['entries']]
+    assert sorted(x['episode'] for x in assigned)==sorted(x['episode'] for x in entries)
+    assert all(lane['entries'] for lane in lanes)
+    assert sum(lane['estimated_seconds'] for lane in lanes)==sum(x['estimated_seconds'] for x in entries)
+    for lane in lanes:
+        assert [x['resume_step'] for x in lane['entries']]==sorted([x['resume_step'] for x in lane['entries']],reverse=True)
+
+
+def test_migration_rejects_training_or_configuration_change():
+    scheduler=str(rank.Path(rank.__file__).resolve())
+    old={scheduler:'old','personal/worker.py':'unchanged','configs/personal13.json':'fixed'}
+    new={**old,scheduler:'new',str(rank.EXECUTION):'placement'}
+    assert set(rank.check_scheduler_only_change(old,new))=={scheduler,str(rank.EXECUTION)}
+    for key in ['personal/worker.py','configs/personal13.json','unexpected_new_code']:
+        with pytest.raises(RuntimeError,match='Training/data identity changed'):
+            rank.check_scheduler_only_change(old,{**new,key:'changed'})
+
+
+def test_checkpoint_compatibility_still_guards_actual_live_source(monkeypatch):
+    scheduler=str(rank.Path(rank.__file__).resolve())
+    legacy={scheduler:'old','training':'same'}
+    execution={scheduler:'new','training':'same',str(rank.EXECUTION):'placement'}
+    monkeypatch.setattr(rank,'identity',lambda:execution)
+    assert rank.checked_checkpoint_identity(execution,legacy)==legacy
+    monkeypatch.setattr(rank,'identity',lambda:{**execution,scheduler:'modified_while_live'})
+    with pytest.raises(RuntimeError,match='Live execution source'):
+        rank.checked_checkpoint_identity(execution,legacy)
+
+
+def test_resume_storage_keeps_original_episode_identity():
+    baseline=rank.build_plan('connector16')
+    for episode in baseline['episodes']:
+        directory=rank.episode_directory('connector16',episode)
+        assert directory==rank.OUT/'connector16'/'jobs'/f'worker{episode["worker"]}'/'cases'/episode['case_key']/'both_n100'

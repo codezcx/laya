@@ -23,11 +23,14 @@ BASE_CONFIG = copy.deepcopy(common.CONFIG)
 BASE_IDENTITY = common.identity
 REFERENCE = ROOT / SPEC['reference']
 OUT = ROOT / SPEC['output_root']
+EXECUTION = OUT / 'execution.json'
 
 
 def identity():
-    return {**BASE_IDENTITY(), **{str(p): common.digest(p) for p in (
-        SPEC_PATH, Path(__file__).resolve(), REFERENCE / 'plan.json')}}
+    paths = [SPEC_PATH, Path(__file__).resolve(), REFERENCE / 'plan.json']
+    if EXECUTION.exists():
+        paths.append(EXECUTION)
+    return {**BASE_IDENTITY(), **{str(p): common.digest(p) for p in paths}}
 
 
 def recipe(stage):
@@ -207,11 +210,258 @@ def predecessor_ready(state):
     return True
 
 
-def gpu_ready():
+def gpu_ready(gpus=None):
     value = subprocess.check_output(['nvidia-smi','--query-gpu=index,memory.free',
                                     '--format=csv,noheader,nounits'], text=True)
     free = {int(a):int(b) for a,b in (r.split(',') for r in value.strip().splitlines())}
-    return all(free.get(g,0) >= BASE_CONFIG['minimum_free_gpu_mib'] for g in BASE_CONFIG['gpus'])
+    return all(free.get(g,0) >= BASE_CONFIG['minimum_free_gpu_mib'] for g in (gpus or BASE_CONFIG['gpus']))
+
+
+def check_scheduler_only_change(previous, current):
+    """Only this launcher and its placement manifest may differ on migration."""
+    permitted = {str(Path(__file__).resolve()), str(EXECUTION)}
+    changed = {k for k in previous.keys() | current.keys() if previous.get(k) != current.get(k)}
+    if changed - permitted:
+        raise RuntimeError(f'Training/data identity changed: {sorted(changed-permitted)}')
+    return sorted(changed)
+
+
+def episode_directory(stage, episode):
+    return OUT/stage/'jobs'/f'worker{episode["worker"]}'/'cases'/episode['case_key']/f'{episode["arm"]}_n100'
+
+
+def assign_lanes(entries, gpus):
+    lanes = [dict(lane=i,gpu=g,entries=[],estimated_seconds=0.) for i,g in enumerate(gpus)]
+    for entry in sorted(entries, key=lambda e:(-e['estimated_seconds'], e['episode'])):
+        lane = min(lanes, key=lambda x:(x['estimated_seconds'],x['lane']))
+        lane['entries'].append(entry)
+        lane['estimated_seconds'] += entry['estimated_seconds']
+    for lane in lanes:
+        # Resume interrupted fits first on each lane; never redo their completed steps.
+        lane['entries'].sort(key=lambda e:(e['resume_step']==0, -e['resume_step'], e['episode']))
+    return lanes
+
+
+def prepare_resume(gpus):
+    import torch
+    if not gpus or len(set(gpus)) != len(gpus) or min(gpus) < 0:
+        raise ValueError('GPU indices must be distinct and nonnegative')
+    lock = (OUT/'controller.lock').open('a')
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    if EXECUTION.exists():
+        raise RuntimeError('Execution placement already exists; use --start to resume it')
+    previous = json.loads((OUT/'queue.json').read_text())
+    if previous['state'] in ('complete','stopped_by_user'):
+        raise RuntimeError('No automatic restart of completed or explicitly stopped work')
+    if not predecessor_ready(json.loads((REFERENCE/'queue.json').read_text())):
+        raise RuntimeError('Rank4 controls must finish before migration')
+    changed = check_scheduler_only_change(previous['source_hashes'],identity())
+    if not gpu_ready(gpus):
+        raise RuntimeError('Requested GPUs do not have the required free memory')
+    # The shared lock proves the old controller is gone; this also rejects orphan
+    # local workers. No broad process termination and no checkpoint rewrites.
+    own = str(Path(__file__).resolve().relative_to(ROOT)).replace('/', '.')[:-3]
+    for pid in previous.get('worker_pids',[]):
+        path = Path(f'/proc/{pid}/cmdline')
+        if path.exists() and own.encode() in path.read_bytes():
+            raise RuntimeError('An old local rank worker is still alive')
+    stages = {}; completed = {}; legacy = previous['source_hashes']
+    for stage in SPEC['stages']:
+        plan = json.loads((OUT/stage/'plan.json').read_text())
+        if plan['source_hashes'] != legacy or plan['config'] != recipe(stage):
+            raise RuntimeError('Original rank plan/config differs from the admitted checkpoint identity')
+        cases = {c['key']:c for c in plan['cases']}; entries = []
+        for episode in plan['episodes']:
+            directory = episode_directory(stage,episode)
+            result = directory/'result.json'
+            if result.exists():
+                value = json.loads(result.read_text())
+                if value['status']!='complete' or value['steps']!=100 or value['episode']!=episode:
+                    raise RuntimeError('Invalid completed personal result')
+                # Hash every completed artifact, not only the score summary.
+                completed.update({str(f.relative_to(OUT)):common.digest(f)
+                    for f in directory.rglob('*') if f.is_file()})
+                continue
+            last = directory/'last.pt'; step = 0; digest = None
+            if last.exists():
+                saved = torch.load(last,map_location='cpu',weights_only=False)
+                expected = dict(source_hashes=legacy,parent_sha256=BASE_CONFIG['parent_sha256'])
+                case = cases[episode['case_key']]
+                if (saved['stamp']!=expected or saved['episode']!=episode or
+                        saved['case']['support_ids']!=case['support_ids'] or
+                        saved['case']['query_ids']!=case['query_ids'] or
+                        len(saved['history'])!=saved['step']):
+                    raise RuntimeError('Interrupted checkpoint identity/history mismatch')
+                step = saved['step']; digest = common.digest(last)
+            refs = list(REFERENCE.glob(f'jobs/*/cases/{episode["case_key"]}/{episode["arm"]}_n100/result.json'))
+            if len(refs)!=1:
+                raise RuntimeError('Missing paired rank4 timing reference')
+            ref = json.loads(refs[0].read_text())
+            train = sum(h['seconds'] for h in ref['history'])
+            evaluation = sum(json.loads(f.read_text())['seconds'] for f in (refs[0].parent/'curves').glob('step*.json'))
+            entries.append(dict(episode=episode['key'],resume_step=step,
+                checkpoint_sha256=digest,estimated_seconds=train*(100-step)/100+evaluation+30))
+        stages[stage] = dict(remaining=len(entries),lanes=assign_lanes(entries,gpus),
+            original_plan_sha256=common.digest(OUT/stage/'plan.json'))
+    archive = OUT/'executions'/'prior_4gpu'
+    archive.mkdir(parents=True,exist_ok=False)
+    common.write_json(archive/'queue.json',previous)
+    for stage in SPEC['stages']:
+        (archive/stage).mkdir(parents=True,exist_ok=True)
+        for filename in ('queue.json','plan.json'):
+            path=OUT/stage/filename
+            if path.exists(): shutil.copy2(path,archive/stage/filename)
+    placement = dict(schema='personal-rank-placement-v1',created=time.time(),gpus=gpus,
+        authorization='2026-11-26 user moved to8GPU node and requested resume of unfinished rank controls only.',
+        legacy_checkpoint_source_hashes=legacy,allowed_scheduler_changes=changed,
+        stages=stages,completed_artifact_sha256=completed,
+        training_code_config_data_unchanged=True,checkpoint_bytes_rewritten=False,
+        original_deadline=previous['deadline'])
+    common.write_json(EXECUTION,placement)
+    common.write_json(OUT/'queue.json',dict(previous,state='ready_to_resume',source_hashes=identity(),
+        execution_manifest=str(EXECUTION.relative_to(ROOT)),controller_pid=None,worker_pids=[],
+        resumed_on_eight_gpus=True,gpus=gpus,time=time.time()))
+    print(json.dumps(dict(prepared=True,gpus=gpus,stages={s:v['remaining'] for s,v in stages.items()},
+        resume_steps={s:[e['resume_step'] for l in v['lanes'] for e in l['entries'] if e['resume_step']]
+                      for s,v in stages.items()})),flush=True)
+
+
+def checked_checkpoint_identity(expected_execution, legacy):
+    actual = identity()
+    if actual != expected_execution:
+        raise RuntimeError('Live execution source/placement changed')
+    check_scheduler_only_change(legacy,actual)
+    return legacy
+
+
+def run_lane(stage,lane_index):
+    configure_worker(stage)
+    from personal import worker as w
+    w.torch.set_num_threads(3); w.torch.backends.mha.set_fastpath_enabled(False); w.torch.cuda.set_device(0)
+    placement = json.loads(EXECUTION.read_text()); queue = json.loads((OUT/'queue.json').read_text())
+    plan_path = OUT/stage/'plan.json'; plan = json.loads(plan_path.read_text())
+    legacy = placement['legacy_checkpoint_source_hashes']; live = queue['source_hashes']
+    if (common.digest(plan_path)!=placement['stages'][stage]['original_plan_sha256'] or
+            plan['source_hashes']!=legacy or plan['config']!=recipe(stage)):
+        raise RuntimeError('Original scientific plan changed during migration')
+    checked_checkpoint_identity(live,legacy)
+    # Old checkpoint stamps retain their original provenance. Each live check first
+    # verifies the *new* launcher + placement; unchanged training/data are mandatory.
+    w.identity = lambda: checked_checkpoint_identity(live,legacy)
+    stamp = dict(source_hashes=legacy,parent_sha256=BASE_CONFIG['parent_sha256'])
+    lane = placement['stages'][stage]['lanes'][lane_index]
+    audit = OUT/'executions'/'eight_gpu'/stage/f'lane{lane_index}'
+    audit.mkdir(parents=True,exist_ok=True)
+    def progress(state,**values):
+        record = dict(state=state,stage=stage,lane=lane_index,gpu=lane['gpu'],time=time.time(),pid=os.getpid(),**values)
+        common.write_json(OUT/stage/f'progress_gpu{lane_index}.json',record)
+        print(json.dumps(record),flush=True)
+    progress('loading_frozen_parent')
+    server = w.PersonalServer(BASE_CONFIG['parent_sha256']); store = w.TrialStore()
+    if json.loads(json.dumps(store.stats))!=plan['source_array_stats']:
+        raise RuntimeError('EEG arrays changed')
+    common.write_json(audit/'tower_lora_manifest.json',server.tower_lora_manifest)
+    original_smoke = w.smoke
+    def isolated_smoke(server,inputs,support,case,task,arm,directory):
+        return original_smoke(server,inputs,support,case,task,arm,audit)
+    w.smoke = isolated_smoke
+    cases = {c['key']:c for c in plan['cases']}; episodes = {e['key']:e for e in plan['episodes']}
+    smoked = set()
+    for entry in lane['entries']:
+        episode = episodes[entry['episode']]; case = cases[episode['case_key']]
+        directory = OUT/stage/'jobs'/f'worker{episode["worker"]}'
+        folder = episode_directory(stage,episode)
+        if (folder/'result.json').exists():
+            continue
+        if time.time()>=queue['deadline']:
+            progress('budget_exhausted'); return
+        folder.mkdir(parents=True,exist_ok=True)
+        episode_lock = (folder/'execution.lock').open('a')
+        fcntl.flock(episode_lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+        last=folder/'last.pt'; resume_step=0
+        if last.exists():
+            resume_step=w.torch.load(last,map_location='cpu',weights_only=False)['step']
+        common.write_json(folder/'execution_provenance.json',dict(
+            execution_source_hashes=live,checkpoint_source_hashes=legacy,
+            placement_sha256=common.digest(EXECUTION),stage=stage,lane=lane_index,gpu=lane['gpu'],
+            resume_step=resume_step,checkpoint_sha256=common.digest(last) if last.exists() else None,
+            training_code_config_data_unchanged=True,time=time.time()))
+        progress('resuming_episode',episode=episode['key'],resume_step=resume_step)
+        cache=w.prepare_person(server,store,case,directory,stamp,progress)
+        complete=w.run_episode(server,store,plan,case,episode,cache,directory,queue['deadline'],stamp,progress,smoked)
+        episode_lock.close()
+        if not complete:
+            progress('budget_exhausted'); return
+    common.write_json(audit/'complete.json',dict(stage=stage,lane=lane_index,source_hashes=live,time=time.time()))
+    progress('worker_done')
+
+
+def resume_controller():
+    lock=(OUT/'controller.lock').open('a')
+    fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+    state=json.loads((OUT/'queue.json').read_text()); placement=json.loads(EXECUTION.read_text())
+    if state['state'] in ('complete','budget_exhausted','stopped_by_user'):
+        raise RuntimeError('Execution finished or stopped; explicit authorization needed')
+    expected=state['source_hashes']; children=[]
+    if identity()!=expected:
+        raise RuntimeError('Resume execution identity changed')
+    def record(**values):
+        state.update(values,controller_pid=os.getpid(),time=time.time())
+        common.write_json(OUT/'queue.json',state)
+        print(json.dumps({k:v for k,v in state.items() if k!='source_hashes'}),flush=True)
+    def guard():
+        checked_checkpoint_identity(expected,placement['legacy_checkpoint_source_hashes'])
+    env={**os.environ,'OMP_NUM_THREADS':'3','OPENBLAS_NUM_THREADS':'3','MKL_NUM_THREADS':'3',
+        'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','TOKENIZERS_PARALLELISM':'false','PYTHONUNBUFFERED':'1'}
+    try:
+        guard()
+        for relative,digest in placement['completed_artifact_sha256'].items():
+            if common.digest(OUT/relative)!=digest:
+                raise RuntimeError('A previously completed artifact changed')
+        for stage,settings in placement['stages'].items():
+            plan=json.loads((OUT/stage/'plan.json').read_text())
+            if all((episode_directory(stage,e)/'result.json').exists() for e in plan['episodes']):
+                continue
+            while not gpu_ready(placement['gpus']):
+                guard()
+                if time.time()>=state['deadline']:
+                    record(state='budget_exhausted',stage=stage);return
+                time.sleep(SPEC['poll_seconds'])
+            if time.time()>=state['deadline']:
+                record(state='budget_exhausted',stage=stage);return
+            children=[]
+            for lane in settings['lanes']:
+                if not lane['entries']:continue
+                with (OUT/stage/f'gpu{lane["lane"]}_resume.log').open('a') as log:
+                    child=subprocess.Popen([sys.executable,'-u','-m','scripts.queue_personal_rank',
+                        '--stage',stage,'--lane',str(lane['lane'])],cwd=ROOT,
+                        env={**env,'CUDA_VISIBLE_DEVICES':str(lane['gpu'])},stdin=subprocess.DEVNULL,
+                        stdout=log,stderr=subprocess.STDOUT)
+                children.append(child)
+            record(state='personal_workers',stage=stage,worker_pids=[c.pid for c in children])
+            while any(c.poll() is None for c in children):
+                guard()
+                if any(c.poll() not in (None,0) for c in children):
+                    raise RuntimeError('Migrated rank worker failed; see resume logs')
+                if time.time()>state['deadline']+300:
+                    raise RuntimeError('Worker exceeded resume deadline')
+                summarize();time.sleep(SPEC['poll_seconds'])
+            if any(c.returncode for c in children):raise RuntimeError('Migrated worker failed')
+            complete=all((episode_directory(stage,e)/'result.json').exists() for e in plan['episodes'])
+            common.write_json(OUT/stage/'complete.json',dict(complete=complete,time=time.time(),execution_source_hashes=expected))
+            if not complete:
+                record(state='budget_exhausted',stage=stage);summarize();return
+        for relative,digest in placement['completed_artifact_sha256'].items():
+            if common.digest(OUT/relative)!=digest:raise RuntimeError('Completed artifact changed')
+        summarize();record(state='complete',completed_results=42)
+    except BaseException as exc:
+        for child in children:
+            if child.poll() is None:child.terminate()
+        for child in children:
+            try:child.wait(timeout=10)
+            except subprocess.TimeoutExpired:child.kill();child.wait(timeout=10)
+        record(state='failed',error=f'{type(exc).__name__}: {exc}')
+        raise
 
 
 def controller():
@@ -332,9 +582,17 @@ def main():
     parser.add_argument('--summary', action='store_true')
     parser.add_argument('--stage', choices=list(SPEC['stages']))
     parser.add_argument('--worker', type=int)
+    parser.add_argument('--lane', type=int)
+    parser.add_argument('--resume-gpus',type=int,nargs='+')
     args = parser.parse_args()
     os.chdir(ROOT)
-    if args.worker is not None:
+    if args.resume_gpus is not None:
+        prepare_resume(args.resume_gpus)
+    elif args.lane is not None:
+        if args.stage is None:parser.error('--lane requires --stage')
+        run_lane(args.stage,args.lane)
+    elif args.worker is not None:
+        if EXECUTION.exists():raise RuntimeError('Use migrated --lane placement, not the old --worker assignment')
         if args.stage is None:
             parser.error('--worker requires --stage')
         configure_worker(args.stage)
@@ -342,6 +600,7 @@ def main():
         sys.argv = [sys.argv[0], '--worker', str(args.worker)]
         worker_main()
     elif args.prepare:
+        if EXECUTION.exists():raise RuntimeError('Preserve original plans during migrated execution')
         prepare()
         print(json.dumps(dict(prepared=True, stages=list(SPEC['stages']), episodes=42)))
     elif args.summary:
@@ -356,7 +615,7 @@ def main():
                 start_new_session=True)
         print(json.dumps(dict(controller_pid=child.pid, output=str(OUT))))
     else:
-        controller()
+        resume_controller() if EXECUTION.exists() else controller()
 
 
 if __name__ == '__main__':
