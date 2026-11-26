@@ -15,7 +15,9 @@ EEG → 发布版LEAF信号Tower → 256→2560→2560连接器
 
 沿用此前13库的 `datasets/leaf13/manifest.json`，不重新划分或重复预处理。train用于梯度；原test用于开发期监控和选checkpoint；原valid暂不forward，且历史上已被观察，不能称为新盲测。
 
-2040步、有效batch16、四卡同步数据并行，每卡4条。前340步只训练新连接器；之后训练连接器、Tower全参、语言LoRA r16/alpha32、标记embedding及决策读出。学习率和采样预算继承上一轮，不替换成MedJev医学训练配方。
+2040步、有效batch16、四卡同步数据并行，每卡4条。按用户2026-11-26确认，本轮Tower、两层连接器及语言LoRA共用一个配置：r16/alpha32。前340步只训练连接器LoRA；之后联合训练Tower/连接器/语言LoRA、标记embedding及决策读出。Tower和连接器基础权重、bias、norm始终冻结，学习率和采样预算不变。
+
+连接器基础权重是新随机初始化，并非已训练的EEG→MedJev映射；本轮不额外全参预训练它，checkpoint保存其固定基础权重和LoRA，避免只保存低秩增量而丢失初始化。
 
 ## 运行
 

@@ -29,8 +29,8 @@
   "minimum_free_gpu_mib": 72000,
   "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
   "world_size": 4,
-  "run_name": "leaf13_medjev4b_20261126",
-  "output_root": "artifacts/benchmark/leaf13_medjev4b_20261126",
+  "run_name": "leaf13_medjev4b_lora16_20261126",
+  "output_root": "artifacts/benchmark/leaf13_medjev4b_lora16_20261126",
   "backbone_path": "/inspire/hdd/global_user/zhangchenxi-253108310322/MedJev/Qwen3.5-4B",
   "backbone_shard_sha256": {
     "model.safetensors-00001-of-00002.safetensors": "26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61",
@@ -67,6 +67,8 @@
     "leaf_tower_mlp": {
       "encoder": "leaf_tower",
       "encoder_trainable": true,
+      "encoder_adaptation": "lora",
+      "connector_adaptation": "lora",
       "readout": "identity"
     }
   },
@@ -74,5 +76,5 @@
   "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
   "signal_policy": "Use existing normalized 65-channel 200Hz HDF5 windows unchanged; no second filter, scale or interpolation",
   "transfer_policy": "Released instruction-tuned LEAF Tower only; no MPNet/FiLM/Q-Former. Qwen3.5-4B first23 language layers, layer32 Q/K matching plus zero-initialized residual head. New256->2560->2560 connector. No medical checkpoint and no meta-learning.",
-  "recipe_policy": "Keep the preceding13-dataset memberships, sampler, steps, batch, LRs and340-step bridge warmup unchanged. MedJev architecture/LoRA-r16 transferred; not a reproduction of its medical-data training recipe."
+  "recipe_policy": "User2026-11-26: Tower and both connector Linear layers use the same shared LoRA rank16/alpha32 as LM; all their base weights/biases/norms frozen from step0. Connector base is newly initialized, not pretrained. Keep preceding13-dataset memberships, sampler, steps, batch, LRs and340-step connector-only warmup unchanged. Not a reproduction of the medical-data training recipe."
 }

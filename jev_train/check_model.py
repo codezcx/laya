@@ -20,7 +20,8 @@ def main():
     model, _ = load_medjev()
     print('LOAD_LEAF_TOWER', flush=True)
     model.add_module('eeg_encoder', OnlineLEAFTower(CONFIG).cuda())
-    groups = model.parameter_groups() + [dict(name='eeg_encoder', params=list(model.eeg_encoder.parameters()))]
+    groups = model.parameter_groups() + [dict(name='eeg_encoder', params=[
+        p for p in model.eeg_encoder.parameters() if p.requires_grad])]
     frozen = {n: p._version for n, p in model.named_parameters() if not p.requires_grad}
     buffers = tensor_fingerprint(dict(model.eeg_encoder.named_buffers()))
     store = TrialStore()
@@ -53,12 +54,13 @@ def main():
         if tensor_fingerprint(dict(model.eeg_encoder.named_buffers())) != buffers:
             raise RuntimeError('LEAF BatchNorm buffers changed')
         check = dict(dataset=task['task_id'], split='train', ids=[r['id'] for r in rows],
-            signal_samples=rows[0]['samples'], eeg_tokens=tokens.shape[1], loss=float(loss),
+            signal_samples=rows[0]['samples'], eeg_tokens=tokens.shape[1], loss=float(loss.detach()),
             group_gradient_norms=norms, seconds=time.time()-before,
             peak_gpu_gib=torch.cuda.max_memory_allocated()/2**30)
         checks.append(check)
         print(json.dumps(check), flush=True)
     result = dict(passed=True, source_hashes=code_identity(), architecture=model.architecture_audit,
+        tower_adaptation=model.eeg_encoder.release_audit,
         checks=checks, parameters_total=sum(p.numel() for p in model.parameters()),
         parameters_by_group={g['name']:sum(p.numel() for p in g['params']) for g in groups},
         seconds=time.time()-started)

@@ -40,25 +40,31 @@ def restore_rng(state):
 
 
 def capture_model(model):
-    return dict(format_version=2,
+    return dict(format_version=3,
                 trainable={n:p.detach().cpu().clone() for n,p in model.named_parameters() if p.requires_grad},
+                # New connector has random frozen bases: save them, not just its LoRA.
+                initialized_frozen={n:p.detach().cpu().clone() for n,p in model.named_parameters()
+                                    if n.startswith('connector.') and not p.requires_grad},
                 buffers={n:b.detach().cpu().clone() for n,b in model.named_buffers()})
 
 
 @torch.no_grad()
 def restore_model(model, state):
-    if state.get('format_version') != 2 or 'buffers' not in state:
-        raise ValueError('Checkpoint lacks complete buffers; explicit warmup recovery is required')
+    if state.get('format_version') != 3 or 'buffers' not in state or 'initialized_frozen' not in state:
+        raise ValueError('Checkpoint lacks LoRA connector base or complete buffers')
     parameters={n:p for n,p in model.named_parameters() if p.requires_grad}
+    fixed={n:p for n,p in model.named_parameters() if n.startswith('connector.') and not p.requires_grad}
     buffers=dict(model.named_buffers())
-    if set(parameters)!=set(state['trainable']) or set(buffers)!=set(state['buffers']):
+    if (set(parameters)!=set(state['trainable']) or set(buffers)!=set(state['buffers'])
+            or set(fixed)!=set(state['initialized_frozen'])):
         raise ValueError('Checkpoint parameter/buffer names differ from model')
     # Validate all shapes before modifying model state.
-    for actual,saved in [(parameters,state['trainable']),(buffers,state['buffers'])]:
+    pairs = [(parameters,state['trainable']), (fixed,state['initialized_frozen']), (buffers,state['buffers'])]
+    for actual,saved in pairs:
         for name,target in actual.items():
             if target.shape!=saved[name].shape or target.dtype!=saved[name].dtype:
                 raise ValueError(f'Checkpoint shape/dtype mismatch: {name}')
-    for actual,saved in [(parameters,state['trainable']),(buffers,state['buffers'])]:
+    for actual,saved in pairs:
         for name,target in actual.items():
             target.copy_(saved[name])
 

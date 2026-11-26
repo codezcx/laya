@@ -35,7 +35,8 @@ def training_command(out, smoke=False, resume=False):
 def compare_initialization(root):
     states = [json.loads((root / phase / 'initial_state.json').read_text()) for phase in ('smoke', 'train')]
     for key in ('common_connector_sha256', 'jev_adapter_head_sha256', 'initial_encoder_sha256',
-                'buffer_sha256', 'world_size', 'parameter_counts'):
+                'buffer_sha256', 'world_size', 'parameter_counts', 'tower_lora_rank',
+                'connector_lora_rank', 'fixed_eeg_bridge_sha256'):
         if states[0][key] != states[1][key]:
             raise RuntimeError(f'Smoke/formal initialization differs: {key}')
     if not all(s['rank_initialization_verified'] for s in states):
@@ -127,7 +128,7 @@ def main():
             completed = json.loads((out / 'complete.json').read_text())
             verify_evaluation_contract(completed)
             for key in ('checkpoint_reload_verified', 'encoder_update_contract_verified',
-                        'rank_weights_verified', 'distributed_sampling_verified'):
+                        'rank_weights_verified', 'distributed_sampling_verified', 'frozen_eeg_bridge_verified'):
                 if not completed[key]:
                     raise RuntimeError(f'Incomplete training verification: {key}')
             report(state=phase + '_complete')

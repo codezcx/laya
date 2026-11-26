@@ -7,6 +7,9 @@
 - 基础模型：用户本地Qwen/Qwen3.5-4B，不加载Karl28/MedJev-4B医学适配权重。
 - EEG：发布的instruction-tuned LEAF Tower，原checkpoint SHA256 `f9ca9cabbd734d2691fa6748adf3e78056f895d4031f7edc481e7d7b6822f3fa`；只取信号Tower，移除未参与forward的重建头。
 - 连接器：LayerNorm(256) → Linear(256,2560) → GELU → Linear(2560,2560)，新初始化，保留全部Tower tokens。
+- 用户2026-11-26明确指定Tower与两层连接器本轮都用LoRA，而非全参。它们与语言LoRA共用唯一的`lora_rank=16`、`lora_alpha=32`配置，无单独r4入口。
+- Tower目标：全部Linear权重，以及每个MultiheadAttention的融合QKV `in_proj_weight`；out_proj通过权重参数化注入，避免functional attention绕过普通Linear.forward。卷积、bias、norm、位置向量和所有基础权重冻结，保留原BN/dropout策略。
+- 连接器目标：仅两层Linear的LoRA A/B；基础随机矩阵、bias和LayerNorm冻结。没有先做连接器全参训练；因此可能存在固定随机映射限制适配能力的风险，本轮按指定方法验证，不预设收益。
 - 语言层：保留第1–23层，删除第24–31层；第32层仅复用input norm、Q/K及Q/K norm。原最终语言norm、词表输出和视觉路径不参与模型。
 - 读出：决策marker的Q和候选marker的K做RoPE后的逐头缩放点积，跨头均值；加上共享MLP([decision, option, decision×option])。MLP宽256，输出层零初始化。
 - 文本：原任务instruction/question/class wording和相同label-independent选项排列；增加question-end、option-end及decision三个标记。用Qwen chat envelope包裹，EEG tokens插入user消息。不把正确答案写进输入。
@@ -31,18 +34,18 @@ train用于更新；原test为development/selection，固定subset每库最多51
 | 总更新步数 | 2040 |
 | 全局有效batch | 16 |
 | 设备 | 4×H100，四卡同步梯度；每卡4条 |
-| 新连接器warmup阶段 | 前340步，其他参数不更新 |
-| Connector峰值LR | 1e-4 |
+| 新连接器warmup阶段 | 前340步仅连接器LoRA，其他参数不更新 |
+| Connector LoRA峰值LR | 1e-4 |
 | 语言/读出QK LoRA峰值LR | 5e-6 |
 | 决策头、marker、读出norm峰值LR | 1e-5 |
-| LEAF Tower峰值LR | 1e-6 |
+| LEAF Tower LoRA峰值LR | 1e-6 |
 | Warmup / cosine下限 | 62步 / 峰值的0.02 |
 | AdamW weight decay / clip | 0.01 / 1.0 |
 | Seed | 42 |
 | 恢复checkpoint | 每20步与阶段边界 |
 | 任务采样 | 每13步覆盖13库；类均衡、被试均衡，沿用原算法 |
 
-Tower第二阶段全参更新，BatchNorm running buffers和dropout保持原eval策略。stage1不对Tower/LM/head产生梯度。stage2同时更新，不改变数据成员。本轮沿用我们的配方而非上游174,360医学图像/1epoch/lr1e-4配方，因此属于架构迁移，不是完整MedJev论文复现。
+Tower第二阶段只更新LoRA，BatchNorm running buffers和dropout保持原eval策略。stage1不对Tower/LM/head产生梯度。stage2同时更新三部分LoRA及决策头，不改变数据成员。本轮沿用我们的配方而非上游174,360医学图像/1epoch/lr1e-4配方，因此属于架构迁移，不是完整MedJev论文复现。
 
 ## 4. 运行前检查和故障行为
 
@@ -51,6 +54,8 @@ Tower第二阶段全参更新，BatchNorm running buffers和dropout保持原eval
 CPU测试覆盖作者读出公式/梯度、PEFT等价LoRA、特殊marker、标签独立性、padding与真实小型Qwen前反向、数据和评估隔离。之后仅使用train样本做真实Qwen+Tower前反向验证，再执行四卡13步smoke，包括两训练阶段、梯度同步、保存/恢复一致性。smoke不使用valid/test，也不将smoke权重用于正式训练。
 
 正式训练保留全部梯度/学习率/任务loss、train监控、development曲线与step0记录。live源码或权重变化立即拒绝继续；不自动改LR、batch、步数或resume身份。
+
+每次保存核对Tower/连接器冻结基础参数哈希；每步拒绝基础权重产生梯度。checkpoint格式3另外保存新连接器的固定随机基础参数，支持准确恢复。当前产物目录为`artifacts/benchmark/leaf13_medjev4b_lora16_20261126/`；前一全参计划只完成接入预检，没有正式训练，记录留在旧目录且不混用。
 
 ## 5. 来源与软件说明
 

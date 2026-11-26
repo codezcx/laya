@@ -4,6 +4,7 @@ import sys
 import torch
 from .runtime import CONFIG, digest
 from .checkpoint import tensor_fingerprint
+from .lora import inject_tower_lora, is_lora
 
 
 class OnlineLEAFTower(torch.nn.Module):
@@ -27,10 +28,13 @@ class OnlineLEAFTower(torch.nn.Module):
         # These heads exist only for self-supervised reconstruction, not forward().
         del self.tower.mask_token, self.tower.mask_outProj, self.tower.next_outProj
         self.release_audit['forward_tower_sha256'] = tensor_fingerprint(self.tower.state_dict())
+        self.release_audit['lora_targets'] = inject_tower_lora(self.tower, config['lora_rank'], config['lora_alpha'])
+        self.release_audit.update(lora_rank=config['lora_rank'], lora_alpha=config['lora_alpha'], base_frozen=True)
         self.set_adaptation_enabled(True)
 
     def set_adaptation_enabled(self, enabled):
-        self.tower.requires_grad_(enabled)
+        for name, parameter in self.tower.named_parameters():
+            parameter.requires_grad_(enabled and is_lora(name))
         # Preserve the historical LEAF inference/dropout and BatchNorm policy.
         self.tower.eval()
 

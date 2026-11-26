@@ -72,6 +72,8 @@ def main():
     train_encoder = setting['encoder_trainable']
     if setting['encoder'] != 'leaf_tower' or setting['readout'] != 'identity':
         raise ValueError('Only the text-independent LEAF Tower is supported')
+    if setting['encoder_adaptation'] != 'lora' or setting['connector_adaptation'] != 'lora':
+        raise ValueError('Current approach requires shared-rank Tower and connector LoRA')
     store = TrialStore()
     adapter = PreparedAdapter(store)
     tasks = store.tasks
@@ -127,6 +129,9 @@ def main():
     jev_params = [p for g in groups if g['name'] in {'jev_lora', 'decision_head'} for p in g['params']]
     frozen_proof = tensor_fingerprint(model.eeg_encoder.state_dict())
     buffer_proof = tensor_fingerprint(dict(encoder.named_buffers()))
+    fixed_eeg_bridge = {n:p for n,p in model.named_parameters()
+                       if n.startswith(('connector.', 'eeg_encoder.')) and not p.requires_grad}
+    fixed_eeg_bridge_proof = tensor_fingerprint(fixed_eeg_bridge)
     if not args.resume:
         initial = dict(
             common_connector_sha256=tensor_fingerprint(model.connector.state_dict()),
@@ -135,6 +140,9 @@ def main():
             encoder_frozen=not train_encoder,
             initial_encoder_sha256=initial_encoder_sha256,
             buffer_sha256=buffer_proof, world_size=world, readout='identity',
+            tower_lora_rank=CONFIG['lora_rank'], connector_lora_rank=CONFIG['lora_rank'],
+            shared_lora_alpha=CONFIG['lora_alpha'], fixed_eeg_bridge_sha256=fixed_eeg_bridge_proof,
+            tower_base_frozen=True, connector_base_frozen=True,
             aligned_transfer=transfer,
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens='2 * sum(ceil(segment_samples / 100)); all branches and chunks',
@@ -190,6 +198,8 @@ def main():
         guard()
         if tensor_fingerprint(dict(encoder.named_buffers())) != buffer_proof:
             raise RuntimeError('Frozen LEAF buffers changed')
+        if tensor_fingerprint(fixed_eeg_bridge) != fixed_eeg_bridge_proof:
+            raise RuntimeError('Frozen Tower/connector base changed during LoRA training')
         if (not train_encoder or step <= bridge_only) and frozen_proof != tensor_fingerprint(model.eeg_encoder.state_dict()):
             raise RuntimeError('Frozen encoder weights/buffers changed')
         if not all(p.requires_grad for p in active):
@@ -308,6 +318,8 @@ def main():
                 raise RuntimeError('Encoder phase gradient contract failed')
             if any(p.grad is not None for p in jev_params) != (step > bridge_only):
                 raise RuntimeError('JEV phase gradient contract failed')
+            if any(p.grad is not None or p.requires_grad for p in fixed_eeg_bridge.values()):
+                raise RuntimeError('Tower/connector base must remain frozen in both stages')
             average_gradients([p for p in active if p.requires_grad], world)
             stats = torch.tensor([loss_sum, correct], dtype=torch.float64, device='cuda')
             if world > 1:
@@ -388,6 +400,8 @@ def main():
                 test_evaluations=ledger.counts['test_evaluations'], valid_evaluations=ledger.counts['valid_evaluations'],
                 checkpoint_reload_verified=True, encoder_update_contract_verified=True,
                 encoder_frozen=not train_encoder, encoder_changed=final_encoder_proof != frozen_proof,
+                frozen_eeg_bridge_verified=tensor_fingerprint(fixed_eeg_bridge) == fixed_eeg_bridge_proof,
+                tower_lora_rank=CONFIG['lora_rank'], connector_lora_rank=CONFIG['lora_rank'],
                 world_size=world, rank_weights_verified=True, distributed_sampling_verified=True,
                 selected_encoder_sha256=final_encoder_proof))
         report(dict(status='complete', step=step, selected_step=best_step))
