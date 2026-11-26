@@ -29,8 +29,20 @@
   "minimum_free_gpu_mib": 72000,
   "leaf_root": "/inspire/hdd/global_user/zhangchenxi-253108310322/LEAF",
   "world_size": 4,
-  "run_name": "leaf13_jev27b_20261124",
-  "output_root": "artifacts/benchmark/leaf13_jev27b_20261124",
+  "run_name": "leaf13_medjev4b_20261126",
+  "output_root": "artifacts/benchmark/leaf13_medjev4b_20261126",
+  "backbone_path": "/inspire/hdd/global_user/zhangchenxi-253108310322/MedJev/Qwen3.5-4B",
+  "backbone_shard_sha256": {
+    "model.safetensors-00001-of-00002.safetensors": "26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61",
+    "model.safetensors-00002-of-00002.safetensors": "cb544bd9bfae93dc59b0f22b292f5933573854a7f9b97835c67060d7d910e188"
+  },
+  "backbone_hash_source": "https://huggingface.co/api/models/Qwen/Qwen3.5-4B/tree/main; LFS SHA256 read2026-11-26",
+  "medjev_commit": "386c19c963f2a1a32ea7210e8b30c55ca3c5303b",
+  "retained_layers": 23,
+  "head_hidden_width": 256,
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "max_input_tokens": 32768,
   "manifest": "datasets/leaf13/manifest.json",
   "manifest_sha256": "60647f3ae8a5fb9cd286a6958cc758d4a394a6c2f748ec8c9379e908400c9f2a",
   "datasets": [
@@ -61,5 +73,6 @@
   "historical_recipe_commit": "5611b49",
   "upstream_commit": "08ee6577ca4e9517536e73ba3053e676c028a379",
   "signal_policy": "Use existing normalized 65-channel 200Hz HDF5 windows unchanged; no second filter, scale or interpolation",
-  "transfer_policy": "Released instruction-tuned LEAF Tower only; no MPNet, FiLM, Q-Former, text projection or reconstruction heads. Native JEV, new 256->5120->5120 connector."
+  "transfer_policy": "Released instruction-tuned LEAF Tower only; no MPNet/FiLM/Q-Former. Qwen3.5-4B first23 language layers, layer32 Q/K matching plus zero-initialized residual head. New256->2560->2560 connector. No medical checkpoint and no meta-learning.",
+  "recipe_policy": "Keep the preceding13-dataset memberships, sampler, steps, batch, LRs and340-step bridge warmup unchanged. MedJev architecture/LoRA-r16 transferred; not a reproduction of its medical-data training recipe."
 }

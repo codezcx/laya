@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-from .runtime import CONFIG, ROOT, code_identity, write_json
+from .runtime import CONFIG, ROOT, code_identity, write_json, backbone_files
 from .evaluation_protocol import verify_evaluation_contract
 
 
@@ -81,8 +81,25 @@ def main():
             raise RuntimeError('Live source, config or manifest changed after launch')
 
     try:
+        # The user is downloading independently. Never rename, overwrite or load partial files.
+        deadline = time.time() + 24 * 3600
+        while True:
+            try:
+                backbone_files()
+                break
+            except FileNotFoundError as exc:
+                if time.time() >= deadline:
+                    raise TimeoutError('Weights were not ready within24h') from exc
+                report(state='waiting_for_weights', reason=str(exc))
+                guard()
+                time.sleep(30)
+        report(state='checking_weights')
+        subprocess.run([sys.executable, '-u', '-m', 'jev_train.weights'], check=True)
         report(free_gpu_mib=require_capacity())
         subprocess.run([sys.executable, '-u', '-m', 'jev_train.data'], check=True)
+        guard()
+        report(state='checking_model')
+        subprocess.run([sys.executable, '-u', '-m', 'jev_train.check_model'], check=True)
         guard()
         for phase in ('smoke', 'train'):
             out = root / phase

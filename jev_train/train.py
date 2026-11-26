@@ -1,4 +1,4 @@
-"""Synchronous data-parallel LEAF Tower -> MLP -> native Qwen-JEV."""
+"""Synchronous four-GPU LEAF Tower -> MLP -> MedJev supervised training."""
 import argparse
 from datetime import timedelta
 import os
@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from .runtime import CONFIG, digest, arm_settings, code_identity, backbone_files
 from .data import TrialStore, PreparedAdapter, write_json, classification_metrics
 from .online_leaf import OnlineLEAFTower, encode_batch
-from .jev import load_jev, JEVBridge
+from .medjev import load_medjev
 from .task_options import make_variant
 from .checkpoint import capture_model, restore_model, seed_rng, capture_rng, restore_rng, tensor_fingerprint
 from .distributed import atomic_save, average_gradients, rank_rows
@@ -29,12 +29,13 @@ from .evaluation_protocol import (POLICY_PATH, POLICY, SELECTION_SPLIT, effectiv
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--arm', choices=CONFIG['arms'], required=True)
-    parser.add_argument('--backbone', default='jev', choices=['jev'])
+    parser.add_argument('--backbone', default='medjev', choices=['medjev'])
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
-    language_spec = dict(kind='jev27b', path='laya/JEV-27B-VL', pretrained_adapter=True)
+    language_spec = dict(kind='medjev4b', path=CONFIG['backbone_path'], pretrained_adapter=False,
+                         retained_layers=23, matching_layer=32)
     torch.set_num_threads(3)
     world = int(os.environ.get('WORLD_SIZE', 1))
     rank = int(os.environ.get('RANK', 0))
@@ -95,9 +96,9 @@ def main():
         runtime=dict(torch=torch.__version__, transformers=transformers.__version__),
         language_backbone=args.backbone, language_spec=language_spec,
         language_config_sha256={str(p): digest(p) for p in backbone_files()
-                               if not p.name.startswith('model-')},
+                               if p.suffix != '.safetensors'},
         language_shard_stats={str(p): [p.stat().st_size, p.stat().st_mtime_ns]
-                             for p in backbone_files() if p.name.startswith('model-')})
+                             for p in backbone_files() if p.suffix == '.safetensors'})
     if args.resume:
         if identity != json.loads((args.out / 'config.json').read_text()):
             raise ValueError('Resume identity mismatch')
@@ -105,7 +106,7 @@ def main():
         write_json(args.out / 'config.json', identity)
     print('LOADING_RELEASE_MODELS', args.arm, flush=True)
     seed_rng(CONFIG['seed'])
-    text, weight, bias, tokenizer = load_jev(f'cuda:{device}')
+    model, tokenizer = load_medjev(f'cuda:{device}')
     # Reset after release loading; the bridge must match across aligned sources.
     seed_rng(CONFIG['seed'])
     encoder = OnlineLEAFTower(CONFIG)
@@ -114,14 +115,8 @@ def main():
     encoder = encoder.cuda()
     if rank == 0:
         write_json(args.out / 'transfer_audit.json', dict(release=encoder.release_audit, alignment=transfer))
-    # Encoder initialization consumes RNG; reset before the newly trained bridge.
-    seed_rng(CONFIG['seed'])
-    model = JEVBridge(text, weight, bias, tokenizer, train_lora=True,
-                                  train_head=True, head_choices=16, input_dim=256)
     model.add_module('eeg_encoder', encoder)
-    groups = [dict(name='connector', params=list(model.connector.parameters())),
-        dict(name='jev_lora', params=[p for p in model.text.parameters() if p.requires_grad]),
-        dict(name='decision_head', params=[model.head_weight, model.head_bias])]
+    groups = model.parameter_groups()
     if train_encoder:
         groups.append(dict(name='eeg_encoder', params=[p for p in encoder.parameters() if p.requires_grad]))
     groups = [g for g in groups if g['params']]
@@ -143,9 +138,9 @@ def main():
             aligned_transfer=transfer,
             parameter_counts={g['name']: sum(p.numel() for p in g['params']) for g in groups},
             output_tokens='2 * sum(ceil(segment_samples / 100)); all branches and chunks',
-            initialization=f'Released instruction-tuned LEAF Tower only + {args.backbone} + new MLP; no MPNet/FiLM/Q-Former',
+            initialization='Released instruction-tuned LEAF Tower + baseQwen3.5-4B -> MedJev + new MLP; no medical weights',
             language_backbone=args.backbone,
-            language_audit=getattr(text, 'backbone_audit', {'pretrained_jev_adapter_loaded': True}),
+            language_audit=model.architecture_audit,
             git_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
         proofs = collect(initial)
         if any(p != proofs[0] for p in proofs[1:]):
@@ -166,7 +161,6 @@ def main():
         step, best_score, best_step = saved['step'], saved['best_score'], saved['best_step']
         ledger = EvaluationLedger(saved['evaluation_counts'])
         del saved
-    prompts = {}
     def forward(rows, training=False):
         splits = {r['split'] for r in rows}
         if len(splits) != 1 or not rows:
@@ -177,13 +171,9 @@ def main():
             raise ValueError('One task per microbatch required')
         questions = [make_variant(tasks[tid], r['label'], r['id'], step, CONFIG['seed'],
                                  None if training else 0) for r in rows]
-        for q in questions:
-            if q['suffix'] not in prompts:
-                prompts[q['suffix']] = torch.tensor(tokenizer.encode(q['suffix'], add_special_tokens=False), device='cuda')
         adapted = adapter.batch(rows)
         tokens, valid = encode_batch(model.eeg_encoder, adapted, len(rows))
-        logits = model(tokens, valid, suffix_ids=[prompts[q['suffix']] for q in questions],
-                       num_choices=len(tasks[tid]['classes']))['logits']
+        logits = model(tokens, valid, prompts=questions)
         labels = torch.tensor([q['label'] for q in questions], device='cuda')
         return logits, labels
     log = (args.out / 'metrics.jsonl').open('a' if args.resume else 'x', buffering=1) if rank == 0 else None
@@ -369,7 +359,7 @@ def main():
         with torch.no_grad():
             rows = store.sample(1, 2, CONFIG['seed'])[1]
             before, _ = forward(rows)
-            model.head_bias.add_(1.)
+            model.readout.head_mlp[-1].bias.add_(1.)
             saved = torch.load(args.out / 'last.pt', map_location='cpu', mmap=True, weights_only=False)
             restore_model(model, saved)
             after, _ = forward(rows)

@@ -93,18 +93,8 @@ def test_historical_hyperparameters_unchanged():
     assert rates_at(341, 2040, 340, CONFIG['learning_rates'])['eeg_encoder'] > 0
 
 
-def test_choice_mask_and_connector_gradient():
-    from jev_train.jev import choice_logits, assemble_embeddings
-    state = torch.randn(2, 5, requires_grad=True)
-    logits = choice_logits(state, torch.randn(4, 5), torch.zeros(4), torch.tensor([2, 4]))
-    assert torch.isneginf(logits[0, 2:]).all()
-    torch.nn.functional.cross_entropy(logits, torch.tensor([1, 3])).backward()
-    assert state.grad.isfinite().all()
-    eeg = torch.randn(2, 4, 5, requires_grad=True)
-    mask = torch.tensor([[True, True, False, False], [True, True, True, True]])
-    inputs, attention, positions, last = assemble_embeddings(torch.randn(3, 5), eeg,
-        [torch.randn(2, 5), torch.randn(4, 5)], mask)
-    assert last.tolist() == [6, 10]
-    assert attention.sum(1).tolist() == [7, 11]
-    inputs.sum().backward()
-    assert (eeg.grad[0, 2:] == 0).all()
+def test_medjev_architecture_is_explicit_and_no_meta_learning():
+    assert CONFIG['retained_layers'] == 23
+    assert CONFIG['lora_rank'] == 16 and CONFIG['lora_alpha'] == 32
+    assert CONFIG['head_hidden_width'] == 256
+    assert 'No medical checkpoint and no meta-learning' in CONFIG['transfer_policy']
